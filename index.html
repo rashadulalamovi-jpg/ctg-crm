@@ -1483,12 +1483,20 @@ async function syncToFirebase() {
     const customers = db.customers || [];
     const batch = fsdb.batch();
 
-    // Save each customer
     customers.forEach(c => {
+      // Save customer WITHOUT intel (intel saved separately)
+      const cData = sanitizeForFirebase({...c});
+      delete cData.intel; // intel is in /intel collection
       const ref = fsdb.collection('customers').doc(String(c.id));
-      batch.set(ref, sanitizeForFirebase(c), { merge: true });
+      batch.set(ref, cData, { merge: true });
+
+      // Save intel separately so it never gets overwritten
+      if(c.intel) {
+        const iRef = fsdb.collection('intel').doc(String(c.id));
+        batch.set(iRef, sanitizeForFirebase(c.intel), { merge: true });
+      }
     });
-    // Save tasks
+
     const tRef = fsdb.collection('meta').doc('tasks');
     batch.set(tRef, { tasks: db.tasks || [] });
 
@@ -1497,6 +1505,19 @@ async function syncToFirebase() {
   } catch(err) {
     showSyncStatus('⚠️ Offline — local-এ save হয়েছে');
     console.warn('Firebase sync error:', err);
+  }
+}
+
+// Save ONLY intel for one customer — fast, targeted
+async function syncIntelToFirebase(custId) {
+  if(!window._fbReady || !window._fsdb) return;
+  const c = db.customers.find(x => x.id === custId);
+  if(!c || !c.intel) return;
+  try {
+    await window._fsdb.collection('intel').doc(String(custId))
+      .set(sanitizeForFirebase(c.intel), { merge: true });
+  } catch(e) {
+    console.warn('Intel sync error:', e);
   }
 }
 
@@ -1516,15 +1537,59 @@ async function loadFromFirebase() {
     const snap = await fsdb.collection('customers').get();
 
     if(snap.empty) {
-      // No cloud data yet — upload local data
       showSyncStatus('📤 Cloud-এ প্রথমবার upload হচ্ছে...');
       await syncToFirebase();
       return;
     }
 
+    // Keep local intel/checks data — compare timestamps
+    // Local intel wins if it was saved more recently than cloud version
+    const localIntelMap = {};
+    (db.customers || []).forEach(c => {
+      if(c.intel && (c.intel.teamNote || c.intel.priceFocus !== null || (c.intel.models && c.intel.models.length > 0))) {
+        localIntelMap[c.id] = c.intel;
+      }
+    });
+    const localChecksMap = {};
+    (db.customers || []).forEach(c => {
+      if(c.checks && Object.keys(c.checks).length > 0) {
+        localChecksMap[c.id] = c.checks;
+      }
+    });
+
     const customers = [];
-    snap.forEach(d => customers.push(d.data()));
+    snap.forEach(d => {
+      const cData = d.data();
+      // Start with local intel (most recent)
+      if(localIntelMap[cData.id]) {
+        cData.intel = localIntelMap[cData.id];
+      }
+      if(localChecksMap[cData.id]) {
+        cData.checks = localChecksMap[cData.id];
+      }
+      customers.push(cData);
+    });
     db.customers = customers.map(migrateCustomer);
+
+    // Load intel from separate collection (overrides if cloud is newer)
+    try {
+      const intelSnap = await fsdb.collection('intel').get();
+      intelSnap.forEach(d => {
+        const cloudIntel = d.data();
+        const custId = parseInt(d.id) || d.id;
+        const cust = db.customers.find(x => String(x.id) === String(custId));
+        if(!cust) return;
+        const localIntel = cust.intel || {};
+        // Merge: take whichever field has newer _savedAt timestamp
+        const localTs  = localIntel._savedAt  || 0;
+        const cloudTs  = cloudIntel._savedAt  || 0;
+        if(cloudTs >= localTs) {
+          // Cloud is newer or same — use cloud intel
+          cust.intel = {...localIntel, ...cloudIntel};
+        }
+        // else keep local (already set above)
+      });
+    } catch(e) {}
 
     // Load tasks
     try {
@@ -1532,7 +1597,6 @@ async function loadFromFirebase() {
       if(tDoc.exists) db.tasks = tDoc.data().tasks || [];
     } catch(e) {}
 
-    // Cache locally
     localStorage.setItem(LS_KEY, JSON.stringify(db));
     showSyncStatus('✅ ' + customers.length + 'জন customer sync হয়েছে');
     renderAll();
@@ -2798,15 +2862,44 @@ function saveIntel(custId, key, val) {
   if(!c) return;
   if(!c.intel) c.intel = getIntel(c);
   c.intel[key] = val;
-  saveDB();
+  c.intel._savedAt = Date.now();
+  localStorage.setItem(LS_KEY, JSON.stringify(db));
+  // Direct intel sync — fast, targeted
+  syncIntelToFirebase(custId);
 }
 
-function saveIntelNote(custId) {
+async function saveIntelNote(custId) {
   const c = db.customers.find(x => x.id === custId);
   if(!c) return;
   if(!c.intel) c.intel = getIntel(c);
   const el = document.getElementById('intel_note_' + custId);
-  if(el) { c.intel.teamNote = el.value; saveDB(); }
+  if(!el) return;
+  c.intel.teamNote = el.value;
+  c.intel._savedAt = Date.now();
+  // Save locally first (instant)
+  localStorage.setItem(LS_KEY, JSON.stringify(db));
+  // Show saved indicator immediately
+  const savedEl = document.getElementById('note_saved_' + custId);
+  if(savedEl) {
+    savedEl.textContent = '🔄 Saving...';
+    savedEl.style.color = 'var(--warn)';
+    savedEl.style.opacity = '1';
+  }
+  // Save intel directly to Firebase /intel collection
+  await syncIntelToFirebase(custId);
+  if(savedEl) {
+    savedEl.textContent = '✓ Saved';
+    savedEl.style.color = 'var(--green)';
+    setTimeout(() => { savedEl.style.opacity = '0'; }, 2500);
+  }
+  notify('✓ Note সেভ হয়েছে ও Cloud-এ upload হয়েছে');
+}
+
+let _noteTimer = {};
+function onNoteInput(custId) {
+  // Debounce: auto-save 1.5s after typing stops
+  clearTimeout(_noteTimer[custId]);
+  _noteTimer[custId] = setTimeout(() => saveIntelNote(custId), 1500);
 }
 
 function addModel(custId) {
@@ -3097,10 +3190,25 @@ function renderIntelligenceSection(c) {
         Team-এর যেকোনো observation লিখুন — কখন call করতে হবে, কী offer দিতে হবে ইত্যাদি
       </div>
       <textarea class="intel-note" id="intel_note_${cid}"
-        oninput="saveIntelNote(${cid})"
-        onblur="saveIntelNote(${cid})"
+        oninput="onNoteInput(${cid})"
         placeholder="যেমন: প্রতি মাসের শুরুতে call দিলে order পাওয়া যায়। HP model বেশি পছন্দ। দাম নিয়ে বেশি দরদাম করে না...">${intel.teamNote||''}</textarea>
-      <button class="gpt-btn" onclick="copyToGPT(${cid})">
+
+      <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+        <button onclick="saveIntelNote(${cid})"
+          style="flex:1;padding:10px;background:linear-gradient(135deg,var(--red),var(--red2));
+            border:none;color:#fff;border-radius:7px;font-family:var(--font-display);
+            font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer;
+            transition:all .15s;display:flex;align-items:center;justify-content:center;gap:7px">
+          💾 Save Note
+        </button>
+        <div id="note_saved_${cid}"
+          style="font-family:var(--font-mono);font-size:10px;color:var(--green);
+            opacity:0;transition:opacity .4s;white-space:nowrap">
+          ✓ Saved
+        </div>
+      </div>
+
+      <button class="gpt-btn" style="margin-top:8px" onclick="copyToGPT(${cid})">
         <span style="font-size:14px">🤖</span>
         ChatGPT-তে Copy করুন — Full Intelligence Report
       </button>
