@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CTG Click Shop — Royal Customer CRM</title>
-<link href="https://fonts.googleapis.com/css2?family=Tiro+Bangla:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Thiro+Bangla:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   /* ═══════════════════════════════════════
      CTG CLICK SHOP — ROYAL CRM
@@ -758,7 +758,7 @@
   <!-- SYNC BAR -->
   <div style="background:rgba(8,10,13,.8);border-bottom:1px solid var(--border);padding:6px 28px;display:flex;align-items:center;gap:16px;font-family:var(--font-mono);font-size:10px;">
     <span style="color:var(--text3)">☁️ Firebase Cloud Sync</span>
-    <button onclick="loadFromFirebase().then(()=>{renderAll();renderTasks()})"
+    <button onclick="syncToFirebase().then(()=>loadFromFirebase()).then(()=>{renderAll();renderTasks()})"
       style="background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:var(--green);border-radius:5px;padding:3px 12px;cursor:pointer;font-family:var(--font-display);font-size:9px;font-weight:700;letter-spacing:.5px">
       🔄 Sync Now
     </button>
@@ -2351,7 +2351,7 @@ function saveCustomer() {
     notify('✓ Customer যোগ হয়েছে');
   }
 
-  saveDB(); closeModal('customerModal');
+  saveDB(); syncToFirebase(); closeModal('customerModal');
   renderAll();
 }
 
