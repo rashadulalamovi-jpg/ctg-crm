@@ -721,6 +721,35 @@
       window._fbReady = true;
       window.dispatchEvent(new Event('fbReady'));
       console.log('✅ Firebase ready');
+
+      // ── Real-time sync ──────────────────────────────
+      window._lastLocalWrite = 0;
+      window._realtimeUnsubscribe = null;
+      window._startRealtimeSync = function() {
+        if (window._realtimeUnsubscribe) return;
+        const unsub = fsdb.collection('customers').onSnapshot(function(snap) {
+          if (snap.metadata.hasPendingWrites) return;
+          if (Date.now() - window._lastLocalWrite < 3000) return;
+          var arr = [];
+          snap.forEach(function(d) { arr.push(d.data()); });
+          if (arr.length === 0) return;
+          var imap = {};
+          (db.customers || []).forEach(function(c) { if(c.intel) imap[c.id] = c.intel; });
+          db.customers = arr.map(function(c) {
+            if(imap[c.id]) c.intel = imap[c.id];
+            return migrateCustomer(c);
+          });
+          fsdb.collection('meta').doc('tasks').get().then(function(t) {
+            if(t.exists) db.tasks = t.data().tasks || [];
+          }).catch(function(){});
+          localStorage.setItem(LS_KEY, JSON.stringify(db));
+          renderAll(); renderTasks();
+          showSyncStatus('🔄 অন্য device থেকে update এসেছে');
+          var el = document.getElementById('rtIndicator');
+          if(el) { el.textContent = '🟢 Live'; el.style.display = 'inline'; }
+        }, function(e) { console.warn('RT err:', e); });
+        window._realtimeUnsubscribe = unsub;
+      };
     } catch(e) {
       console.warn('Firebase init failed:', e);
       window._fbReady = false;
@@ -762,6 +791,7 @@
       style="background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:var(--green);border-radius:5px;padding:3px 12px;cursor:pointer;font-family:var(--font-display);font-size:9px;font-weight:700;letter-spacing:.5px">
       🔄 Sync Now
     </button>
+    <span id="rtIndicator" style="display:none;font-family:var(--font-mono);font-size:9px;color:var(--green);font-weight:700;letter-spacing:.5px;background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.4);border-radius:4px;padding:2px 8px">🟢 Live</span>
     <button onclick="exportJSON()"
       style="background:rgba(77,163,255,.1);border:1px solid rgba(77,163,255,.3);color:var(--blue);border-radius:5px;padding:3px 12px;cursor:pointer;font-family:var(--font-display);font-size:9px;font-weight:700;letter-spacing:.5px">
       📥 Export Backup
@@ -1449,15 +1479,19 @@ function loadDB() {
   // Migrate
   db.customers = db.customers.map(migrateCustomer);
 
-  // Show ready status — don't auto-sync on load (prevents overwriting local data)
-  // User clicks "Sync Now" to explicitly merge with Firebase
-  setTimeout(() => {
+  // Auto-start realtime sync when Firebase is ready
+  function _initRealtime() {
+    loadFromFirebase().then(function() {
+      if(window._startRealtimeSync) window._startRealtimeSync();
+    }).catch(function() {
+      if(window._startRealtimeSync) window._startRealtimeSync();
+    });
+  }
+  setTimeout(function() {
     if(window._fbReady) {
-      showSyncStatus('☁️ Firebase ready — Sync Now ক্লিক করুন');
+      _initRealtime();
     } else {
-      window.addEventListener('fbReady', () => {
-        showSyncStatus('☁️ Firebase ready — Sync Now ক্লিক করুন');
-      }, { once: true });
+      window.addEventListener('fbReady', _initRealtime, { once: true });
     }
   }, 1000);
 }
@@ -1538,6 +1572,7 @@ async function syncToFirebase() {
     const tRef = fsdb.collection('meta').doc('tasks');
     batch.set(tRef, { tasks: db.tasks || [] });
 
+    window._lastLocalWrite = Date.now();
     await batch.commit();
     showSyncStatus('✅ Cloud sync সম্পন্ন');
   } catch(err) {
