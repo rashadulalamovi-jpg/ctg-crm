@@ -1437,7 +1437,7 @@ function migrateCustomer(c) {
 }
 
 function loadDB() {
-  // Load from localStorage first (fast / offline)
+  // Load from localStorage (always fast, always reliable)
   const saved = localStorage.getItem(LS_KEY);
   if(saved) {
     db = JSON.parse(saved);
@@ -1449,27 +1449,65 @@ function loadDB() {
   // Migrate
   db.customers = db.customers.map(migrateCustomer);
 
-  // Then try Firebase (cloud sync)
-  if(window._fbReady) {
-    loadFromFirebase();
-  } else {
-    window.addEventListener('fbReady', () => loadFromFirebase(), { once: true });
-    // Timeout: if Firebase not ready in 5s, just use local
-    setTimeout(() => {
-      if(!window._fbReady) showSyncStatus('⚠️ Offline mode');
-    }, 5000);
-  }
+  // Show ready status — don't auto-sync on load (prevents overwriting local data)
+  // User clicks "Sync Now" to explicitly merge with Firebase
+  setTimeout(() => {
+    if(window._fbReady) {
+      showSyncStatus('☁️ Firebase ready — Sync Now ক্লিক করুন');
+    } else {
+      window.addEventListener('fbReady', () => {
+        showSyncStatus('☁️ Firebase ready — Sync Now ক্লিক করুন');
+      }, { once: true });
+    }
+  }, 1000);
 }
 
 // ── DB version for localStorage fallback ──
 const LS_KEY = 'ctgcrm_v18';
 
 function saveDB() {
-  // Always save to localStorage (offline / fast)
+  // Save to localStorage (always reliable)
   localStorage.setItem(LS_KEY, JSON.stringify(db));
-  // Also sync to Firebase if available
-  if(window._fbReady && window._fsdb) {
-    syncToFirebase();
+  // Note: Firebase sync is done explicitly via syncToFirebase()
+  // NOT on every saveDB call to prevent race conditions
+}
+
+// Call this when you want to push ALL data to Firebase
+async function pushToFirebase() {
+  await syncToFirebase();
+}
+
+
+async function doSyncNow() {
+  showSyncStatus('🔄 Sync হচ্ছে...');
+  try {
+    // Step 1: Push local → Firebase (local is source of truth)
+    await syncToFirebase();
+
+    // Step 2: Remove deleted customers from Firebase
+    // Any Firebase doc not in local db → delete from Firebase
+    if(window._fbReady && window._fsdb) {
+      const fsdb = window._fsdb;
+      const localIds = new Set(db.customers.map(c => String(c.id)));
+      const snap = await fsdb.collection('customers').get();
+      const delBatch = fsdb.batch();
+      let hasDeletes = false;
+      snap.forEach(d => {
+        if(!localIds.has(d.id)) {
+          delBatch.delete(fsdb.collection('customers').doc(d.id));
+          delBatch.delete(fsdb.collection('intel').doc(d.id));
+          hasDeletes = true;
+        }
+      });
+      if(hasDeletes) await delBatch.commit();
+    }
+
+    // Step 3: Pull from Firebase → merge with local
+    await loadFromFirebase();
+    notify('✅ Sync সম্পন্ন — সব data আপডেট হয়েছে');
+  } catch(e) {
+    showSyncStatus('⚠️ Sync error — local data safe');
+    notify('⚠️ Sync-এ সমস্যা হয়েছে, local data ঠিক আছে');
   }
 }
 
@@ -1610,8 +1648,15 @@ async function loadFromFirebase() {
 async function deleteFromFirebase(custId) {
   if(!window._fbReady || !window._fsdb) return;
   try {
-    await window._fsdb.collection('customers').doc(String(custId)).delete();
-  } catch(e) {}
+    const fsdb = window._fsdb;
+    const id = String(custId);
+    // Delete from both collections
+    await fsdb.collection('customers').doc(id).delete();
+    await fsdb.collection('intel').doc(id).delete();
+    showSyncStatus('🗑 Firebase থেকেও delete হয়েছে');
+  } catch(e) {
+    console.warn('Firebase delete error:', e);
+  }
 }
 
 let _syncTimer = null;
@@ -2310,12 +2355,17 @@ function saveCustomer() {
   renderAll();
 }
 
-function deleteCustomer() {
+async function deleteCustomer() {
   if (!db.editingId) return;
   if (!confirm('এই customer delete করবেন?')) return;
-  db.customers = db.customers.filter(c => c.id !== db.editingId);
-  saveDB(); closeModal('customerModal');
-  renderAll(); notify('🗑 Customer delete হয়েছে');
+  const delId = db.editingId;
+  db.customers = db.customers.filter(c => c.id !== delId);
+  saveDB();
+  closeModal('customerModal');
+  renderAll();
+  // Delete from Firebase — both /customers and /intel collections
+  await deleteFromFirebase(delId);
+  notify('🗑 Customer delete হয়েছে ও Cloud থেকেও মুছেছে');
 }
 
 // ===================== PROMOTE =====================
@@ -2874,25 +2924,32 @@ async function saveIntelNote(custId) {
   if(!c.intel) c.intel = getIntel(c);
   const el = document.getElementById('intel_note_' + custId);
   if(!el) return;
+
+  // Save to memory + localStorage immediately
   c.intel.teamNote = el.value;
   c.intel._savedAt = Date.now();
-  // Save locally first (instant)
   localStorage.setItem(LS_KEY, JSON.stringify(db));
-  // Show saved indicator immediately
+
+  // Update textarea to confirm (visual feedback)
+  el.style.borderColor = 'var(--green)';
+  setTimeout(() => { el.style.borderColor = ''; }, 1500);
+
   const savedEl = document.getElementById('note_saved_' + custId);
   if(savedEl) {
     savedEl.textContent = '🔄 Saving...';
     savedEl.style.color = 'var(--warn)';
     savedEl.style.opacity = '1';
   }
-  // Save intel directly to Firebase /intel collection
+
+  // Push intel to Firebase /intel collection (targeted, fast)
   await syncIntelToFirebase(custId);
+
   if(savedEl) {
     savedEl.textContent = '✓ Saved';
     savedEl.style.color = 'var(--green)';
     setTimeout(() => { savedEl.style.opacity = '0'; }, 2500);
   }
-  notify('✓ Note সেভ হয়েছে ও Cloud-এ upload হয়েছে');
+  notify('✓ Note local ও Cloud দুইজায়গায় সেভ হয়েছে');
 }
 
 let _noteTimer = {};
