@@ -1511,17 +1511,20 @@ function loadDB() {
   // Migrate
   db.customers = db.customers.map(migrateCustomer);
 
-  // Show ready status — don't auto-sync on load (prevents overwriting local data)
-  // User clicks "Sync Now" to explicitly merge with Firebase
-  setTimeout(() => {
-    if(window._fbReady) {
-      showSyncStatus('☁️ Firebase ready — Sync Now ক্লিক করুন');
-    } else {
-      window.addEventListener('fbReady', () => {
-        showSyncStatus('☁️ Firebase ready — Sync Now ক্লিক করুন');
-      }, { once: true });
-    }
-  }, 1000);
+  // Auto-load from Firebase on startup (no manual Sync Now needed)
+  const autoLoadFromFirebase = () => {
+    showSyncStatus('🔄 Cloud থেকে data load হচ্ছে...');
+    loadFromFirebase().then(() => {
+      startRealtimeListener();
+    });
+  };
+  if(window._fbReady) {
+    setTimeout(autoLoadFromFirebase, 300);
+  } else {
+    window.addEventListener('fbReady', () => {
+      setTimeout(autoLoadFromFirebase, 300);
+    }, { once: true });
+  }
 }
 
 // ── DB version for localStorage fallback ──
@@ -1574,6 +1577,7 @@ async function doSyncNow() {
     // Step 3: Pull from Firebase → merge with local
     await loadFromFirebase();
     notify('✅ Sync সম্পন্ন — সব data আপডেট হয়েছে');
+    startRealtimeListener();
   } catch(e) {
     showSyncStatus('⚠️ Sync error — local data safe');
     notify('⚠️ Sync-এ সমস্যা হয়েছে, local data ঠিক আছে');
@@ -1608,7 +1612,7 @@ async function syncToFirebase() {
     batch.set(tRef, { tasks: db.tasks || [] });
 
     await batch.commit();
-    showSyncStatus('✅ Cloud sync সম্পন্ন');
+    showSyncStatus('🔴 Live — real-time আপডেট হচ্ছে');
   } catch(err) {
     showSyncStatus('⚠️ Offline — local-এ save হয়েছে');
     console.warn('Firebase sync error:', err);
@@ -1631,6 +1635,37 @@ async function syncIntelToFirebase(custId) {
 function sanitizeForFirebase(obj) {
   // Firebase doesn't allow undefined values
   return JSON.parse(JSON.stringify(obj, (k, v) => v === undefined ? null : v));
+}
+
+
+// ===================== REALTIME LISTENER =====================
+let _realtimeUnsubscribe = null;
+
+function startRealtimeListener() {
+  if(!window._fbReady || !window._fsdb) return;
+  if(_realtimeUnsubscribe) { _realtimeUnsubscribe(); _realtimeUnsubscribe = null; }
+
+  _realtimeUnsubscribe = window._fsdb.collection('customers')
+    .onSnapshot((snap) => {
+      if(snap.metadata.hasPendingWrites) return;
+      const fbCustomers = [];
+      snap.forEach(doc => {
+        const cData = doc.data();
+        const localC = (db.customers || []).find(c => c.id === cData.id);
+        if(localC && localC.intel) cData.intel = localC.intel;
+        if(localC && localC.checks) cData.checks = localC.checks;
+        fbCustomers.push(cData);
+      });
+      if(fbCustomers.length === 0) return;
+      db.customers = fbCustomers;
+      localStorage.setItem(LS_KEY, JSON.stringify(db));
+      renderAll();
+      renderTasks();
+      showSyncStatus('🔴 Live — real-time আপডেট হচ্ছে');
+    }, (err) => {
+      console.warn('Realtime listener error:', err);
+      showSyncStatus('⚠️ Realtime sync বন্ধ');
+    });
 }
 
 async function loadFromFirebase() {
