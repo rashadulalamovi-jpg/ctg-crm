@@ -1226,6 +1226,7 @@ function reactivateCustomer(id) {
     color: 'var(--cyan)'
   });
   saveDB();
+  syncToFirebase();
   renderAll();   // re-render pipeline + table + header
   notify(`✅ ${c.name} → ${stageNames[c.stage]} তে ফিরে এসেছে!`);
 }
@@ -1542,6 +1543,13 @@ async function pushToFirebase() {
 async function doSyncNow() {
   showSyncStatus('🔄 Sync হচ্ছে...');
   try {
+    // নতুন browser বা empty local হলে আগে Firebase থেকে load করুন
+    const localCustomers = db.customers || [];
+    if (localCustomers.length === 0) {
+      await loadFromFirebase();
+      notify('✅ Cloud থেকে সব data load হয়েছে');
+      return;
+    }
     // Step 1: Push local → Firebase (local is source of truth)
     await syncToFirebase();
 
@@ -2267,12 +2275,16 @@ function toggleTask(el, id) {
 
 function toggleManualTask(i) {
   db.tasks[i].done = !db.tasks[i].done;
-  saveDB(); renderTasks();
+  saveDB();
+  syncToFirebase();
+  renderTasks();
 }
 
 function removeTask(i) {
   db.tasks.splice(i, 1);
-  saveDB(); renderTasks();
+  saveDB();
+  syncToFirebase();
+  renderTasks();
 }
 
 function openTaskModal() {
@@ -2284,7 +2296,10 @@ function saveTask() {
   const desc = document.getElementById('t_desc').value.trim();
   if (!desc) { notify('Task বিবরণ দিন'); return; }
   db.tasks.unshift({ desc, d: desc, customer: document.getElementById('t_customer').value, c: document.getElementById('t_customer').value, priority: document.getElementById('t_priority').value, done: false, date: nowStr() });
-  saveDB(); closeModal('taskModal'); renderTasks();
+  saveDB();
+  syncToFirebase();
+  closeModal('taskModal');
+  renderTasks();
   notify('✓ Task সেভ হয়েছে');
 }
 
@@ -2420,7 +2435,9 @@ function saveCustomer() {
     notify('✓ Customer যোগ হয়েছে');
   }
 
-  saveDB(); closeModal('customerModal');
+  saveDB();
+  syncToFirebase();
+  closeModal('customerModal');
   renderAll();
 }
 
@@ -2446,7 +2463,9 @@ function promoteCustomer(id) {
   c.stage = Math.min(c.stage + 1, 7);
   if (!c.history) c.history = [];
   c.history.unshift({ date: nowStr(), action: `⬆️ Stage ${oldStage} (${stageNames[oldStage]}) → Stage ${c.stage} (${stageNames[c.stage]})`, color: 'var(--green)' });
-  saveDB(); renderAll();
+  saveDB();
+  syncToFirebase();
+  renderAll();
   notify(`✅ ${c.name} → ${stageNames[c.stage]} promote হয়েছে 🎉`);
 }
 
@@ -2708,6 +2727,7 @@ function toggleCheck(custId, flatIdx) {
   while(c.checks[c.stage].length <= flatIdx) c.checks[c.stage].push(false);
   c.checks[c.stage][flatIdx] = !c.checks[c.stage][flatIdx];
   saveDB();
+  syncToFirebase();
   openDetail(custId);
 }
 
@@ -2723,6 +2743,7 @@ function addActivity(id) {
   c.history.unshift({ date: nowStr(), action: text, color: 'var(--blue)' });
   input.value = '';
   saveDB();
+  syncToFirebase();
   openDetail(id);
   notify('✓ Activity যোগ হয়েছে');
 }
@@ -2916,6 +2937,7 @@ function addInvoice(custId) {
   if(!c.history) c.history = [];
   c.history.unshift({ date: nowStr(), action: 'Invoice '+no+' — '+fmtMoney(amt)+' ('+stageNames[c.stage]+')', color: 'var(--gold)' });
   saveDB();
+  syncToFirebase();
   document.getElementById('inv_date_'+custId).value = nowStr();
   document.getElementById('inv_no_'+custId).value = '';
   document.getElementById('inv_qty_'+custId).value = '';
@@ -2932,7 +2954,9 @@ function removeInvoice(custId, invId) {
   c.invoices = c.invoices.filter(i => i.id !== invId);
   c.orders = c.invoices.length;
   c.sales = c.invoices.reduce((a,i) => a + (i.amt||0), 0);
-  saveDB(); openDetail(custId);
+  saveDB();
+  syncToFirebase();
+  openDetail(custId);
   notify('Invoice removed');
 }
 
@@ -3085,6 +3109,7 @@ function addModel(custId) {
   if(qtyInp) qtyInp.value = '';
   inp.focus();
   saveDB();
+  syncIntelToFirebase(custId);
   const listEl = document.getElementById('model_list_' + custId);
   if(listEl) listEl.innerHTML = renderModelList(c.intel.models, custId);
 }
@@ -3094,6 +3119,7 @@ function removeModel(custId, idx) {
   if(!c || !c.intel) return;
   c.intel.models.splice(idx, 1);
   saveDB();
+  syncIntelToFirebase(custId);
   const listEl = document.getElementById('model_list_' + custId);
   if(listEl) listEl.innerHTML = renderModelList(c.intel.models, custId);
 }
@@ -3103,6 +3129,7 @@ function adjustModelQty(custId, idx, delta) {
   if(!c || !c.intel || !c.intel.models[idx]) return;
   c.intel.models[idx].count = Math.max(1, (c.intel.models[idx].count || 1) + delta);
   saveDB();
+  syncIntelToFirebase(custId);
   const listEl = document.getElementById('model_list_' + custId);
   if(listEl) listEl.innerHTML = renderModelList(c.intel.models, custId);
 }
@@ -3477,6 +3504,7 @@ function addReturnInvoice(custId) {
     color: 'var(--orange)'
   });
   saveDB();
+  syncToFirebase();
   // Reset form
   document.getElementById('ret_model_'+custId).value = '';
   document.getElementById('ret_qty_'+custId).value = '1';
@@ -3498,6 +3526,7 @@ function removeReturnInvoice(custId, retId) {
   c.returns_inv = c.returns_inv.filter(r => r.id !== retId);
   c.returns = c.returns_inv.length;
   saveDB();
+  syncToFirebase();
   const listEl = document.getElementById('ret_list_'+custId);
   if(listEl) listEl.innerHTML = renderReturnList(c);
   notify('Return Invoice মুছে গেছে');
@@ -3624,6 +3653,7 @@ function cycleInvStatus(custId, invId) {
   const cur = order.indexOf(inv.status || 'completed');
   inv.status = order[(cur + 1) % order.length];
   saveDB();
+  syncToFirebase();
   // Re-render invoice section
   const listEl = document.getElementById('inv_list_' + custId);
   if(listEl) {
