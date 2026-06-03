@@ -1512,11 +1512,10 @@ function loadDB() {
   db.customers = db.customers.map(migrateCustomer);
 
   // Auto-load from Firebase on startup (no manual Sync Now needed)
-  const autoLoadFromFirebase = () => {
+  const autoLoadFromFirebase = async () => {
     showSyncStatus('🔄 Cloud থেকে data load হচ্ছে...');
-    loadFromFirebase().then(() => {
-      startRealtimeListener();
-    });
+    await loadFromFirebase();
+    startRealtimeListener();
   };
   if(window._fbReady) {
     setTimeout(autoLoadFromFirebase, 300);
@@ -1639,13 +1638,13 @@ function sanitizeForFirebase(obj) {
 
 
 // ===================== REALTIME LISTENER =====================
-let _realtimeUnsubscribe = null;
+window._realtimeUnsubscribe = null;
 
 function startRealtimeListener() {
   if(!window._fbReady || !window._fsdb) return;
-  if(_realtimeUnsubscribe) { _realtimeUnsubscribe(); _realtimeUnsubscribe = null; }
+  if(window._realtimeUnsubscribe) { window._realtimeUnsubscribe(); window._realtimeUnsubscribe = null; }
 
-  _realtimeUnsubscribe = window._fsdb.collection('customers')
+  window._realtimeUnsubscribe = window._fsdb.collection('customers')
     .onSnapshot((snap) => {
       if(snap.metadata.hasPendingWrites) return;
       const fbCustomers = [];
