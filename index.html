@@ -2347,7 +2347,7 @@ function openAddModal() {
 }
 
 function openEditModal(id) {
-  const c = db.customers.find(x => x.id === id);
+  const c = db.customers.find(x => x.id === id) || (id === undefined && db.customers.find(x => !x.id && x.source === 'Video CMS')) || null;
   if (!c) return;
   db.editingId = id;
   document.getElementById('modalTitle').textContent = '✏️ Edit: ' + c.name;
@@ -2479,8 +2479,8 @@ async function deleteCustomer() {
   if (!db.editingId) return;
   if (!confirm('এই customer delete করবেন?')) return;
   const delId = db.editingId;
-  const custToDelete = db.customers.find(c => c.id === delId);
-  db.customers = db.customers.filter(c => c.id !== delId);
+  const custToDelete = db.customers.find(c => c.id === delId) || (delId === undefined ? db.customers.find(c => !c.id && c.source === 'Video CMS') : null);
+  db.customers = db.customers.filter(c => c !== custToDelete && c.id !== delId);
   saveDB();
   closeModal('customerModal');
   renderAll();
@@ -3809,6 +3809,8 @@ renderTasks();
                 if (existing.empty) {
                   // Add to CRM customers as 'Lead' stage
                   db.collection('customers').add({
+                    id: Date.now(),
+                    createdDate: new Date().toISOString().split('T')[0],
                     name: lead.customerName || 'Unknown',
                     phone: '',
                     address: '',
