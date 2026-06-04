@@ -2479,12 +2479,20 @@ async function deleteCustomer() {
   if (!db.editingId) return;
   if (!confirm('এই customer delete করবেন?')) return;
   const delId = db.editingId;
+  const custToDelete = db.customers.find(c => c.id === delId);
   db.customers = db.customers.filter(c => c.id !== delId);
   saveDB();
   closeModal('customerModal');
   renderAll();
   // Delete from Firebase — both /customers and /intel collections
   await deleteFromFirebase(delId);
+  // ══ VIDEO CMS SYNC: Delete from video_leads if came from Video CMS ══
+  if (custToDelete && custToDelete.videoLeadId) {
+    try {
+      await firebase.firestore().collection('video_leads').doc(custToDelete.videoLeadId).delete();
+      console.log('✅ video_leads deleted:', custToDelete.videoLeadId);
+    } catch(e) { console.warn('video_leads delete failed:', e.message); }
+  }
   notify('🗑 Customer delete হয়েছে ও Cloud থেকেও মুছেছে');
 }
 
@@ -3830,7 +3838,21 @@ renderTasks();
                     console.error('CRM add error:', e);
                   });
                 }
-              });
+              }
+          // ══ VIDEO CMS DELETE SYNC ══
+          if (change.type === 'removed') {
+            const videoLeadDocId = change.doc.id;
+            const matchIdx = db.customers.findIndex(c => c.videoLeadId === videoLeadDocId);
+            if (matchIdx !== -1) {
+              const matchedName = db.customers[matchIdx].name;
+              db.customers.splice(matchIdx, 1);
+              saveDB();
+              if (window.renderAll) renderAll();
+              else if (window.renderPipeline) renderPipeline();
+              if (typeof notify === 'function') notify('🗑️ "' + matchedName + '" Video CMS থেকে delete → CRM-এও সরানো হয়েছে', 'warning');
+              console.log('✅ CRM auto-deleted:', matchedName);
+            }
+          });
           }
         });
       }, function(err) {
