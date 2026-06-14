@@ -7190,38 +7190,73 @@ function renderStockWASection(){
     if (logoutBtn) logoutBtn.style.display = 'flex';
     if (role === 'owner') return;
 
-    // Staff: hide financial data
-    // Hide table columns by header
-    document.querySelectorAll('table').forEach(function(tbl) {
-      var ths = Array.from(tbl.querySelectorAll('th'));
-      var hideCols = [];
-      ths.forEach(function(th, i) {
-        var t = th.textContent.trim().toUpperCase();
-        if (t === 'BUY/PC' || t === 'PROFIT' || t === 'PER/PC' || t === 'ROI' || t.includes('ROI%') || t.includes('COST/PC') || t.includes('PROFIT/PC')) {
-          hideCols.push(i); th.style.display = 'none';
+        // Staff: hide sensitive financial data
+    // Add staff-mode class to body for CSS targeting
+    document.body.classList.add('staff-mode');
+
+    // === SALES DASHBOARD: Hide Adj Gross Profit, Fix Cost, Net Profit cards ===
+    var sw = document.getElementById('salesDashWrap');
+    if (sw) {
+      sw.querySelectorAll('.kpi-card').forEach(function(card) {
+        var lbl = card.querySelector('.kpi-label');
+        if (!lbl) return;
+        var t = lbl.textContent;
+        if (t.indexOf('Adj Gross') > -1 || t.indexOf('Fix Cost') > -1 || t.indexOf('Net Profit') > -1) {
+          card.style.display = 'none';
         }
       });
-      tbl.querySelectorAll('tr').forEach(function(row) {
-        var cells = row.querySelectorAll('td');
-        hideCols.forEach(function(ci) { if (cells[ci]) cells[ci].style.display = 'none'; });
+    }
+
+    // === STOCK AGE: Hide Cost/pc, Profit/pc, ROI% columns + Capital footer ===
+    var saEl = document.getElementById('stockage');
+    if (saEl) {
+      var saHideCols = [];
+      saEl.querySelectorAll('th').forEach(function(th, i) {
+        var t = th.textContent.trim();
+        if (t === 'Cost/pc' || t === 'Profit/pc' || t === 'ROI%') {
+          saHideCols.push(i); th.style.display = 'none';
+        }
       });
-    });
+      saEl.querySelectorAll('tr').forEach(function(row) {
+        var cells = row.querySelectorAll('td');
+        saHideCols.forEach(function(ci) { if (cells[ci]) cells[ci].style.display = 'none'; });
+      });
+      var capEl = document.getElementById('capitalBlockers');
+      if (capEl) capEl.style.display = 'none';
+    }
 
-    // Hide cards with financial keywords
-    var hideWords = ['GROSS', 'NET PROFIT', 'ROI', 'ADJ GROSS', 'FIX COST', 'CAPITAL LOCKED', 'EXPECTED PROFIT'];
-    document.querySelectorAll('.card, .kpi, .stat, [class*="kpi"], [class*="stat"], [class*="card"]').forEach(function(el) {
-      var t = el.textContent.toUpperCase();
-      if (hideWords.some(function(w) { return t.includes(w); })) el.style.display = 'none';
+    // === NET WORTH TAB: Hide tab button + page ===
+    document.querySelectorAll('.nb, [onclick*="goTo"]').forEach(function(btn) {
+      if (btn.textContent.toUpperCase().indexOf('NET WORTH') > -1) btn.style.display = 'none';
     });
+    var apEl = document.getElementById('assetspage');
+    if (apEl) apEl.style.display = 'none';
 
-    // Hide ROI elements
-    document.querySelectorAll('[class*="roi"], [id*="roi"], [class*="ROI"], [id*="ROI"]').forEach(function(el) { el.style.display = 'none'; });
+    // === INVOICE TABLE: Use MutationObserver for dynamic table ===
+    function hideInvoiceCols() {
+      var invEl = document.getElementById('invoice');
+      if (!invEl) return;
+      var iHide = [];
+      invEl.querySelectorAll('th').forEach(function(th, i) {
+        var t = th.textContent.trim().toUpperCase();
+        if (t === 'BUY/PC' || t === 'PROFIT' || t === 'PER/PC' || t === 'ROI' || t.indexOf('ROI%') > -1 || t.indexOf('GROSS') > -1 || (t.indexOf('NET') > -1 && t.indexOf('PROFIT') > -1)) {
+          if (iHide.indexOf(i) === -1) { iHide.push(i); th.style.display = 'none'; }
+        }
+      });
+      invEl.querySelectorAll('tr').forEach(function(row) {
+        var cells = row.querySelectorAll('td');
+        iHide.forEach(function(ci) { if (cells[ci]) cells[ci].style.display = 'none'; });
+      });
+      invEl.querySelectorAll('[class*="roi"], [id*="roi"]').forEach(function(el) { el.style.display = 'none'; });
+    }
+    hideInvoiceCols();
+    var invObs = new MutationObserver(hideInvoiceCols);
+    var invContainer = document.getElementById('invoice');
+    if (invContainer) invObs.observe(invContainer, {childList: true, subtree: true});
 
-    // Hide NET WORTH tab & section
-    document.querySelectorAll('[data-tab], .tab-btn, .tab-link, [role="tab"]').forEach(function(el) {
-      if (el.textContent.toUpperCase().includes('NET WORTH')) el.style.display = 'none';
-    });
-    document.querySelectorAll('[data-section="networth"], #netWorthSection, #networthSection, [id*="networth"], [id*="netWorth"]').forEach(function(el) { el.style.display = 'none'; });
+    // Show logout button
+    var logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) logoutBtn.style.display = 'flex';
   }
 
   // Auth state observer
