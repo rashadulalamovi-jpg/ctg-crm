@@ -1,4 +1,35 @@
-<!DOCTYPE html>
+    // Wrap renderSalesDashboard to hide profit cards after re-render
+    if (window.renderSalesDashboard) {
+      var _origSD = window.renderSalesDashboard;
+      window.renderSalesDashboard = function() {
+        var r = _origSD.apply(this, arguments);
+        setTimeout(function() {
+          var sw = document.getElementById('salesDashWrap');
+          if (!sw) return;
+          sw.querySelectorAll('.kpi-card').forEach(function(card) {
+            var lbl = card.querySelector('.kpi-label');
+            if (!lbl) return;
+            var t = lbl.textContent;
+            if (t.indexOf('Adj Gross') > -1 || t.indexOf('Fix Cost') > -1 || t.indexOf('Net Profit') > -1) {
+              card.style.display = 'none';
+            }
+          });
+        }, 50);
+        return r;
+      };
+    }
+    // Also hide currently rendered profit cards
+    var sw2 = document.getElementById('salesDashWrap');
+    if (sw2) {
+      sw2.querySelectorAll('.kpi-card').forEach(function(card) {
+        var lbl = card.querySelector('.kpi-label');
+        if (!lbl) return;
+        var t = lbl.textContent;
+        if (t.indexOf('Adj Gross') > -1 || t.indexOf('Fix Cost') > -1 || t.indexOf('Net Profit') > -1) {
+          card.style.display = 'none';
+        }
+      });
+    }<!DOCTYPE html>
 <html lang="bn">
 <head>
 <meta charset="UTF-8">
