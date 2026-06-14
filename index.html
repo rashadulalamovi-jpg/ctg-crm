@@ -7193,6 +7193,13 @@ function renderStockWASection(){
         // Staff: hide sensitive financial data
     // Add staff-mode class to body for CSS targeting
     document.body.classList.add('staff-mode');
+        // Inject CSS for permanent sales profit card hiding
+    if (!document.getElementById('staffModeCSS')) {
+      var sCSS = document.createElement('style');
+      sCSS.id = 'staffModeCSS';
+      sCSS.textContent = 'body.staff-mode #salesDashWrap>div:nth-child(3)>.kpi-card:nth-child(1){display:none!important}body.staff-mode #salesDashWrap>div:nth-child(3)>.kpi-card:nth-child(2){display:none!important}body.staff-mode #salesDashWrap>div:nth-child(3)>.kpi-card:nth-child(4){display:none!important}';
+      document.head.appendChild(sCSS);
+    }
 
     // === SALES DASHBOARD: Hide Adj Gross Profit, Fix Cost, Net Profit cards ===
     var sw = document.getElementById('salesDashWrap');
