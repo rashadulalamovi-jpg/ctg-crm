@@ -1067,6 +1067,7 @@ function loadDB(){
 function saveDB(){ db._savedAt = Date.now(); localStorage.setItem(LS_KEY, JSON.stringify(db)); }
 function saveStock(){ localStorage.setItem(STOCK_KEY, JSON.stringify(stockDB)); }
 
+var _rtListeners = [];
 // ── Firebase ────────────────────────────────────────────
 let fsdb = null;
 try{
@@ -1110,7 +1111,6 @@ async function syncToFirebase(){
 }
 
 // ── Real-time listeners ──────────────────────────────────
-let _rtListeners = [];
 function _stopRtListeners(){
   _rtListeners.forEach(function(u){ try{ u(); }catch(e){} });
   _rtListeners = [];
