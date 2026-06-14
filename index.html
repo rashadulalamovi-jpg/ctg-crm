@@ -1073,6 +1073,7 @@ try{
   firebase.initializeApp(FB_CFG);
   fsdb = firebase.firestore();
   window._fbReady = true;
+  startRealtimeSync();
 }catch(e){ window._fbReady = false; console.warn('FB offline:', e.message); }
 
 function showSync(msg){
@@ -1108,41 +1109,67 @@ async function syncToFirebase(){
   }catch(e){ showSync('\u26A0\uFE0F Sync error'); console.error(e); }
 }
 
-async function loadFromFirebase(){
-  if(!window._fbReady || !fsdb){ showSync('\u26A0\uFE0F Offline'); return; }
-  try{
-    showSync('\u{1F504} Loading...');
-    const snap = await fsdb.collection('customers').get();
-    if(!snap.empty){
-      const custs = [];
-      snap.forEach(d=>custs.push(d.data()));
-      const intelSnap = await fsdb.collection('intel').get();
-      const intelMap = {};
-      intelSnap.forEach(d=>{ intelMap[d.id] = d.data(); });
-      db.customers = custs.map(function(c){
-        if(intelMap[String(c.id)]) c.intel = intelMap[String(c.id)];
-        return migrate(c);
-      });
-      try{
-        const t = await fsdb.collection('meta').doc('tasks').get();
-        if(t.exists) db.tasks = t.data().tasks || [];
-      }catch(e){}
-      saveDB();
-    }
-    // Stock
+// ── Real-time listeners ──────────────────────────────────
+let _rtListeners = [];
+function _stopRtListeners(){
+  _rtListeners.forEach(function(u){ try{ u(); }catch(e){} });
+  _rtListeners = [];
+}
+
+function startRealtimeSync(){
+  if(!window._fbReady || !fsdb){ showSync('⚠️ Offline'); return; }
+  _stopRtListeners();
+  showSync('📡 Real-time active...');
+
+  // ── Customers real-time listener ──
+  const custUnsub = fsdb.collection('customers').onSnapshot(function(snap){
+    if(snap.empty){ db.customers = []; saveDB(); renderAll(); return; }
+    const custs = snap.docs.map(function(d){ return Object.assign({id: parseInt(d.id)||d.id}, d.data()); });
+    db.customers = custs.map(function(c){ return migrate(c); });
+    // reload intel
     try{
-      const ss = await fsdb.collection('stockBatches').get();
-      if(!ss.empty){
-        const fb = [];
-        ss.forEach(d=>fb.push(Object.assign({}, d.data(), {_fbId:d.id})));
-        stockDB.batches = fb;
-        saveStock();
+      fsdb.collection('intel').get().then(function(iSnap){
+        iSnap.docs.forEach(function(d){
+          const c = db.customers.find(function(x){ return String(x.id) === d.id; });
+          if(c) c.intel = d.data();
+        });
+        saveDB(); renderAll();
+      });
+    }catch(e){ saveDB(); renderAll(); }
+    showSync('🟢 Live • ' + db.customers.length + ' customers');
+  }, function(err){
+    showSync('⚠️ Listener: ' + err.message);
+    console.error('Customer listener error:', err);
+  });
+  _rtListeners.push(custUnsub);
+
+  // ── Stock real-time listener ──
+  try{
+    const stockUnsub = fsdb.collection('stockBatches').onSnapshot(function(snap){
+      if(!snap.empty){
+        stockDB.batches = snap.docs.map(function(d){ return Object.assign({}, d.data(), {_fbId: d.id}); });
+        saveStock(); renderAll();
       }
-    }catch(e){}
-    renderAll();
-    showSync('\u2705 ' + db.customers.length + ' customers loaded');
-    notify('\u2705 Firebase \u098F\u09B0 \u09A1\u09BE\u099F\u09BE load \u09B9\u09DF\u09C7\u099B\u09C7');
-  }catch(e){ showSync('\u26A0\uFE0F ' + e.message); }
+    }, function(err){ console.warn('Stock listener:', err); });
+    _rtListeners.push(stockUnsub);
+  }catch(e){}
+
+  // ── Tasks real-time listener ──
+  try{
+    const taskUnsub = fsdb.collection('meta').doc('tasks').onSnapshot(function(docSnap){
+      if(docSnap.exists){
+        const data = docSnap.data();
+        if(data && data.tasks){ db.tasks = data.tasks; saveDB(); renderAll(); }
+      }
+    }, function(err){ console.warn('Tasks listener:', err); });
+    _rtListeners.push(taskUnsub);
+  }catch(e){}
+
+  notify('📡 Real-time sync চালু হয়েছে');
+}
+
+async function loadFromFirebase(){
+  startRealtimeSync();
 }
 
 function exportJSON(){
