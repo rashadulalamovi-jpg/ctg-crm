@@ -7228,7 +7228,7 @@ function renderStockWASection(){
   auth.onAuthStateChanged(function(user) {
     var overlay = document.getElementById('loginOverlay');
     var logoutBtn = document.getElementById('logoutBtn');
-    if (user) {
+    if (user && !user.isAnonymous) {
       if (overlay) overlay.style.display = 'none';
       db.collection('users').doc(user.uid).get().then(function(doc) {
         var role = (doc.exists && doc.data().role) ? doc.data().role : 'staff';
