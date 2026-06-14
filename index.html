@@ -7117,5 +7117,129 @@ function renderStockWASection(){
   </div>
 </div>
 
+<!-- ============================================================
+  Firebase Auth SDK + Login Page + Role-Based Access
+  ============================================================ -->
+
+<!-- LOGIN PAGE OVERLAY -->
+<div id="loginOverlay" style="position:fixed;inset:0;background:#080a0d;z-index:9999;display:flex;align-items:center;justify-content:center;">
+  <div style="background:#0d1117;border:1px solid rgba(232,33,26,0.3);border-radius:16px;padding:40px;width:360px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.8);">
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="width:54px;height:54px;background:linear-gradient(135deg,#e8211a,#c41a14);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:24px;box-shadow:0 0 20px rgba(232,33,26,0.4);">&#x1F451;</div>
+      <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0 0 4px;font-family:inherit;">CTG Click Shop</h2>
+      <p style="color:#8b949e;font-size:13px;margin:0;">Intelligent Royal CRM</p>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="display:block;color:#8b949e;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:7px;">Email</label>
+      <input id="loginEmail" type="email" placeholder="your@email.com" autocomplete="email" style="width:100%;box-sizing:border-box;background:#121820;border:1px solid #263548;border-radius:8px;color:#e6edf3;padding:11px 14px;font-size:14px;outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='#e8211a'" onblur="this.style.borderColor='#263548'" />
+    </div>
+    <div style="margin-bottom:22px;">
+      <label style="display:block;color:#8b949e;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:7px;">Password</label>
+      <input id="loginPassword" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" style="width:100%;box-sizing:border-box;background:#121820;border:1px solid #263548;border-radius:8px;color:#e6edf3;padding:11px 14px;font-size:14px;outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='#e8211a'" onblur="this.style.borderColor='#263548'" />
+    </div>
+    <button id="loginBtn" onclick="doLogin()" style="width:100%;background:linear-gradient(135deg,#e8211a,#c41a14);color:#fff;border:none;border-radius:8px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:0.3px;box-shadow:0 4px 15px rgba(232,33,26,0.3);">
+      &#x1F510; Login
+    </button>
+    <p id="loginError" style="color:#e8211a;font-size:13px;text-align:center;margin:10px 0 0;min-height:18px;"></p>
+  </div>
+</div>
+
+<!-- Firebase Auth SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+<script>
+(function() {
+  // Firebase Auth init
+  var auth = firebase.auth();
+  var db = firebase.firestore();
+
+  // Login function
+  window.doLogin = function() {
+    var email = document.getElementById('loginEmail').value.trim();
+    var pass = document.getElementById('loginPassword').value;
+    var errEl = document.getElementById('loginError');
+    var btn = document.getElementById('loginBtn');
+    if (!email || !pass) { errEl.textContent = '\u26A0\uFE0F Email \u0993 Password \u09A6\u09BF\u09A8'; return; }
+    btn.textContent = '\u23F3 Logging in...'; btn.disabled = true; errEl.textContent = '';
+    auth.signInWithEmailAndPassword(email, pass)
+      .catch(function(e) {
+        btn.textContent = '\uD83D\uDD10 Login'; btn.disabled = false;
+        if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
+          errEl.textContent = '\u274C Email \u09AC\u09BE Password \u09AD\u09C1\u09B2';
+        } else if (e.code === 'auth/too-many-requests') {
+          errEl.textContent = '\u26A0\uFE0F \u0985\u09A8\u09C7\u0995\u09AC\u09BE\u09B0 \u099A\u09C7\u09B7\u09CD\u099F\u09BE \u09B9\u09AF\u09BC\u09C7\u099B\u09C7';
+        } else { errEl.textContent = '\u274C ' + e.message; }
+      });
+  };
+
+  // Enter key login
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      var ov = document.getElementById('loginOverlay');
+      if (ov && ov.style.display !== 'none') doLogin();
+    }
+  });
+
+  // Logout
+  window.doLogout = function() { auth.signOut(); };
+
+  // Apply role UI
+  function applyRoleUI(role) {
+    window.userRole = role;
+    var logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) logoutBtn.style.display = 'flex';
+    if (role === 'owner') return;
+
+    // Staff: hide financial data
+    // Hide table columns by header
+    document.querySelectorAll('table').forEach(function(tbl) {
+      var ths = Array.from(tbl.querySelectorAll('th'));
+      var hideCols = [];
+      ths.forEach(function(th, i) {
+        var t = th.textContent.trim().toUpperCase();
+        if (t === 'BUY/PC' || t === 'PROFIT' || t === 'PER/PC' || t === 'ROI' || t.includes('ROI%') || t.includes('COST/PC') || t.includes('PROFIT/PC')) {
+          hideCols.push(i); th.style.display = 'none';
+        }
+      });
+      tbl.querySelectorAll('tr').forEach(function(row) {
+        var cells = row.querySelectorAll('td');
+        hideCols.forEach(function(ci) { if (cells[ci]) cells[ci].style.display = 'none'; });
+      });
+    });
+
+    // Hide cards with financial keywords
+    var hideWords = ['GROSS', 'NET PROFIT', 'ROI', 'ADJ GROSS', 'FIX COST', 'CAPITAL LOCKED', 'EXPECTED PROFIT'];
+    document.querySelectorAll('.card, .kpi, .stat, [class*="kpi"], [class*="stat"], [class*="card"]').forEach(function(el) {
+      var t = el.textContent.toUpperCase();
+      if (hideWords.some(function(w) { return t.includes(w); })) el.style.display = 'none';
+    });
+
+    // Hide ROI elements
+    document.querySelectorAll('[class*="roi"], [id*="roi"], [class*="ROI"], [id*="ROI"]').forEach(function(el) { el.style.display = 'none'; });
+
+    // Hide NET WORTH tab & section
+    document.querySelectorAll('[data-tab], .tab-btn, .tab-link, [role="tab"]').forEach(function(el) {
+      if (el.textContent.toUpperCase().includes('NET WORTH')) el.style.display = 'none';
+    });
+    document.querySelectorAll('[data-section="networth"], #netWorthSection, #networthSection, [id*="networth"], [id*="netWorth"]').forEach(function(el) { el.style.display = 'none'; });
+  }
+
+  // Auth state observer
+  auth.onAuthStateChanged(function(user) {
+    var overlay = document.getElementById('loginOverlay');
+    var logoutBtn = document.getElementById('logoutBtn');
+    if (user) {
+      if (overlay) overlay.style.display = 'none';
+      db.collection('users').doc(user.uid).get().then(function(doc) {
+        var role = (doc.exists && doc.data().role) ? doc.data().role : 'staff';
+        applyRoleUI(role);
+      }).catch(function() { applyRoleUI('staff'); });
+    } else {
+      if (overlay) overlay.style.display = 'flex';
+      if (logoutBtn) logoutBtn.style.display = 'none';
+    }
+  });
+})();
+</script>
 </body>
 </html>
