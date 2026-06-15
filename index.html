@@ -893,8 +893,9 @@ tr:hover td{background:rgba(232,33,26,.025)}
       </div>
       <div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--cyan);margin-bottom:7px">Model Items</div>
       <div id="addInvItemList" style="margin-bottom:8px"></div>
-      <div style="display:grid;grid-template-columns:2fr 54px 1fr 30px;gap:5px;align-items:end;margin-bottom:5px">
+      <div style="display:grid;grid-template-columns:2fr 1fr 54px 1fr 30px;gap:5px;align-items:end;margin-bottom:5px">
         <div><label class="lbl">Model</label><input id="addInvIiM" list="slist" placeholder="HP EliteBook 845 G8" style="font-family:var(--fm);font-size:11px" oninput="addInvAutoFill()" onkeydown="if(event.key==='Enter')document.getElementById('addInvIiQ').focus()"></div>
+        <div><label class="lbl">Description</label><input id="addInvIiD" type="text" placeholder="e.g. i5-10th, 8GB, 256SSD" style="font-family:var(--fb);font-size:11px" onkeydown="if(event.key==='Enter')document.getElementById('addInvIiQ').focus()"></div>
         <div><label class="lbl">Qty</label><input id="addInvIiQ" type="number" min="1" placeholder="0" style="text-align:center" onkeydown="if(event.key==='Enter')document.getElementById('addInvIiP').focus()"></div>
         <div><label class="lbl">Sell/pc &#x09F3;</label><input id="addInvIiP" type="number" min="0" placeholder="27500" style="text-align:right" onkeydown="if(event.key==='Enter')addInvAddItem()"></div>
         <div style="padding-top:16px"><button onclick="addInvAddItem()" style="width:30px;height:34px;background:rgba(255,255,255,.04);border:1px solid var(--border2);border-radius:5px;color:var(--text2);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">+</button></div>
@@ -2176,14 +2177,14 @@ function addInvAutoFill(){
 }
 
 function addInvAddItem(){
-  const mEl=document.getElementById('addInvIiM'),qEl=document.getElementById('addInvIiQ'),pEl=document.getElementById('addInvIiP');
+  const mEl=document.getElementById('addInvIiM'),dEl=document.getElementById('addInvIiD'),qEl=document.getElementById('addInvIiQ'),pEl=document.getElementById('addInvIiP');
   if(!mEl||!qEl||!pEl) return;
-  const model=mEl.value.trim(),qty=parseInt(qEl.value)||0,price=parseFloat(pEl.value)||0;
+  const model=mEl.value.trim(),desc=dEl?dEl.value.trim():'',qty=parseInt(qEl.value)||0,price=parseFloat(pEl.value)||0;
   const bp=parseFloat(mEl.dataset.bp||0)||null;
   if(!model||qty<1||price<1){notify('Model, Qty, Price \u09A6\u09BF\u09A8',true);return;}
   const ex=addInvItems.find(function(x){return x.model.toLowerCase()===model.toLowerCase();});
   if(ex){ex.qty+=qty;ex.price=price;if(bp)ex.purchasePrice=bp;}
-  else addInvItems.push({model:model,qty:qty,price:price,purchasePrice:bp});
+  else addInvItems.push({model:model,desc:desc,qty:qty,price:price,purchasePrice:bp});
   mEl.value='';mEl.dataset.bp='';qEl.value='';pEl.value='';
   const h=document.getElementById('addInvHint');if(h)h.textContent='';
   mEl.focus();
@@ -2204,7 +2205,7 @@ function refreshAddInvUI(){
   addInvItems.forEach(function(item,i){
     var pp=item.purchasePrice||0,roi=pp?Math.round((item.price-pp)/pp*100):null;
     h+='<div style="display:flex;align-items:center;gap:6px;padding:6px 9px;background:rgba(23,32,48,.6);border:1px solid rgba(255,255,255,.05);border-radius:5px;margin-bottom:3px">';
-    h+='<span style="flex:1;font-family:var(--fm);font-size:11px;font-weight:600;color:var(--text)">'+item.model+'</span>';
+    h+='<span style="flex:1;font-family:var(--fm);font-size:11px;font-weight:600;color:var(--text)">'+item.model+(item.desc?'  <span style="opacity:.7;font-size:9px">'+item.desc+'</span>':'')+'</span>';
     h+='<span style="font-family:var(--fm);font-size:10px;color:var(--text3)">\u09F3'+fmtNum(item.price)+' \u00D7 '+item.qty+'pcs</span>';
     h+='<span style="font-family:var(--fm);font-size:11px;font-weight:700;color:var(--gold)">\u09F3'+fmtNum(item.qty*(item.price||0))+'</span>';
     if(roi!==null) h+='<span class="'+roiCls(roi)+'" style="font-size:8px">'+roi+'%</span>';
