@@ -7324,12 +7324,12 @@ function injectAvgProfitKpis() {
 
     var html =
       '<div id="avgProfitKpiRow" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;">'
-      + '<div class="kpi-card" style="border-top:2px solid var(--green);background:rgba(16,185,129,.05);">'
+      + '<div class="kpi-card">'
       +   '<div class="kpi-label">💰 AVG PROFIT / INVOICE</div>'
       +   '<div class="kpi-val" style="color:' + invCol + ';">' + (kInvCount > 0 ? fmtMoney(kAvgInvProfit) : '—') + '</div>'
       +   '<div class="kpi-sub">total profit ÷ ' + kInvCount + ' invoices</div>'
       + '</div>'
-      + '<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,.05);">'
+      + '<div class="kpi-card">'
       +   '<div class="kpi-label">📊 AVG PROFIT / PC</div>'
       +   '<div class="kpi-val" style="color:' + pcCol + ';">' + (kRealQty > 0 ? fmtMoney(kAvgPcProfit) : '—') + '</div>'
       +   '<div class="kpi-sub">net profit ÷ ' + kRealQty + ' pcs · target ৳3000+</div>'
