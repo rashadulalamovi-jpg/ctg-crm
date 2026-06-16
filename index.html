@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>CTG Click Shop — Intelligent Royal CRM</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Tiro+Bangla&display=swap" rel="stylesheet">
-<style>
+<style>h
 :root{
   --bg:#080a0d;--bg2:#0d1117;--bg3:#121820;--bg4:#172030;
   --border:#1e2a3a;--border2:#263548;--border3:#2f4260;
@@ -7291,58 +7291,50 @@ function injectAvgProfitKpis() {
   var wrap = document.getElementById('salesDashWrap');
   if (!wrap || document.getElementById('avgProfitKpiRow')) return;
 
-  var customers = (window.db && db.customers) || [];
-  var fCust  = (document.getElementById('sdFiltCust')  || {}).value || '';
-  var fStat  = (document.getElementById('sdFiltStat')  || {}).value || '';
-  var fFrom  = (document.getElementById('sdFiltFrom')  || {}).value || '';
-  var fTo    = (document.getElementById('sdFiltTo')    || {}).value || '';
-  var fMonth = (document.getElementById('sdFiltMonth') || {}).value || '';
-
-  var kGrossQty=0, kTotC=0, kRetQty=0, kSalesDeducted=0, kGrossSales=0, kInvCount=0;
-  customers.forEach(function(c) {
-    (c.invoices || []).forEach(function(inv) {
-      if (fCust  && String(c.id) !== fCust) return;
-      if (fStat  && inv.status  !== fStat)  return;
-      if (fFrom  && inv.date    <  fFrom)   return;
-      if (fTo    && inv.date    >  fTo)     return;
-      if (fMonth && (inv.date||'').slice(0,7) !== fMonth) return;
-      kInvCount++;
-      (inv.items || []).forEach(function(x) {
-        kGrossQty   += x.qty || 0;
-        kGrossSales += x.qty * (x.price || 0);
-        kTotC       += x.purchasePrice ? x.qty * x.purchasePrice : 0;
-      });
-      (inv.returns || []).forEach(function(r) {
-        kRetQty        += r.qty || 0;
-        kSalesDeducted += r.salesDeducted || r.refundAmt || 0;
-      });
+    // ── Read computed values from existing KPI cards ─────────────────────
+    function parseKpiNum(text) {
+      var digits = text.replace(/[^\d]/g, '');
+      return digits ? parseInt(digits, 10) : 0;
+    }
+    var kNetProfit = 0, kRealQty = 0;
+    wrap.querySelectorAll('.kpi-card').forEach(function(card) {
+      var label = ((card.querySelector('.kpi-label') || {}).textContent || '').toLowerCase();
+      var valEl  = card.querySelector('.kpi-val');
+      if (!valEl) return;
+      var raw = valEl.textContent.trim();
+      if (label.indexOf('net profit') >= 0 || label.indexOf('adj gross profit') >= 0) {
+        kNetProfit = parseKpiNum(raw);
+      }
+      if (label.indexOf('real sales qty') >= 0) {
+        kRealQty = parseKpiNum(raw);
+      }
     });
-  });
 
-  var kRealQty     = kGrossQty - kRetQty;
-  var kRealSales   = kGrossSales - kSalesDeducted;
-  var kTotalProfit = kRealSales - kTotC;
-  var kAvgInvProfit = kInvCount > 0 ? Math.round(kTotalProfit / kInvCount) : 0;
-  var kAvgPcProfit  = kRealQty  > 0 ? Math.round(kTotalProfit / kRealQty)  : 0;
+    // ── Count invoices (rows with a YYYY-MM-DD date) ──────────────────────
+    var kInvCount = Array.from(wrap.querySelectorAll('tr')).filter(function(r) {
+      return /\d{4}-\d{2}-\d{2}/.test(r.textContent);
+    }).length;
 
-  var invCol = kAvgInvProfit >= 0 ? 'var(--green)' : 'var(--red)';
-  var pcCol  = kAvgPcProfit >= 3000 ? 'var(--green)'
-             : kAvgPcProfit >= 2000 ? 'var(--gold)' : 'var(--red)';
+    var kAvgInvProfit = kInvCount > 0 ? Math.round(kNetProfit / kInvCount) : 0;
+    var kAvgPcProfit  = kRealQty  > 0 ? Math.round(kNetProfit / kRealQty)  : 0;
 
-  var html =
-    '<div id="avgProfitKpiRow" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;">'
-    + '<div class="kpi-card" style="border-top:2px solid var(--green);background:rgba(16,185,129,.05);">'
-    +   '<div class="kpi-label">💰 AVG PROFIT / INVOICE</div>'
-    +   '<div class="kpi-val" style="color:' + invCol + ';">' + (kTotC > 0 ? fmtMoney(kAvgInvProfit) : '—') + '</div>'
-    +   '<div class="kpi-sub">total profit ÷ ' + kInvCount + ' invoices</div>'
-    + '</div>'
-    + '<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,.05);">'
-    +   '<div class="kpi-label">📊 AVG PROFIT / PC</div>'
-    +   '<div class="kpi-val" style="color:' + pcCol + ';">' + (kRealQty > 0 ? fmtMoney(kAvgPcProfit) : '—') + '</div>'
-    +   '<div class="kpi-sub">net profit ÷ ' + kRealQty + ' pcs · target ৳3000+</div>'
-    + '</div>'
-    + '</div>';
+    var invCol = kNetProfit >= 0 ? 'var(--green)' : 'var(--red)';
+    var pcCol  = kAvgPcProfit >= 3000 ? 'var(--green)'
+               : kAvgPcProfit >= 2000 ? 'var(--gold)' : 'var(--red)';
 
+    var html =
+      '<div id="avgProfitKpiRow" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;">'
+      + '<div class="kpi-card" style="border-top:2px solid var(--green);background:rgba(16,185,129,.05);">'
+      +   '<div class="kpi-label">💰 AVG PROFIT / INVOICE</div>'
+      +   '<div class="kpi-val" style="color:' + invCol + ';">' + (kInvCount > 0 ? fmtMoney(kAvgInvProfit) : '—') + '</div>'
+      +   '<div class="kpi-sub">total profit ÷ ' + kInvCount + ' invoices</div>'
+      + '</div>'
+      + '<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,.05);">'
+      +   '<div class="kpi-label">📊 AVG PROFIT / PC</div>'
+      +   '<div class="kpi-val" style="color:' + pcCol + ';">' + (kRealQty > 0 ? fmtMoney(kAvgPcProfit) : '—') + '</div>'
+      +   '<div class="kpi-sub">net profit ÷ ' + kRealQty + ' pcs · target ৳3000+</div>'
+      + '</div>'
+      + '</div>';
   var firstChild = wrap.firstElementChild;
   if (firstChild) firstChild.insertAdjacentHTML('afterend', html);
   else wrap.insertAdjacentHTML('afterbegin', html);
