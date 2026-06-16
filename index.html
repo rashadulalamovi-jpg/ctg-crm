@@ -1148,7 +1148,7 @@ function startRealtimeSync(){
   try{
     const stockUnsub = fsdb.collection('stockBatches').onSnapshot(function(snap){
       if(!snap.empty){
-        stockDB.batches = snap.docs.map(function(d){ return Object.assign({}, d.data(), {_fbId: d.id}); });
+        var _incomingBatches=snap.docs.map(function(d){return Object.assign({},d.data(),{_fbId:d.id});});stockDB.batches=_incomingBatches.map(function(nb){var lb=stockDB.batches.find(function(b){return b._fbId===nb._fbId;});if(lb&&(lb.qtySold||0)>(nb.qtySold||0)){nb.qtySold=lb.qtySold;}return nb;});
         saveStock(); renderAll();
       }
     }, function(err){ console.warn('Stock listener:', err); });
@@ -2182,7 +2182,7 @@ function addInvAddItem(){
   const model=mEl.value.trim(),desc=dEl?dEl.value.trim():'',qty=parseInt(qEl.value)||0,price=parseFloat(pEl.value)||0;
   const bp=parseFloat(mEl.dataset.bp||0)||null;
   if(!model||qty<1||price<1){notify('Model, Qty, Price \u09A6\u09BF\u09A8',true);return;}
-  const ex=addInvItems.find(function(x){return x.model.toLowerCase()===model.toLowerCase();});
+  var _stkAvail=0;stockDB.batches.filter(function(b){return b.model&&(b.model.toLowerCase().includes(model.toLowerCase())||model.toLowerCase().includes(b.model.toLowerCase()));}).forEach(function(b){_stkAvail+=Math.max(0,(b.qtyReceived||0)-(b.qtySold||0));});var _alreadyInInv=addInvItems.filter(function(x){return x.model.toLowerCase()===model.toLowerCase();}).reduce(function(a,x){return a+x.qty;},0);if(_stkAvail-_alreadyInInv<qty){notify('\u26A0\uFE0F Stock \u09A8\u09C7\u0987! Available: '+(_stkAvail-_alreadyInInv)+' pcs',true);return;}
   if(ex){ex.qty+=qty;ex.price=price;if(bp)ex.purchasePrice=bp;}
   else addInvItems.push({model:model,desc:desc,qty:qty,price:price,purchasePrice:bp});
   mEl.value='';mEl.dataset.bp='';qEl.value='';pEl.value='';
@@ -6316,7 +6316,7 @@ function saveReturn(){
 function removeInvoice(cid, invId){
   const c = db.customers.find(function(x){return x.id===cid;}); if(!c) return;
   if(!confirm('Invoice delete \u0995\u09B0\u09AC\u09C7\u09A8?')) return;
-  c.invoices = (c.invoices||[]).filter(function(i){return i.id!==invId;});
+  var _delInv=(c.invoices||[]).find(function(i){return i.id===invId;});c.invoices=(c.invoices||[]).filter(function(i){return i.id!==invId;});if(_delInv&&_delInv.items){_delInv.items.forEach(function(item){var matching=stockDB.batches.filter(function(b){return b.model&&(b.model.toLowerCase().includes(item.model.toLowerCase())||item.model.toLowerCase().includes(b.model.toLowerCase()));}).sort(function(a,b){return new Date(a.entryDate)-new Date(b.entryDate);});var rem=item.qty||1;matching.forEach(function(b){if(rem<=0)return;var s=Math.min(rem,b.qtySold||0);b.qtySold=Math.max(0,(b.qtySold||0)-s);rem-=s;if(s>0&&window._fbReady&&fsdb&&b._fbId){fsdb.collection('stockBatches').doc(b._fbId).set({qtySold:b.qtySold},{merge:true}).catch(function(){});}});});saveStock();}
   c.orders = c.invoices.length;
   c.sales = c.invoices.reduce(function(a,i){return a+(i.amt||0);},0);
   saveDB(); syncToFirebase();
