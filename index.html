@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>CTG Click Shop — Intelligent Royal CRM</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Tiro+Bangla&display=swap" rel="stylesheet">
-<style>
+<style>h
 :root{
   --bg:#080a0d;--bg2:#0d1117;--bg3:#121820;--bg4:#172030;
   --border:#1e2a3a;--border2:#263548;--border3:#2f4260;
@@ -2320,7 +2320,7 @@ function saveAddInvoice(){
     else c.intel.models.push({name:item.model,count:item.qty});
     const matching=stockDB.batches.filter(function(b){return b.model.toLowerCase().includes(item.model.toLowerCase())||item.model.toLowerCase().includes(b.model.toLowerCase());}).sort(function(a,b){return new Date(a.entryDate)-new Date(b.entryDate);});
     let rem=item.qty;
-    matching.forEach(function(b){if(rem<=0)return;const av=Math.max(0,(b.qtyReceived||0)-(b.qtySold||0));const s=Math.min(av,rem);b.qtySold=(b.qtySold||0)+s;rem-=s;});
+    matching.forEach(function(b){if(rem<=0)return;const av=Math.max(0,(b.qtyReceived||0)-(b.qtySold||0));const s=Math.min(av,rem);b.qtySold=(b.qtySold||0)+s;rem-=s;if(s>0&&window._fbReady&&fsdb&&b._fbId){fsdb.collection('stockBatches').doc(b._fbId).set({qtySold:b.qtySold},{merge:true}).catch(function(){});}});
   });
   saveStock();
   addInvItems=[]; addInvTargetId=null; addInvPendingRets=[];
