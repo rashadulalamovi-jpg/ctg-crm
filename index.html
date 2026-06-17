@@ -2199,6 +2199,7 @@ function addInvAddItem(){
   const bp=parseFloat(mEl.dataset.bp||0)||null;
   if(!model||qty<1||price<1){notify('Model, Qty, Price \u09A6\u09BF\u09A8',true);return;}
   var _stkAvail=0;stockDB.batches.filter(function(b){return b.model&&(b.model.toLowerCase().includes(model.toLowerCase())||model.toLowerCase().includes(b.model.toLowerCase()));}).forEach(function(b){_stkAvail+=Math.max(0,(b.qtyReceived||0)-(b.qtySold||0));});var _alreadyInInv=addInvItems.filter(function(x){return x.model.toLowerCase()===model.toLowerCase();}).reduce(function(a,x){return a+x.qty;},0);if(_stkAvail-_alreadyInInv<qty){notify('\u26A0\uFE0F Stock \u09A8\u09C7\u0987! Available: '+(_stkAvail-_alreadyInInv)+' pcs',true);return;}
+  const ex=addInvItems.find(function(x){return x.model.toLowerCase()===model.toLowerCase();});
   if(ex){ex.qty+=qty;ex.price=price;if(bp)ex.purchasePrice=bp;}
   else addInvItems.push({model:model,desc:desc,qty:qty,price:price,purchasePrice:bp});
   mEl.value='';mEl.dataset.bp='';qEl.value='';pEl.value='';
