@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>CTG Click Shop — Intelligent Royal CRM</title>
+<title>CTG Click Shop â Intelligent Royal CRM</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Tiro+Bangla&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -255,7 +255,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
 
 <!-- SYNC BAR -->
 <div class="sync-bar">
-  <span id="syncStatus" style="color:var(--text3);transition:opacity .5s">—</span>
+  <span id="syncStatus" style="color:var(--text3);transition:opacity .5s">â</span>
   <span style="flex:1"></span>
   <button class="btn btn-o" onclick="loadFromFirebase()" style="font-size:8px;padding:3px 10px">&#x2193; Firebase</button>
   <button class="btn btn-o" onclick="syncToFirebase()" style="font-size:8px;padding:3px 10px">&#x2191; Sync</button>
@@ -270,7 +270,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
 <div id="weekTargetBar" style="background:rgba(13,17,23,.97);border-bottom:1px solid rgba(232,33,26,.15);padding:0 24px">
   <!-- Row 1: Monthly + 4 weeks -->
   <div style="display:flex;align-items:center;gap:12px;padding:5px 0 3px;flex-wrap:wrap">
-    <div style="font-family:var(--fd);font-size:7px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--text3);white-space:nowrap">🎯 Monthly Target</div>
+    <div style="font-family:var(--fd);font-size:7px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--text3);white-space:nowrap">ð¯ Monthly Target</div>
     <div style="display:flex;align-items:center;gap:5px">
       <input id="monthTargetInput" type="number" min="0" placeholder="1200" style="width:70px;padding:3px 7px;font-family:var(--fm);font-size:11px;font-weight:700;text-align:center;background:rgba(23,32,48,.8);border:1px solid rgba(232,33,26,.3)" onkeydown="if(event.key==='Enter')saveMonthTarget()">
       <span style="font-family:var(--fm);font-size:9px;color:var(--text3)">pcs</span>
@@ -284,7 +284,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
         <div style="font-family:var(--fd);font-size:7px;letter-spacing:1px;text-transform:uppercase;color:var(--text3)">This Month</div>
         <div style="display:flex;gap:6px;align-items:center">
           <span id="monthActualQty" style="font-family:var(--fm);font-size:14px;font-weight:700;color:var(--gold)">0 pcs</span>
-          <span id="monthActualAmt" style="font-family:var(--fm);font-size:12px;font-weight:700;color:var(--red)">৳0</span>
+          <span id="monthActualAmt" style="font-family:var(--fm);font-size:12px;font-weight:700;color:var(--red)">à§³0</span>
         </div>
       </div>
     </div>
@@ -294,7 +294,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
     <div style="height:4px;background:rgba(255,255,255,.05);border-radius:2px;overflow:hidden;position:relative">
       <div id="monthTargetFill" style="height:100%;background:linear-gradient(90deg,var(--cyan),var(--gold));border-radius:2px;transition:width .5s;width:0%"></div>
     </div>
-    <div id="monthTargetStats" style="font-family:var(--fm);font-size:9px;color:var(--text3);margin-top:2px">—</div>
+    <div id="monthTargetStats" style="font-family:var(--fm);font-size:9px;color:var(--text3);margin-top:2px">â</div>
   </div>
 </div>
 
@@ -305,14 +305,14 @@ tr:hover td{background:rgba(232,33,26,.025)}
   <button class="nb" onclick="goTo('invoice',this)">&#x1F9FE; Sales</button>
   <button class="nb" onclick="goTo('stockage',this)">&#x1F4E6; Stock Age</button>
   <button class="nb" onclick="goTo('modeldemand',this)">&#x1F4C8; Model Demand</button>
-  <button class="nb" onclick="goTo('returns',this)">↩️ Returns</button>
-  <button class="nb" onclick="goTo('expensepage',this)">💸 Expense</button>
-  <button class="nb" onclick="goTo('assetspage',this)">📈 Net Worth</button>
+  <button class="nb" onclick="goTo('returns',this)">â©ï¸ Returns</button>
+  <button class="nb" onclick="goTo('expensepage',this)">ð¸ Expense</button>
+  <button class="nb" onclick="goTo('assetspage',this)">ð Net Worth</button>
 </nav>
 
 <div class="main">
 
-<!-- ═══ PIPELINE ══════════════════════════════════ -->
+<!-- âââ PIPELINE ââââââââââââââââââââââââââââââââââ -->
 <div id="pipeline" class="sec active">
   <div class="flex-between mb-18">
     <div>
@@ -324,7 +324,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
   <div class="pipeline" id="pipelineBoard"></div>
 </div>
 
-<!-- ═══ DASHBOARD ════════════════════════════════ -->
+<!-- âââ DASHBOARD ââââââââââââââââââââââââââââââââ -->
 <div id="dashboard" class="sec">
   <div class="flex-between mb-18">
     <div>
@@ -346,7 +346,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
   </div>
 </div>
 
-<!-- ═══ SALES DASHBOARD ═════════════════════════ -->
+<!-- âââ SALES DASHBOARD âââââââââââââââââââââââââ -->
 <div id="invoice" class="sec">
   <div class="flex-between mb-18">
     <div>
@@ -361,7 +361,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
   <div id="salesDashWrap"></div>
 </div>
 
-<!-- ═══ STOCK AGE ════════════════════════════════ -->
+<!-- âââ STOCK AGE ââââââââââââââââââââââââââââââââ -->
 <div id="stockage" class="sec">
   <div class="flex-between mb-18">
     <div>
@@ -373,7 +373,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
   <div id="waStockGen" style="margin-bottom:14px"></div>
   <!-- Stock Per Model -->
   <div style="margin-bottom:12px">
-    <div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">&#x1F4E6; Model Wise Stock — Available Now</div>
+    <div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">&#x1F4E6; Model Wise Stock â Available Now</div>
     <div id="stockModelSummary"></div>
   </div>
   <div class="g5 mb-14" id="stockBuckets"></div>
@@ -382,7 +382,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
     <button class="stab"        id="st_add"     onclick="switchStab('add')">+ &#x09A8;&#x09A4;&#x09C1;&#x09A8; Batch</button>
     <button class="stab"        id="st_slow"    onclick="switchStab('slow')">&#x26A0;&#xFE0F; Slow 45d+</button>
     <button class="stab"        id="st_dead"    onclick="switchStab('dead')">&#x1F480; Dead 90d+</button>
-    <button class="stab"        id="st_history" onclick="switchStab('history')">📊 Buy History</button>
+    <button class="stab"        id="st_history" onclick="switchStab('history')">ð Buy History</button>
   </div>
   <div id="capitalBlockers" style="margin-bottom:8px"></div>
   <div class="stab-c" id="sc_history"></div>
@@ -399,7 +399,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
       </div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>Model</th><th>Entry</th><th>বয়স;</th><th>Status</th><th>Rcvd</th><th>Sold±</th><th>Avail</th><th>Cost/pc</th><th>Sell Price</th><th>Profit/pc</th><th>ROI%</th><th>7D Sold</th><th>30D Sold</th><th>Return Qty</th><th>Return %</th><th>Sell-Out</th><th>Action</th><th>Rebuy</th><th></th></tr></thead>
+          <thead><tr><th>Model</th><th>Entry</th><th>à¦¬à¦¯à¦¼à¦¸;</th><th>Status</th><th>Rcvd</th><th>SoldÂ±</th><th>Avail</th><th>Cost/pc</th><th>Sell Price</th><th>Profit/pc</th><th>ROI%</th><th>7D Sold</th><th>30D Sold</th><th>Return Qty</th><th>Return %</th><th>Sell-Out</th><th>Action</th><th>Rebuy</th><th></th></tr></thead>
           <tbody id="stockTbody"></tbody>
         </table>
       </div>
@@ -414,8 +414,8 @@ tr:hover td{background:rgba(232,33,26,.025)}
         <div><label class="lbl">Brand</label><select id="sb_brand" style="font-size:11px"><option value="HP">HP</option><option value="Dell">Dell</option><option value="Lenovo">Lenovo</option><option value="Asus">Asus</option><option value="Acer">Acer</option><option value="Other">Other</option></select></div>
         <div><label class="lbl">Entry Date</label><input id="sb_d" type="date"></div>
         <div><label class="lbl">Qty</label><input id="sb_q" type="number" min="1" placeholder="0" style="text-align:center"></div>
-        <div><label class="lbl">Cost/pc ৳</label><input id="sb_c" type="number" min="0" placeholder="0" style="text-align:right;border-color:rgba(249,115,22,.3)"></div>
-        <div style="min-width:90px"><label class="lbl">Sell Price ৳</label><input id="sb_sp" type="number" min="0" placeholder="0" style="text-align:right;border-color:rgba(52,211,153,.3)"></div>
+        <div><label class="lbl">Cost/pc à§³</label><input id="sb_c" type="number" min="0" placeholder="0" style="text-align:right;border-color:rgba(249,115,22,.3)"></div>
+        <div style="min-width:90px"><label class="lbl">Sell Price à§³</label><input id="sb_sp" type="number" min="0" placeholder="0" style="text-align:right;border-color:rgba(52,211,153,.3)"></div>
         <div style="padding-top:16px"><button class="btn btn-r" onclick="addBatch()">+ Add</button></div>
       </div>
       <input id="sb_n" placeholder="Note (optional)..." style="width:100%">
@@ -441,7 +441,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
   </div>
 </div>
 
-<!-- ═══ MODEL DEMAND ════════════════════════════ -->
+<!-- âââ MODEL DEMAND ââââââââââââââââââââââââââââ -->
 <div id="modeldemand" class="sec">
   <div class="flex-between mb-18">
     <div>
@@ -449,7 +449,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
       <div style="font-size:11px;color:var(--text3);margin-top:3px">&#x0995;&#x09CB;&#x09A8; model &#x099F;&#x09BE;&#x0995;&#x09BE; &#x09AC;&#x09BE;&#x09A8;&#x09BE;&#x09AF;&#x09BC;, &#x0995;&#x09CB;&#x09A8; model &#x099F;&#x09BE;&#x0995;&#x09BE; &#x0986;&#x099F;&#x0995;&#x09C7; &#x09B0;&#x09BE;&#x0996;&#x09C7;</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
-      <select id="demandFilter" onchange="renderModelDemand()" style="font-size:10px;padding:4px 8px"><option value="all">All Models</option><option value="star">⭐ Star</option><option value="rebuy">✅ Rebuy</option><option value="lock">⚠️ Watch/Lock</option><option value="stop">❌ Stop Buy</option></select>
+      <select id="demandFilter" onchange="renderModelDemand()" style="font-size:10px;padding:4px 8px"><option value="all">All Models</option><option value="star">â­ Star</option><option value="rebuy">â Rebuy</option><option value="lock">â ï¸ Watch/Lock</option><option value="stop">â Stop Buy</option></select>
       <button class="btn btn-g" onclick="renderModelDemand()" style="font-size:9px">&#x1F504;</button>
     </div>
   </div>
@@ -479,17 +479,17 @@ tr:hover td{background:rgba(232,33,26,.025)}
   </div>
   <div class="g3">
     <div class="card"><div class="ctit" style="color:#fbbf24">&#x2B50; Star / Rebuy Models</div><div id="starList" style="margin-top:8px"></div></div>
-    <div class="card"><div class="ctit" style="color:var(--cyan)">👀 Watch / Offer Push</div><div id="watchList" style="margin-top:8px"></div></div>
-    <div class="card"><div class="ctit" style="color:var(--red)">🔒 Capital Lock / Stop Buy</div><div id="lockList" style="margin-top:8px"></div></div>
+    <div class="card"><div class="ctit" style="color:var(--cyan)">ð Watch / Offer Push</div><div id="watchList" style="margin-top:8px"></div></div>
+    <div class="card"><div class="ctit" style="color:var(--red)">ð Capital Lock / Stop Buy</div><div id="lockList" style="margin-top:8px"></div></div>
   </div>
 </div>
 
-<!-- ═══ RETURNS MODULE ═══════════════════════════════════════ -->
+<!-- âââ RETURNS MODULE âââââââââââââââââââââââââââââââââââââââ -->
 <div id="returns" class="sec">
   <div class="flex-between mb-18">
     <div>
-      <div style="font-family:var(--fd);font-size:22px;font-weight:800">↩️ Return Tracker</div>
-      <div style="font-family:var(--fm);font-size:10px;color:var(--text3)">QC improvement • Fix cost tracking • Customer return analysis</div>
+      <div style="font-family:var(--fd);font-size:22px;font-weight:800">â©ï¸ Return Tracker</div>
+      <div style="font-family:var(--fm);font-size:10px;color:var(--text3)">QC improvement â¢ Fix cost tracking â¢ Customer return analysis</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
       <select id="retPageFilter" onchange="renderReturnDashboard()" style="font-size:10px;padding:4px 8px;width:auto">
@@ -508,14 +508,14 @@ tr:hover td{background:rgba(232,33,26,.025)}
   <div id="retDashboard"></div>
 </div>
 
-<!-- ═══ EXPENSE MODULE ══════════════════════════════════════ -->
+<!-- âââ EXPENSE MODULE ââââââââââââââââââââââââââââââââââââââ -->
 <div id="expensepage" class="sec">
   <div class="flex-between mb-18">
     <div>
-      <div style="font-family:var(--fd);font-size:22px;font-weight:800">💸 Expense Tracker</div>
-      <div style="font-family:var(--fm);font-size:10px;color:var(--text3)">Office Expense • Return Fix Cost • Net Profit Calculation</div>
+      <div style="font-family:var(--fd);font-size:22px;font-weight:800">ð¸ Expense Tracker</div>
+      <div style="font-family:var(--fm);font-size:10px;color:var(--text3)">Office Expense â¢ Return Fix Cost â¢ Net Profit Calculation</div>
     </div>
-    <button class="btn btn-r" onclick="openExpenseForm()" style="font-size:11px">+ Expense যোগ করুন</button>
+    <button class="btn btn-r" onclick="openExpenseForm()" style="font-size:11px">+ Expense à¦¯à§à¦ à¦à¦°à§à¦¨</button>
   </div>
   <!-- KPI Cards -->
   <div id="expKpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px"></div>
@@ -524,7 +524,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
   <!-- Filters + Table -->
   <div class="card">
     <div class="flex-between mb-14">
-      <div class="ctit" style="margin:0">📋 Expense Log</div>
+      <div class="ctit" style="margin:0">ð Expense Log</div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <select id="expFiltPeriod" onchange="renderExpenseDashboard()" style="font-size:10px;padding:4px 8px;width:auto">
           <option value="all">All Time</option>
@@ -536,8 +536,8 @@ tr:hover td{background:rgba(232,33,26,.025)}
         <select id="expFiltCat" onchange="renderExpenseDashboard()" style="font-size:10px;padding:4px 8px;width:auto">
           <option value="">All Categories</option>
           <option value="salary">Salary</option>
-          <option value="lunch">দুপুরের খাবার</option>
-          <option value="snack">নাস্তা</option>
+          <option value="lunch">à¦¦à§à¦ªà§à¦°à§à¦° à¦à¦¾à¦¬à¦¾à¦°</option>
+          <option value="snack">à¦¨à¦¾à¦¸à§à¦¤à¦¾</option>
           <option value="courier">Courier Bill</option>
           <option value="bank_emi">Bank EMI</option>
           <option value="parts">Parts</option>
@@ -564,25 +564,25 @@ tr:hover td{background:rgba(232,33,26,.025)}
   </div>
 </div>
 
-<!-- ═══ ADD EXPENSE MODAL ═══════════════════════════════════ -->
+<!-- âââ ADD EXPENSE MODAL âââââââââââââââââââââââââââââââââââ -->
 <div class="modal-ov" id="expModal">
   <div class="modal" style="max-width:560px">
     <div class="modal-hdr" style="border-bottom-color:rgba(16,185,129,.3)">
-      <div class="modal-title" id="expModalTitle" style="color:var(--green)">💸 Expense যোগ করুন</div>
-      <button class="modal-x" onclick="closeModal('expModal')">✕</button>
+      <div class="modal-title" id="expModalTitle" style="color:var(--green)">ð¸ Expense à¦¯à§à¦ à¦à¦°à§à¦¨</div>
+      <button class="modal-x" onclick="closeModal('expModal')">â</button>
     </div>
     <div class="modal-body">
       <div class="fg-2" style="margin-bottom:10px">
-        <div class="fg"><label class="lbl">📅 Date</label><input type="date" id="ef_date"></div>
-        <div class="fg"><label class="lbl">Amount ৳</label><input type="number" id="ef_amt" min="0" placeholder="0" style="text-align:right"></div>
+        <div class="fg"><label class="lbl">ð Date</label><input type="date" id="ef_date"></div>
+        <div class="fg"><label class="lbl">Amount à§³</label><input type="number" id="ef_amt" min="0" placeholder="0" style="text-align:right"></div>
       </div>
       <div style="margin-bottom:10px">
         <label class="lbl">Category</label>
         <select id="ef_cat" onchange="updateExpType()">
-          <option value="">-- সিলেক্ট --</option>
+          <option value="">-- à¦¸à¦¿à¦²à§à¦à§à¦ --</option>
           <option value="salary">Salary</option>
-          <option value="lunch">দুপুরের খাবার</option>
-          <option value="snack">নাস্তা</option>
+          <option value="lunch">à¦¦à§à¦ªà§à¦°à§à¦° à¦à¦¾à¦¬à¦¾à¦°</option>
+          <option value="snack">à¦¨à¦¾à¦¸à§à¦¤à¦¾</option>
           <option value="courier">Courier Bill</option>
           <option value="bank_emi">Bank EMI</option>
           <option value="parts">Parts</option>
@@ -614,24 +614,24 @@ tr:hover td{background:rgba(232,33,26,.025)}
           <datalist id="staffList"><option value="Rashed"><option value="Imon"></datalist>
         </div>
         <div class="fg"><label class="lbl">Note (optional)</label>
-          <input id="ef_note" placeholder="বিস্তারিত...">
+          <input id="ef_note" placeholder="à¦¬à¦¿à¦¸à§à¦¤à¦¾à¦°à¦¿à¦¤...">
         </div>
       </div>
       <input type="hidden" id="ef_editId" value="">
       <div style="display:flex;justify-content:flex-end;gap:8px">
-        <button class="btn btn-o" onclick="closeModal('expModal')" style="font-size:10px">বাতিল</button>
-        <button class="btn" onclick="saveExpense()" style="font-size:10px;background:linear-gradient(135deg,var(--green),#059669);color:#fff">💸 Save</button>
+        <button class="btn btn-o" onclick="closeModal('expModal')" style="font-size:10px">à¦¬à¦¾à¦¤à¦¿à¦²</button>
+        <button class="btn" onclick="saveExpense()" style="font-size:10px;background:linear-gradient(135deg,var(--green),#059669);color:#fff">ð¸ Save</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ═══ NET WORTH & GROWTH TRACKER ══════════════════════════ -->
+<!-- âââ NET WORTH & GROWTH TRACKER ââââââââââââââââââââââââââ -->
 <div id="assetspage" class="sec">
   <div class="flex-between mb-18">
     <div>
-      <div style="font-family:var(--fd);font-size:22px;font-weight:800">📈 Net Worth &amp; Growth Tracker</div>
-      <div style="font-family:var(--fm);font-size:10px;color:var(--text3)">Assets • Liabilities • Net Worth • 3 Crore Working Capital Target</div>
+      <div style="font-family:var(--fd);font-size:22px;font-weight:800">ð Net Worth &amp; Growth Tracker</div>
+      <div style="font-family:var(--fm);font-size:10px;color:var(--text3)">Assets â¢ Liabilities â¢ Net Worth â¢ 3 Crore Working Capital Target</div>
     </div>
     <button class="btn btn-r" onclick="openAssetsForm(null)" style="font-size:11px">+ New Snapshot</button>
   </div>
@@ -646,52 +646,52 @@ tr:hover td{background:rgba(232,33,26,.025)}
   </div>
 </div>
 
-<!-- ═══ ADD SNAPSHOT MODAL ═══════════════════════════════════ -->
+<!-- âââ ADD SNAPSHOT MODAL âââââââââââââââââââââââââââââââââââ -->
 <div class="modal-ov" id="assetModal">
   <div class="modal" style="max-width:580px">
     <div class="modal-hdr" style="border-bottom-color:rgba(34,211,238,.3)">
       <div class="modal-title" id="assetModalTitle" style="color:var(--cyan)">+ New Snapshot</div>
-      <button class="modal-x" onclick="closeModal('assetModal')">✕</button>
+      <button class="modal-x" onclick="closeModal('assetModal')">â</button>
     </div>
     <div class="modal-body">
       <div style="margin-bottom:10px">
-        <label class="lbl">📅 Month (YYYY-MM)</label>
+        <label class="lbl">ð Month (YYYY-MM)</label>
         <input type="month" id="asf_month" style="max-width:180px">
       </div>
       <!-- ASSETS -->
-      <div style="font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--cyan);margin:10px 0 6px">💰 Assets</div>
+      <div style="font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--cyan);margin:10px 0 6px">ð° Assets</div>
       <div class="g3" style="gap:8px;margin-bottom:8px">
-        <div class="fg"><label class="lbl">Dubai Cash (৳)</label><input type="number" id="asf_dubai_cash" min="0" placeholder="0"></div>
-        <div class="fg"><label class="lbl">Dubai Inventory (৳)</label><input type="number" id="asf_dubai_inv" min="0" placeholder="0"></div>
-        <div class="fg"><label class="lbl">CTG Office Stock (৳)</label><input type="number" id="asf_ctg_stock" min="0" placeholder="0"></div>
+        <div class="fg"><label class="lbl">Dubai Cash (à§³)</label><input type="number" id="asf_dubai_cash" min="0" placeholder="0"></div>
+        <div class="fg"><label class="lbl">Dubai Inventory (à§³)</label><input type="number" id="asf_dubai_inv" min="0" placeholder="0"></div>
+        <div class="fg"><label class="lbl">CTG Office Stock (à§³)</label><input type="number" id="asf_ctg_stock" min="0" placeholder="0"></div>
       </div>
       <div class="g3" style="gap:8px;margin-bottom:10px">
-        <div class="fg"><label class="lbl">Customer Receivable (৳)</label><input type="number" id="asf_receivable" min="0" placeholder="0"></div>
-        <div class="fg"><label class="lbl">Bank Cash (৳)</label><input type="number" id="asf_bank_cash" min="0" placeholder="0"></div>
-        <div class="fg"><label class="lbl">Office Cash (৳)</label><input type="number" id="asf_office_cash" min="0" placeholder="0"></div>
+        <div class="fg"><label class="lbl">Customer Receivable (à§³)</label><input type="number" id="asf_receivable" min="0" placeholder="0"></div>
+        <div class="fg"><label class="lbl">Bank Cash (à§³)</label><input type="number" id="asf_bank_cash" min="0" placeholder="0"></div>
+        <div class="fg"><label class="lbl">Office Cash (à§³)</label><input type="number" id="asf_office_cash" min="0" placeholder="0"></div>
       </div>
-      <div class="fg" style="margin-bottom:12px"><label class="lbl">Other Assets (৳)</label><input type="number" id="asf_other_assets" min="0" placeholder="0" style="max-width:200px"></div>
+      <div class="fg" style="margin-bottom:12px"><label class="lbl">Other Assets (à§³)</label><input type="number" id="asf_other_assets" min="0" placeholder="0" style="max-width:200px"></div>
       <!-- LIABILITIES -->
-      <div style="font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--red);margin:4px 0 6px">🔴 Liabilities (Short-term)</div>
+      <div style="font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--red);margin:4px 0 6px">ð´ Liabilities (Short-term)</div>
       <div class="g3" style="gap:8px;margin-bottom:8px">
-        <div class="fg"><label class="lbl">Return Amount (৳)</label><input type="number" id="asf_return_amt" min="0" placeholder="0"></div>
-        <div class="fg"><label class="lbl">Supplier Payment (৳)</label><input type="number" id="asf_supplier" min="0" placeholder="0"></div>
-        <div class="fg"><label class="lbl">Nejam Commission (৳)</label><input type="number" id="asf_nejam" min="0" placeholder="0"></div>
+        <div class="fg"><label class="lbl">Return Amount (à§³)</label><input type="number" id="asf_return_amt" min="0" placeholder="0"></div>
+        <div class="fg"><label class="lbl">Supplier Payment (à§³)</label><input type="number" id="asf_supplier" min="0" placeholder="0"></div>
+        <div class="fg"><label class="lbl">Nejam Commission (à§³)</label><input type="number" id="asf_nejam" min="0" placeholder="0"></div>
       </div>
       <div class="g3" style="gap:8px;margin-bottom:10px">
-        <div class="fg"><label class="lbl">Hand Loan (৳)</label><input type="number" id="asf_hand_loan" min="0" placeholder="0"></div>
-        <div class="fg"><label class="lbl">Credit Card Bills (৳)</label><input type="number" id="asf_credit_card" min="0" placeholder="0"></div>
-        <div class="fg"><label class="lbl">Other Payables (৳)</label><input type="number" id="asf_other_payables" min="0" placeholder="0"></div>
+        <div class="fg"><label class="lbl">Hand Loan (à§³)</label><input type="number" id="asf_hand_loan" min="0" placeholder="0"></div>
+        <div class="fg"><label class="lbl">Credit Card Bills (à§³)</label><input type="number" id="asf_credit_card" min="0" placeholder="0"></div>
+        <div class="fg"><label class="lbl">Other Payables (à§³)</label><input type="number" id="asf_other_payables" min="0" placeholder="0"></div>
       </div>
       <div style="font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--orange);margin:4px 0 6px">Long-term Liabilities</div>
       <div class="g3" style="gap:8px;margin-bottom:14px">
-        <div class="fg"><label class="lbl">Bank Loan (৳)</label><input type="number" id="asf_bank_loan" min="0" placeholder="0"></div>
-        <div class="fg"><label class="lbl">EMI Business Loan (৳)</label><input type="number" id="asf_emi_loan" min="0" placeholder="0"></div>
-        <div class="fg"><label class="lbl">Other Long-term (৳)</label><input type="number" id="asf_other_lt" min="0" placeholder="0"></div>
+        <div class="fg"><label class="lbl">Bank Loan (à§³)</label><input type="number" id="asf_bank_loan" min="0" placeholder="0"></div>
+        <div class="fg"><label class="lbl">EMI Business Loan (à§³)</label><input type="number" id="asf_emi_loan" min="0" placeholder="0"></div>
+        <div class="fg"><label class="lbl">Other Long-term (à§³)</label><input type="number" id="asf_other_lt" min="0" placeholder="0"></div>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px">
-        <button class="btn btn-o" onclick="closeModal('assetModal')" style="font-size:10px">বাতিল</button>
-        <button class="btn" onclick="saveSnap()" style="font-size:10px;background:linear-gradient(135deg,var(--cyan),#0891b2);color:#000">💾 Save Snapshot</button>
+        <button class="btn btn-o" onclick="closeModal('assetModal')" style="font-size:10px">à¦¬à¦¾à¦¤à¦¿à¦²</button>
+        <button class="btn" onclick="saveSnap()" style="font-size:10px;background:linear-gradient(135deg,var(--cyan),#0891b2);color:#000">ð¾ Save Snapshot</button>
       </div>
     </div>
   </div>
@@ -700,7 +700,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
 </div><!-- /main -->
 </div><!-- /app -->
 
-<!-- ═══ CUSTOMER DETAIL MODAL ════════════════════ -->
+<!-- âââ CUSTOMER DETAIL MODAL ââââââââââââââââââââ -->
 <div class="modal-ov" id="custModal">
   <div class="modal" style="max-width:860px">
     <div class="modal-hdr">
@@ -712,7 +712,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
         <button class="mtab active" id="mt_overview"      onclick="showModalTab('overview')">&#x1F4CA; Overview</button>
         <button class="mtab"        id="mt_invoice"       onclick="showModalTab('invoice')">&#x1F9FE; Invoice</button>
         <button class="mtab"        id="mt_intelligence"  onclick="showModalTab('intelligence')">&#x1F9E0; Intelligence</button>
-        <button class="mtab"        id="mt_models"        onclick="showModalTab('models')">📈 Models</button>
+        <button class="mtab"        id="mt_models"        onclick="showModalTab('models')">ð Models</button>
         <button class="mtab"        id="mt_activity"      onclick="showModalTab('activity')">&#x1F4CB; Activity</button>
         <button class="mtab"        id="mt_checklist"     onclick="showModalTab('checklist')">&#x2705; Checklist</button>
       </div>
@@ -726,7 +726,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
   </div>
 </div>
 
-<!-- ═══ ADD/EDIT CUSTOMER MODAL ═════════════════ -->
+<!-- âââ ADD/EDIT CUSTOMER MODAL âââââââââââââââââ -->
 <div class="modal-ov" id="custFormModal">
   <div class="modal" style="max-width:480px">
     <div class="modal-hdr">
@@ -795,7 +795,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
   </div>
 </div>
 
-<!-- ═══ RETURN MODAL ════════════════════════════ -->
+<!-- âââ RETURN MODAL ââââââââââââââââââââââââââââ -->
 <div class="modal-ov" id="retModal">
   <div class="modal" style="max-width:500px">
     <div class="modal-hdr" style="border-bottom-color:rgba(249,115,22,.3)">
@@ -824,9 +824,9 @@ tr:hover td{background:rgba(232,33,26,.025)}
           <option value="">&#x2014; Select &#x2014;</option>
           <optgroup label="Hardware Issues">
             <option value="display">Display Issue (&#x1F4FA;)</option>
-            <option value="battery">Battery Issue (🔋)</option>
-            <option value="keyboard">Keyboard Problem (⌨️)</option>
-            <option value="charging">Charging Problem (⚡)</option>
+            <option value="battery">Battery Issue (ð)</option>
+            <option value="keyboard">Keyboard Problem (â¨ï¸)</option>
+            <option value="charging">Charging Problem (â¡)</option>
             <option value="body">Body / Condition Issue</option>
           </optgroup>
           <optgroup label="Software / Performance">
@@ -835,8 +835,8 @@ tr:hover td{background:rgba(232,33,26,.025)}
             <option value="spec_mismatch">Spec Mismatch</option>
           </optgroup>
           <optgroup label="Courier / QC">
-            <option value="courier_damage">Courier Damage (📦)</option>
-            <option value="qc_fail">QC Fail — Missed in Check</option>
+            <option value="courier_damage">Courier Damage (ð¦)</option>
+            <option value="qc_fail">QC Fail â Missed in Check</option>
           </optgroup>
           <optgroup label="Customer">
             <option value="cust_claim">Customer Claim (verify first)</option>
@@ -844,9 +844,9 @@ tr:hover td{background:rgba(232,33,26,.025)}
           </optgroup>
           <option value="other">Other</option>
         </select>
-        <input id="retReasonDetail" placeholder="বিস্তারিত লিখুন... (যেমন: display top-left cornerে দাগ ছিল)" style="display:none;font-family:var(--fu);font-size:10px;margin-top:0;border-color:rgba(249,115,22,.3)">
+        <input id="retReasonDetail" placeholder="à¦¬à¦¿à¦¸à§à¦¤à¦¾à¦°à¦¿à¦¤ à¦²à¦¿à¦à§à¦¨... (à¦¯à§à¦®à¦¨: display top-left cornerà§ à¦¦à¦¾à¦ à¦à¦¿à¦²)" style="display:none;font-family:var(--fu);font-size:10px;margin-top:0;border-color:rgba(249,115,22,.3)">
       </div>
-      <!-- Fix Cost — REAL LOSS -->
+      <!-- Fix Cost â REAL LOSS -->
       <div style="background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.2);border-radius:7px;padding:10px;margin-bottom:10px">
         <div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--orange);margin-bottom:7px">&#x1F4B8; Fix Cost (Real Loss)</div>
         <div class="fg-2">
@@ -865,24 +865,24 @@ tr:hover td{background:rgba(232,33,26,.025)}
             </select>
           </div>
         </div>
-        <div id="retFixHint" style="font-family:var(--fm);font-size:9px;color:var(--text3);margin-top:5px">Reason select করলে estimated fix cost দেখাবে</div>
+        <div id="retFixHint" style="font-family:var(--fm);font-size:9px;color:var(--text3);margin-top:5px">Reason select à¦à¦°à¦²à§ estimated fix cost à¦¦à§à¦à¦¾à¦¬à§</div>
       </div>
       <!-- Re-stock toggle -->
       
       <!-- Note -->
       <div style="margin-bottom:12px">
         <label class="lbl">Note (optional)</label>
-        <input id="retNote" placeholder="রিটার্ন সম্পর্কে বিস্তারিত..." style="font-family:var(--fu);font-size:11px">
+        <input id="retNote" placeholder="à¦°à¦¿à¦à¦¾à¦°à§à¦¨ à¦¸à¦®à§à¦ªà¦°à§à¦à§ à¦¬à¦¿à¦¸à§à¦¤à¦¾à¦°à¦¿à¦¤..." style="font-family:var(--fu);font-size:11px">
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px">
-        <button class="btn btn-o" onclick="closeModal('retModal')" style="font-size:10px">বাতিল</button>
+        <button class="btn btn-o" onclick="closeModal('retModal')" style="font-size:10px">à¦¬à¦¾à¦¤à¦¿à¦²</button>
         <button class="btn" onclick="saveReturn()" style="font-size:10px;background:linear-gradient(135deg,var(--orange),#e56400);color:#fff">&#x21A9;&#xFE0F; Save Return</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ═══ ADD INVOICE MODAL ════════════════════════ -->
+<!-- âââ ADD INVOICE MODAL ââââââââââââââââââââââââ -->
 <div class="modal-ov" id="addInvModal">
   <div class="modal" style="max-width:580px">
     <div class="modal-hdr">
@@ -927,24 +927,24 @@ tr:hover td{background:rgba(232,33,26,.025)}
 </div>
 
 
-<!-- ═══ DEMO PROMPT MODAL ══════════════════════ -->
+<!-- âââ DEMO PROMPT MODAL ââââââââââââââââââââââ -->
 <div class="modal-ov" id="demoModal" style="background:rgba(0,0,0,.9)">
   <div class="modal" style="max-width:420px">
     <div class="modal-hdr" style="border-bottom-color:rgba(251,191,36,.3)">
-      <div class="modal-title" style="color:#fbbf24">&#x1F381; Demo Data Load করুন</div>
+      <div class="modal-title" style="color:#fbbf24">&#x1F381; Demo Data Load à¦à¦°à§à¦¨</div>
       <button class="modal-x" onclick="closeModal('demoModal')">&#x2715;</button>
     </div>
     <div class="modal-body">
       <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.7;font-family:var(--fu)">
-        কোনো data নেই। Test করার জন্য demo data load করবেন?
+        à¦à§à¦¨à§ data à¦¨à§à¦à¥¤ Test à¦à¦°à¦¾à¦° à¦à¦¨à§à¦¯ demo data load à¦à¦°à¦¬à§à¦¨?
       </div>
       <div style="background:rgba(23,32,48,.6);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:16px;font-family:var(--fm);font-size:10px">
-        <div style="color:#fbbf24;font-weight:700;margin-bottom:7px">Demo-তে থাকবে:</div>
-        <div style="color:var(--text3);line-height:1.6">২ জন customer, stock batch, invoice ও return sample data</div>
+        <div style="color:#fbbf24;font-weight:700;margin-bottom:7px">Demo-à¦¤à§ à¦¥à¦¾à¦à¦¬à§:</div>
+        <div style="color:var(--text3);line-height:1.6">à§¨ à¦à¦¨ customer, stock batch, invoice à¦ return sample data</div>
       </div>
       <div style="margin-top:10px;text-align:center">
         <button onclick="loadFromFirebase();closeModal('demoModal')" style="background:none;border:none;color:var(--text3);font-family:var(--fm);font-size:10px;cursor:pointer;text-decoration:underline">
-          &#x2193; Firebase থেকে load করুন
+          &#x2193; Firebase à¦¥à§à¦à§ load à¦à¦°à§à¦¨
         </button>
       </div>
     </div>
@@ -964,13 +964,13 @@ tr:hover td{background:rgba(232,33,26,.025)}
 <datalist id="slist"></datalist>
 
 
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js">// ── Admin KPI Patch: Avg ROI + Avg Profit/Pc (Admin Only) ─────────────────────── function injectAdminKpiCards(){   var ADMIN='rashadulalamovi@gmail.com';   var auth=window.firebase&&window.firebase.auth&&window.firebase.auth();   if(!auth)return;   var cu=auth.currentUser;   if(!cu||cu.email!==ADMIN)return;   var wrap=document.getElementById('salesDashWrap');   if(!wrap||document.getElementById('adminKpiRow'))return;   var customers=db&&db.customers||[];   var fCust=(document.getElementById('sdFiltCust')||{}).value||'';   var fStat=(document.getElementById('sdFiltStat')||{}).value||'';   var fFrom=(document.getElementById('sdFiltFrom')||{}).value||'';   var fTo=(document.getElementById('sdFiltTo')||{}).value||'';   var fMonth=(document.getElementById('sdFiltMonth')||{}).value||'';   var kGrossQty=0,kTotC=0,kRetQty=0,kSalesDeducted=0,kGrossSales=0;   customers.forEach(function(c){     (c.invoices||[]).forEach(function(inv){       if(fCust&&String(c.id)!==fCust)return;       if(fStat&&inv.status!==fStat)return;       if(fFrom&&inv.date<fFrom)return;       if(fTo&&inv.date>fTo)return;       if(fMonth&&(inv.date||'').slice(0,7)!==fMonth)return;       (inv.items||[]).forEach(function(x){         kGrossQty+=x.qty||0;         kGrossSales+=x.qty*(x.price||0);         kTotC+=x.purchasePrice?x.qty*x.purchasePrice:0;       });       (inv.returns||[]).forEach(function(r){         kRetQty+=r.qty||0;         kSalesDeducted+=r.salesDeducted||r.refundAmt||0;       });     });   });   var kRealQty=kGrossQty-kRetQty;   var kRealSales=kGrossSales-kSalesDeducted;   var kAvgROI=kTotC>0?Math.round((kRealSales-kTotC)/kTotC*100):0;   var kAvgPcProfit=kRealQty>0?Math.round((kRealSales-kTotC)/kRealQty):0;   var roiCol=kAvgROI>=25?'var(--green)':kAvgROI>=15?'var(--warn)':'var(--red)';   var pcCol=kAvgPcProfit>=3000?'var(--green)':kAvgPcProfit>=2000?'var(--gold)':'var(--red)';   var html='<div id="adminKpiRow" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;">'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCC8 Average ROI</div>'     +'<div class="kpi-val" style="color:'+roiCol+';font-size:28px;">'+(kTotC>0?kAvgROI+'%':'\u2014')+'</div>'     +'<div class="kpi-sub">per invoice avg \u00B7 admin only</div></div>'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCB0 Avg Profit / Pc</div>'     +'<div class="kpi-val" style="color:'+pcCol+';font-size:28px;">'+(kRealQty>0?fmtMoney(kAvgPcProfit):'\u2014')+'</div>'     +'<div class="kpi-sub">net profit \u00F7 qty \u00B7 admin only</div></div></div>';   var ch=Array.from(wrap.children);   var fe=ch.find(function(el){return el.querySelector&&el.querySelector('#sdFiltCust');});   if(fe){fe.insertAdjacentHTML('beforebegin',html);}else{wrap.insertAdjacentHTML('beforeend',html);} } var _rsdOrig=window.renderSalesDashboard; window.renderSalesDashboard=function(){if(_rsdOrig)_rsdOrig.apply(this,arguments);setTimeout(injectAdminKpiCards,50);}; firebase.auth().onAuthStateChanged(function(u){   if(u&&u.email==='rashadulalamovi@gmail.com'){     setTimeout(function(){if(document.getElementById('salesDashWrap')&&!document.getElementById('adminKpiRow')){renderSalesDashboard();}},300);   } }); </script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js">// ── Admin KPI Patch: Avg ROI + Avg Profit/Pc (Admin Only) ─────────────────────── function injectAdminKpiCards(){   var ADMIN='rashadulalamovi@gmail.com';   var auth=window.firebase&&window.firebase.auth&&window.firebase.auth();   if(!auth)return;   var cu=auth.currentUser;   if(!cu||cu.email!==ADMIN)return;   var wrap=document.getElementById('salesDashWrap');   if(!wrap||document.getElementById('adminKpiRow'))return;   var customers=db&&db.customers||[];   var fCust=(document.getElementById('sdFiltCust')||{}).value||'';   var fStat=(document.getElementById('sdFiltStat')||{}).value||'';   var fFrom=(document.getElementById('sdFiltFrom')||{}).value||'';   var fTo=(document.getElementById('sdFiltTo')||{}).value||'';   var fMonth=(document.getElementById('sdFiltMonth')||{}).value||'';   var kGrossQty=0,kTotC=0,kRetQty=0,kSalesDeducted=0,kGrossSales=0;   customers.forEach(function(c){     (c.invoices||[]).forEach(function(inv){       if(fCust&&String(c.id)!==fCust)return;       if(fStat&&inv.status!==fStat)return;       if(fFrom&&inv.date<fFrom)return;       if(fTo&&inv.date>fTo)return;       if(fMonth&&(inv.date||'').slice(0,7)!==fMonth)return;       (inv.items||[]).forEach(function(x){         kGrossQty+=x.qty||0;         kGrossSales+=x.qty*(x.price||0);         kTotC+=x.purchasePrice?x.qty*x.purchasePrice:0;       });       (inv.returns||[]).forEach(function(r){         kRetQty+=r.qty||0;         kSalesDeducted+=r.salesDeducted||r.refundAmt||0;       });     });   });   var kRealQty=kGrossQty-kRetQty;   var kRealSales=kGrossSales-kSalesDeducted;   var kAvgROI=kTotC>0?Math.round((kRealSales-kTotC)/kTotC*100):0;   var kAvgPcProfit=kRealQty>0?Math.round((kRealSales-kTotC)/kRealQty):0;   var roiCol=kAvgROI>=25?'var(--green)':kAvgROI>=15?'var(--warn)':'var(--red)';   var pcCol=kAvgPcProfit>=3000?'var(--green)':kAvgPcProfit>=2000?'var(--gold)':'var(--red)';   var html='<div id="adminKpiRow" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;">'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCC8 Average ROI</div>'     +'<div class="kpi-val" style="color:'+roiCol+';font-size:28px;">'+(kTotC>0?kAvgROI+'%':'\u2014')+'</div>'     +'<div class="kpi-sub">per invoice avg \u00B7 admin only</div></div>'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCB0 Avg Profit / Pc</div>'     +'<div class="kpi-val" style="color:'+pcCol+';font-size:28px;">'+(kRealQty>0?fmtMoney(kAvgPcProfit):'\u2014')+'</div>'     +'<div class="kpi-sub">net profit \u00F7 qty \u00B7 admin only</div></div></div>';   var ch=Array.from(wrap.children);   var fe=ch.find(function(el){return el.querySelector&&el.querySelector('#sdFiltCust');});   if(fe){fe.insertAdjacentHTML('beforebegin',html);}else{wrap.insertAdjacentHTML('beforeend',html);} } var _rsdOrig=window.renderSalesDashboard; window.renderSalesDashboard=function(){if(_rsdOrig)_rsdOrig.apply(this,arguments);setTimeout(injectAdminKpiCards,50);}; firebase.auth().onAuthStateChanged(function(u){   if(u&&u.email==='rashadulalamovi@gmail.com'){     setTimeout(function(){if(document.getElementById('salesDashWrap')&&!document.getElementById('adminKpiRow')){renderSalesDashboard();}},300);   } }); </script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js">// ââ Admin KPI Patch: Avg ROI + Avg Profit/Pc (Admin Only) âââââââââââââââââââââââ function injectAdminKpiCards(){   var ADMIN='rashadulalamovi@gmail.com';   var auth=window.firebase&&window.firebase.auth&&window.firebase.auth();   if(!auth)return;   var cu=auth.currentUser;   if(!cu||cu.email!==ADMIN)return;   var wrap=document.getElementById('salesDashWrap');   if(!wrap||document.getElementById('adminKpiRow'))return;   var customers=db&&db.customers||[];   var fCust=(document.getElementById('sdFiltCust')||{}).value||'';   var fStat=(document.getElementById('sdFiltStat')||{}).value||'';   var fFrom=(document.getElementById('sdFiltFrom')||{}).value||'';   var fTo=(document.getElementById('sdFiltTo')||{}).value||'';   var fMonth=(document.getElementById('sdFiltMonth')||{}).value||'';   var kGrossQty=0,kTotC=0,kRetQty=0,kSalesDeducted=0,kGrossSales=0;   customers.forEach(function(c){     (c.invoices||[]).forEach(function(inv){       if(fCust&&String(c.id)!==fCust)return;       if(fStat&&inv.status!==fStat)return;       if(fFrom&&inv.date<fFrom)return;       if(fTo&&inv.date>fTo)return;       if(fMonth&&(inv.date||'').slice(0,7)!==fMonth)return;       (inv.items||[]).forEach(function(x){         kGrossQty+=x.qty||0;         kGrossSales+=x.qty*(x.price||0);         kTotC+=x.purchasePrice?x.qty*x.purchasePrice:0;       });       (inv.returns||[]).forEach(function(r){         kRetQty+=r.qty||0;         kSalesDeducted+=r.salesDeducted||r.refundAmt||0;       });     });   });   var kRealQty=kGrossQty-kRetQty;   var kRealSales=kGrossSales-kSalesDeducted;   var kAvgROI=kTotC>0?Math.round((kRealSales-kTotC)/kTotC*100):0;   var kAvgPcProfit=kRealQty>0?Math.round((kRealSales-kTotC)/kRealQty):0;   var roiCol=kAvgROI>=25?'var(--green)':kAvgROI>=15?'var(--warn)':'var(--red)';   var pcCol=kAvgPcProfit>=3000?'var(--green)':kAvgPcProfit>=2000?'var(--gold)':'var(--red)';   var html='<div id="adminKpiRow" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;">'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCC8 Average ROI</div>'     +'<div class="kpi-val" style="color:'+roiCol+';font-size:28px;">'+(kTotC>0?kAvgROI+'%':'\u2014')+'</div>'     +'<div class="kpi-sub">per invoice avg \u00B7 admin only</div></div>'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCB0 Avg Profit / Pc</div>'     +'<div class="kpi-val" style="color:'+pcCol+';font-size:28px;">'+(kRealQty>0?fmtMoney(kAvgPcProfit):'\u2014')+'</div>'     +'<div class="kpi-sub">net profit \u00F7 qty \u00B7 admin only</div></div></div>';   var ch=Array.from(wrap.children);   var fe=ch.find(function(el){return el.querySelector&&el.querySelector('#sdFiltCust');});   if(fe){fe.insertAdjacentHTML('beforebegin',html);}else{wrap.insertAdjacentHTML('beforeend',html);} } var _rsdOrig=window.renderSalesDashboard; window.renderSalesDashboard=function(){if(_rsdOrig)_rsdOrig.apply(this,arguments);setTimeout(injectAdminKpiCards,50);}; firebase.auth().onAuthStateChanged(function(u){   if(u&&u.email==='rashadulalamovi@gmail.com'){     setTimeout(function(){if(document.getElementById('salesDashWrap')&&!document.getElementById('adminKpiRow')){renderSalesDashboard();}},300);   } }); </script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js">// ââ Admin KPI Patch: Avg ROI + Avg Profit/Pc (Admin Only) âââââââââââââââââââââââ function injectAdminKpiCards(){   var ADMIN='rashadulalamovi@gmail.com';   var auth=window.firebase&&window.firebase.auth&&window.firebase.auth();   if(!auth)return;   var cu=auth.currentUser;   if(!cu||cu.email!==ADMIN)return;   var wrap=document.getElementById('salesDashWrap');   if(!wrap||document.getElementById('adminKpiRow'))return;   var customers=db&&db.customers||[];   var fCust=(document.getElementById('sdFiltCust')||{}).value||'';   var fStat=(document.getElementById('sdFiltStat')||{}).value||'';   var fFrom=(document.getElementById('sdFiltFrom')||{}).value||'';   var fTo=(document.getElementById('sdFiltTo')||{}).value||'';   var fMonth=(document.getElementById('sdFiltMonth')||{}).value||'';   var kGrossQty=0,kTotC=0,kRetQty=0,kSalesDeducted=0,kGrossSales=0;   customers.forEach(function(c){     (c.invoices||[]).forEach(function(inv){       if(fCust&&String(c.id)!==fCust)return;       if(fStat&&inv.status!==fStat)return;       if(fFrom&&inv.date<fFrom)return;       if(fTo&&inv.date>fTo)return;       if(fMonth&&(inv.date||'').slice(0,7)!==fMonth)return;       (inv.items||[]).forEach(function(x){         kGrossQty+=x.qty||0;         kGrossSales+=x.qty*(x.price||0);         kTotC+=x.purchasePrice?x.qty*x.purchasePrice:0;       });       (inv.returns||[]).forEach(function(r){         kRetQty+=r.qty||0;         kSalesDeducted+=r.salesDeducted||r.refundAmt||0;       });     });   });   var kRealQty=kGrossQty-kRetQty;   var kRealSales=kGrossSales-kSalesDeducted;   var kAvgROI=kTotC>0?Math.round((kRealSales-kTotC)/kTotC*100):0;   var kAvgPcProfit=kRealQty>0?Math.round((kRealSales-kTotC)/kRealQty):0;   var roiCol=kAvgROI>=25?'var(--green)':kAvgROI>=15?'var(--warn)':'var(--red)';   var pcCol=kAvgPcProfit>=3000?'var(--green)':kAvgPcProfit>=2000?'var(--gold)':'var(--red)';   var html='<div id="adminKpiRow" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;">'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCC8 Average ROI</div>'     +'<div class="kpi-val" style="color:'+roiCol+';font-size:28px;">'+(kTotC>0?kAvgROI+'%':'\u2014')+'</div>'     +'<div class="kpi-sub">per invoice avg \u00B7 admin only</div></div>'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCB0 Avg Profit / Pc</div>'     +'<div class="kpi-val" style="color:'+pcCol+';font-size:28px;">'+(kRealQty>0?fmtMoney(kAvgPcProfit):'\u2014')+'</div>'     +'<div class="kpi-sub">net profit \u00F7 qty \u00B7 admin only</div></div></div>';   var ch=Array.from(wrap.children);   var fe=ch.find(function(el){return el.querySelector&&el.querySelector('#sdFiltCust');});   if(fe){fe.insertAdjacentHTML('beforebegin',html);}else{wrap.insertAdjacentHTML('beforeend',html);} } var _rsdOrig=window.renderSalesDashboard; window.renderSalesDashboard=function(){if(_rsdOrig)_rsdOrig.apply(this,arguments);setTimeout(injectAdminKpiCards,50);}; firebase.auth().onAuthStateChanged(function(u){   if(u&&u.email==='rashadulalamovi@gmail.com'){     setTimeout(function(){if(document.getElementById('salesDashWrap')&&!document.getElementById('adminKpiRow')){renderSalesDashboard();}},300);   } }); </script>
 <script>
-// ════════════════════════════════════════════════════════
-// CTG CLICK SHOP — INTELLIGENT ROYAL CRM v2
-// Core: Config · Utils · DB · Firebase
-// ════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// CTG CLICK SHOP â INTELLIGENT ROYAL CRM v2
+// Core: Config Â· Utils Â· DB Â· Firebase
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 const LS_KEY    = 'ctgcrm_v18';
 const STOCK_KEY = 'ctgstock_v2';
 const TODAY     = new Date().toISOString().split('T')[0];
@@ -1002,11 +1002,11 @@ let invItems = {};
 let retTarget = {};
 let _detailId = null;
 
-// ── Utils ───────────────────────────────────────────────
+// ââ Utils âââââââââââââââââââââââââââââââââââââââââââââââ
 function getAge(d){ const a=Math.floor((Date.now()-new Date(d).getTime())/86400000); return a<0?0:a; }
 function fmtDate(d){
-  if(!d) return '—';
-  var months=['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+  if(!d) return 'â';
+  var months=['à¦à¦¾à¦¨à§à¦¯à¦¼à¦¾à¦°à¦¿','à¦«à§à¦¬à§à¦°à§à¦¯à¦¼à¦¾à¦°à¦¿','à¦®à¦¾à¦°à§à¦','à¦à¦ªà§à¦°à¦¿à¦²','à¦®à§','à¦à§à¦¨','à¦à§à¦²à¦¾à¦','à¦à¦à¦¸à§à¦','à¦¸à§à¦ªà§à¦à§à¦®à§à¦¬à¦°','à¦à¦à§à¦à§à¦¬à¦°','à¦¨à¦­à§à¦®à§à¦¬à¦°','à¦¡à¦¿à¦¸à§à¦®à§à¦¬à¦°'];
   var obj=new Date(d); if(isNaN(obj)) return d;
   return obj.getDate()+' '+months[obj.getMonth()]+' '+obj.getFullYear();
 }
@@ -1039,7 +1039,7 @@ function closeModal(id){ const m=document.getElementById(id); if(m) m.classList.
 function openModalById(id){ const m=document.getElementById(id); if(m) m.classList.add('open'); }
 function sanitize(o){ return JSON.parse(JSON.stringify(o,(k,v)=>v===undefined?null:v)); }
 
-// ── Migrate / DB ────────────────────────────────────────
+// ââ Migrate / DB ââââââââââââââââââââââââââââââââââââââââ
 function migrate(c){
   const out = Object.assign({}, c);
   out.id = c.id || Date.now();
@@ -1085,7 +1085,7 @@ function saveDB(){ db._savedAt = Date.now(); localStorage.setItem(LS_KEY, JSON.s
 function saveStock(){ localStorage.setItem(STOCK_KEY, JSON.stringify(stockDB)); }
 
 var _rtListeners = [];
-// ── Firebase ────────────────────────────────────────────
+// ââ Firebase ââââââââââââââââââââââââââââââââââââââââââââ
 let fsdb = null;
 try{
   firebase.initializeApp(FB_CFG);
@@ -1127,18 +1127,18 @@ async function syncToFirebase(){
   }catch(e){ showSync('\u26A0\uFE0F Sync error'); console.error(e); }
 }
 
-// ── Real-time listeners ──────────────────────────────────
+// ââ Real-time listeners ââââââââââââââââââââââââââââââââââ
 function _stopRtListeners(){
   _rtListeners.forEach(function(u){ try{ u(); }catch(e){} });
   _rtListeners = [];
 }
 
 function startRealtimeSync(){
-  if(!window._fbReady || !fsdb){ showSync('⚠️ Offline'); return; }
+  if(!window._fbReady || !fsdb){ showSync('â ï¸ Offline'); return; }
   _stopRtListeners();
-  showSync('📡 Real-time active...');
+  showSync('ð¡ Real-time active...');
 
-  // ── Customers real-time listener ──
+  // ââ Customers real-time listener ââ
   const custUnsub = fsdb.collection('customers').onSnapshot(function(snap){
     if(snap.empty){ db.customers = []; saveDB(); renderAll(); return; }
     const custs = snap.docs.map(function(d){ return Object.assign({id: parseInt(d.id)||d.id}, d.data()); });
@@ -1153,14 +1153,14 @@ function startRealtimeSync(){
         saveDB(); renderAll();
       });
     }catch(e){ saveDB(); renderAll(); }
-    showSync('🟢 Live • ' + db.customers.length + ' customers');
+    showSync('ð¢ Live â¢ ' + db.customers.length + ' customers');
   }, function(err){
-    showSync('⚠️ Listener: ' + err.message);
+    showSync('â ï¸ Listener: ' + err.message);
     console.error('Customer listener error:', err);
   });
   _rtListeners.push(custUnsub);
 
-  // ── Stock real-time listener ──
+  // ââ Stock real-time listener ââ
   try{
     const stockUnsub = fsdb.collection('stockBatches').onSnapshot(function(snap){
       if(!snap.empty){
@@ -1171,7 +1171,7 @@ function startRealtimeSync(){
     _rtListeners.push(stockUnsub);
   }catch(e){}
 
-  // ── Tasks real-time listener ──
+  // ââ Tasks real-time listener ââ
   try{
     const taskUnsub = fsdb.collection('meta').doc('tasks').onSnapshot(function(docSnap){
       if(docSnap.exists){
@@ -1182,7 +1182,7 @@ function startRealtimeSync(){
     _rtListeners.push(taskUnsub);
   }catch(e){}
 
-  notify('📡 Real-time sync চালু হয়েছে');
+  notify('ð¡ Real-time sync à¦à¦¾à¦²à§ à¦¹à§à§à¦à§');
 }
 
 async function loadFromFirebase(){
@@ -1220,10 +1220,10 @@ function importJSON(ev){
   ev.target.value = '';
 }
 
-// ════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // INTELLIGENCE ENGINE
 // Weights: Payment 30 / Return 25 / Order 20 / Demand 15 / Comm 10
-// ════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 function computePayment(c){
   const invs = c.invoices||[];
@@ -1334,9 +1334,9 @@ function computeReturn(c){
   const retQty = rets.reduce((a,r)=>a+r.qty,0);
   const retPct = totQty>0 ? Math.round(retQty/totQty*1000)/10 : 0;
 
-  // CORRECT: salesDeducted = return qty × sell price (revenue reduction, NOT loss)
+  // CORRECT: salesDeducted = return qty Ã sell price (revenue reduction, NOT loss)
   const totalSalesDeducted = rets.reduce((a,r)=>a+(r.salesDeducted||r.refundAmt||0),0);
-  // CORRECT: costAdjusted = return qty × buy price (COGS reduction, item back in stock)
+  // CORRECT: costAdjusted = return qty Ã buy price (COGS reduction, item back in stock)
   const totalCostAdjusted  = rets.reduce((a,r)=>a+(r.costAdjusted||0),0);
   // CORRECT: fixCost = actual repair cost = REAL LOSS
   const totalFixCost = rets.reduce((a,r)=>a+(r.fixCost||0)*r.qty,0);
@@ -1480,7 +1480,7 @@ function getRiskBadges(c){
   return badges;
 }
 
-// ── Auto Stage Movement ─────────────────────────────────
+// ââ Auto Stage Movement âââââââââââââââââââââââââââââââââ
 function suggestStage(c){
   const ix = computeIntel(c);
   const n = ix.ord.total;
@@ -1516,7 +1516,7 @@ function applyAutoStage(cid){
   notify('\u2705 '+c.name+': '+stageName(old)+' \u2192 '+stageName(sugg));
 }
 
-// ── Model-Customer Matching ─────────────────────────────
+// ââ Model-Customer Matching âââââââââââââââââââââââââââââ
 function getModelMatches(c){
   const ix = computeIntel(c);
   const avail = stockDB.batches.filter(b=>Math.max(0,(b.qtyReceived||0)-(b.qtySold||0))>0);
@@ -1548,9 +1548,9 @@ function copyWA(custId, model){
   navigator.clipboard.writeText(msg).then(function(){ notify('\u2705 WA message copied!'); }).catch(function(){ notify('Copy failed', true); });
 }
 
-// ════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // PIPELINE + DASHBOARD
-// ════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 function checkInactive(){
   db.customers.forEach(function(c){
@@ -1617,7 +1617,7 @@ function renderPipeline(){
       html += '<div class="ccard'+(sg.id===7?' royal-glow':'')+'\" onclick="openDetail('+c.id+')">';
       html += '<div class="cc-score" style="background:'+sc+'22;color:'+sc+';border-color:'+sc+'">'+ix.total+'</div>';
       html += '<div class="cc-name">'+(c.org&&c.org!==c.name?c.org:c.name)+'</div>';
-      html += '<div class="cc-meta" style="font-size:8px;color:var(--text3)">'+(c.org&&c.org!==c.name?c.name+' · ':'')+''+(c.city||'\u2014')+' \u00B7 '+ix.ord.totQty+'pcs</div>';
+      html += '<div class="cc-meta" style="font-size:8px;color:var(--text3)">'+(c.org&&c.org!==c.name?c.name+' Â· ':'')+''+(c.city||'\u2014')+' \u00B7 '+ix.ord.totQty+'pcs</div>';
 
       // Active business status row
       if(trList.length>0||duList.length>0){
@@ -1691,7 +1691,7 @@ function renderHdrStats(){
   el.innerHTML = h;
 }
 
-// ── Dashboard 12 KPI ────────────────────────────────────
+// ââ Dashboard 12 KPI ââââââââââââââââââââââââââââââââââââ
 function renderDashboard(){
   const el = document.getElementById('dashKpis'); if(!el) return;
   checkInactive();
@@ -1770,9 +1770,9 @@ function renderDashboard(){
   }
 }
 
-// ════════════════════════════════════════════════════════
-// CUSTOMER DETAIL MODAL — 5 tabs
-// ════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// CUSTOMER DETAIL MODAL â 5 tabs
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function openDetail(id){
   const c = db.customers.find(x=>x.id===id); if(!c) return;
   _detailId = id;
@@ -1799,7 +1799,7 @@ function showModalTab(tab, id){
   if(tab==='checklist') renderTabChecklist(c);
 }
 
-// ── Tab: Overview ───────────────────────────────────────
+// ââ Tab: Overview âââââââââââââââââââââââââââââââââââââââ
 function renderTabOverview(c){
   const el = document.getElementById('mtc_overview'); if(!el) return;
   const ix = computeIntel(c);
@@ -1922,7 +1922,7 @@ function deleteCustomer(cid){
   notify('\u{1F5D1} '+c.name+' deleted');
 }
 
-// ── Tab: Intelligence ───────────────────────────────────
+// ââ Tab: Intelligence âââââââââââââââââââââââââââââââââââ
 function patternCard(title, badge, badgeColor, rows){
   let h = '<div style="background:rgba(18,24,32,.95);border:1px solid var(--border);border-radius:var(--r);padding:13px">';
   h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">';
@@ -2033,11 +2033,11 @@ function renderTabIntel(c){
   el.innerHTML = h;
 }
 
-// ════════════════════════════════════════════════════════
-// INVOICE v2 — Full Sales Dashboard + Enhanced Customer Invoice
-// ════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// INVOICE v2 â Full Sales Dashboard + Enhanced Customer Invoice
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
-// ── Migrate invoice to v2 schema ────────────────────────
+// ââ Migrate invoice to v2 schema ââââââââââââââââââââââââ
 function migrateInvoice(inv){
   return Object.assign({
     dueDate: null, promiseDate: null, promiseMet: null,
@@ -2055,7 +2055,7 @@ function migrateInvoice(inv){
   });
 }
 
-// ── Risk badges for a single invoice ────────────────────
+// ââ Risk badges for a single invoice ââââââââââââââââââââ
 function getInvBadges(inv, creditLimit){
   const iA = (inv.items||[]).reduce(function(a,x){return a+x.qty*(x.price||0);},0);
   const iC = (inv.items||[]).reduce(function(a,x){return a+(x.purchasePrice?x.qty*x.purchasePrice:0);},0);
@@ -2098,15 +2098,15 @@ function getNextOrderDecision(c){
   return {decision:'Allow', color:'var(--green)', bg:'rgba(52,211,153,.12)', why:'\u0995\u09CB\u09A8\u09CB due \u09A8\u09C7\u0987'};
 }
 
-// ── SALES DASHBOARD (full business view) ────────────────
+// ââ SALES DASHBOARD (full business view) ââââââââââââââââ
 
 
 
-// ── Add Invoice in Sales Dashboard ───────────────────────
+// ââ Add Invoice in Sales Dashboard âââââââââââââââââââââââ
 function refreshStockList(){
   var dl=document.getElementById('slist'); if(!dl) return;
   dl.innerHTML='';
-  // Merge all batches by model — total available qty
+  // Merge all batches by model â total available qty
   var merged={};
   stockDB.batches.forEach(function(b){
     var avail=Math.max(0,(b.qtyReceived||0)-(b.qtySold||0));
@@ -2123,7 +2123,7 @@ function refreshStockList(){
   Object.keys(merged).sort().forEach(function(model){
     var opt=document.createElement('option');
     opt.value=model;
-    opt.label=model+' — '+merged[model]+'pcs available';
+    opt.label=model+' â '+merged[model]+'pcs available';
     dl.appendChild(opt);
   });
 }
@@ -2281,7 +2281,7 @@ function copyInvSummaryWA(){
   if(!addInvTargetId||!addInvItems.length){notify('Customer \u0993 Model \u09AF\u09CB\u0997 \u0995\u09B0\u09C1\u09A8',true);return;}
   var cu=db.customers.find(function(c){return c.id===addInvTargetId;});
   if(!cu){notify('Customer not found',true);return;}
-  var invNo=((document.getElementById('addInvNo')||{}).value||'—').trim();
+  var invNo=((document.getElementById('addInvNo')||{}).value||'â').trim();
   var invDate=(document.getElementById('addInvDate')||{}).value||TODAY;
   var status=(document.getElementById('addInvStat')||{}).value||'transit';
   var d=new Date(invDate);
@@ -2350,7 +2350,7 @@ function saveAddInvoice(){
   notify('\u2705 Invoice '+no+' saved!');
 }
 
-// ── Render single enhanced invoice card ─────────────────
+// ââ Render single enhanced invoice card âââââââââââââââââ
 function renderInvoiceCard(c, inv, showCustInfo){
   inv = migrateInvoice(inv);
   const iQ  = (inv.items||[]).reduce(function(a,x){return a+x.qty;},0);
@@ -2401,7 +2401,7 @@ function renderInvoiceCard(c, inv, showCustInfo){
   let h='';
   h+='<div style="background:rgba(18,24,32,.9);border:1px solid var(--border);border-radius:var(--rl);padding:14px;margin-bottom:12px">';
 
-  // ── Header row
+  // ââ Header row
   h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px">';
   if(showCustInfo){
     h+='<div onclick="openDetail('+c.id+')" style="cursor:pointer;display:flex;align-items:center;gap:6px;padding:3px 9px;background:rgba(232,33,26,.08);border:1px solid rgba(232,33,26,.2);border-radius:20px">';
@@ -2421,14 +2421,14 @@ function renderInvoiceCard(c, inv, showCustInfo){
   }
   h+='</div>';
 
-  // ── Risk badges
+  // ââ Risk badges
   if(badges.length){
     h+='<div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:9px">';
     badges.forEach(function(b){ h+='<span class="rb '+b.cls+'">'+b.label+'</span>'; });
     h+='</div>';
   }
 
-  // ── Product table
+  // ââ Product table
   h+='<div style="background:rgba(10,13,18,.5);border:1px solid rgba(255,255,255,.06);border-radius:7px;margin-bottom:10px;overflow:hidden">';
   h+='<table><thead><tr><th>Model</th><th>Qty</th><th>Sell/pc</th><th>Buy/pc</th><th>Profit</th><th>Per/pc</th><th>ROI</th><th>Total</th></tr></thead><tbody>';
   (inv.items||[]).forEach(function(x){
@@ -2457,7 +2457,7 @@ function renderInvoiceCard(c, inv, showCustInfo){
   h+='<div style="flex:1"><span style="font-family:var(--fd);font-size:7px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3)">Net ROI</span><br><span style="font-family:var(--fm);font-size:12px;font-weight:700;color:'+(netROI!==null?(netROI>=15?'var(--green)':netROI>=10?'var(--warn)':'var(--red)'):'var(--text3)')+'">'+(netROI!==null?netROI+'%':'\u2014')+'</span></div>';
   h+='</div></div>';
 
-  // ── Payment tracker
+  // ââ Payment tracker
   h+='<div style="margin-bottom:10px;background:rgba(52,211,153,.03);border:1px solid rgba(52,211,153,.12);border-radius:8px;padding:11px">';
   h+='<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:8px">';
   h+='<span style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--green)">\u{1F4B3} Payment Tracker</span>';
@@ -2524,7 +2524,7 @@ function renderInvoiceCard(c, inv, showCustInfo){
   if(iDueNet>0){
     h+='<button onclick="sendWAReminder('+c.id+','+inv.id+')" ';
     h+='style="width:100%;margin:7px 0 5px;padding:9px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn);border-radius:6px;cursor:pointer;font-family:var(--fd);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">';
-    h+='⏰ WA Due Reminder পাঠান — '+_tk.overdueDays+'d overdue · Due: ৳'+fmtNum(iDue);
+    h+='â° WA Due Reminder à¦ªà¦¾à¦ à¦¾à¦¨ â '+_tk.overdueDays+'d overdue Â· Due: à§³'+fmtNum(iDue);
     h+='</button>';
   }
   // Add payment
@@ -2537,10 +2537,10 @@ function renderInvoiceCard(c, inv, showCustInfo){
   h+='<div style="padding-top:15px"><button onclick="addPaymentV2('+c.id+','+inv.id+')" style="font-size:9px;padding:5px 10px;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:var(--green);border-radius:4px;cursor:pointer;font-family:var(--fd);font-weight:700">+ Add</button></div>';
   h+='</div>';
   h+='<button onclick="genPayReport('+c.id+','+inv.id+')" class="wa-btn" style="margin-top:7px;padding:8px">\u{1F4F1} WhatsApp Payment Report</button>';
-  h+='<button onclick="copyBankInfoWA()" style="width:100%;margin-top:5px;padding:8px;background:rgba(77,163,255,.08);border:1px solid rgba(77,163,255,.3);color:var(--blue);border-radius:7px;cursor:pointer;font-family:var(--fd);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">🏛 Bank Account Info Copy</button>';
+  h+='<button onclick="copyBankInfoWA()" style="width:100%;margin-top:5px;padding:8px;background:rgba(77,163,255,.08);border:1px solid rgba(77,163,255,.3);color:var(--blue);border-radius:7px;cursor:pointer;font-family:var(--fd);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">ð Bank Account Info Copy</button>';
   h+='</div>';
 
-  // ── Courier & Warranty (Enhanced)
+  // ââ Courier & Warranty (Enhanced)
   var _cbDate = inv.courierBookingDate || inv.date; // auto = invoice date
   var _crDate = inv.courierReachedDate || inv.courierDate || null;
   var _rcDate = inv.customerReceivedDate || inv.receivedDate || null;
@@ -2561,7 +2561,7 @@ function renderInvoiceCard(c, inv, showCustInfo){
   h+='<span style="font-family:var(--fm);font-size:9px;font-weight:700;color:'+_wColor+'">\u{1F6E1}\uFE0F Warranty: '+_wRemainLabel+' (ends '+fmtDate_en(_wEnd)+')</span>';
   h+='</div>';
 
-  // Row 1: Booking · Reached · Received
+  // Row 1: Booking Â· Reached Â· Received
   h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:8px">';
   h+='<div><label class="lbl" style="font-size:7px">\u{1F4E6} Courier Booking Date (Auto)</label>';
   h+='<input id="cf_cb_'+c.id+'_'+inv.id+'" type="date" value="'+_cbDate+'" onchange="saveCourierField('+c.id+','+inv.id+',\'_cb\')" style="padding:5px 7px;font-size:10px;font-weight:700;border-color:rgba(77,163,255,.3)"></div>';
@@ -2571,7 +2571,7 @@ function renderInvoiceCard(c, inv, showCustInfo){
   h+='<input id="cf_rc_'+c.id+'_'+inv.id+'" type="date" value="'+(_rcDate||'')+'" onchange="saveCourierField('+c.id+','+inv.id+',\'_rc\')" style="padding:5px 7px;font-size:10px"></div>';
   h+='</div>';
 
-  // Row 2: Courier Company · Slip · Warranty Days
+  // Row 2: Courier Company Â· Slip Â· Warranty Days
   h+='<div style="display:grid;grid-template-columns:1fr 1fr 100px;gap:7px;margin-bottom:8px">';
   h+='<div><label class="lbl" style="font-size:7px">Courier Company</label>';
   h+='<input id="cf_cc_'+c.id+'_'+inv.id+'" placeholder="Sundarban, SA..." value="'+esc(inv.courierCompany||'')+'" onchange="saveCourierField('+c.id+','+inv.id+',\'_cc\')" style="padding:5px 7px;font-size:10px"></div>';
@@ -2584,9 +2584,9 @@ function renderInvoiceCard(c, inv, showCustInfo){
   // Delivery tracking metrics
   h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px">';
   var metrics=[
-    {label:'\u{1F4E6}\u2192\u{1F3E2} Hub Days',  val:_dToHub!==null?_dToHub+'d':'—',  color:_dToHub!==null&&_dToHub<=2?'var(--green)':_dToHub!==null&&_dToHub<=4?'var(--warn)':'var(--orange)'},
-    {label:'\u{1F3E2}\u2192\u2705 Rcv Days', val:_dToRcv!==null?_dToRcv+'d':'—',  color:_dToRcv!==null&&_dToRcv<=1?'var(--green)':'var(--warn)'},
-    {label:'\u23F1 Total Days',     val:_dTotal!==null?_dTotal+'d':'—',  color:_dTotal!==null&&_dTotal<=4?'var(--green)':_dTotal!==null&&_dTotal<=7?'var(--warn)':'var(--red)'},
+    {label:'\u{1F4E6}\u2192\u{1F3E2} Hub Days',  val:_dToHub!==null?_dToHub+'d':'â',  color:_dToHub!==null&&_dToHub<=2?'var(--green)':_dToHub!==null&&_dToHub<=4?'var(--warn)':'var(--orange)'},
+    {label:'\u{1F3E2}\u2192\u2705 Rcv Days', val:_dToRcv!==null?_dToRcv+'d':'â',  color:_dToRcv!==null&&_dToRcv<=1?'var(--green)':'var(--warn)'},
+    {label:'\u23F1 Total Days',     val:_dTotal!==null?_dTotal+'d':'â',  color:_dTotal!==null&&_dTotal<=4?'var(--green)':_dTotal!==null&&_dTotal<=7?'var(--warn)':'var(--red)'},
     {label:'\u{1F6E1}\uFE0F Warranty Left', val:_wRemain+'d',                    color:_wColor},
   ];
   metrics.forEach(function(m){
@@ -2601,12 +2601,12 @@ function renderInvoiceCard(c, inv, showCustInfo){
   h+='<div style="display:flex;gap:6px;flex-wrap:wrap">';
   h+='<button onclick="markWarranty('+c.id+','+inv.id+',\'active\')" style="font-size:8px;padding:4px 10px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.3);color:var(--green);border-radius:4px;cursor:pointer;font-family:var(--fd);font-weight:700">\u{1F6E1}\uFE0F Warranty Active</button>';
   h+='<button onclick="markWarranty('+c.id+','+inv.id+',\'closed\')" style="font-size:8px;padding:4px 10px;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text3);border-radius:4px;cursor:pointer;font-family:var(--fd);font-weight:700">\u2705 Close Warranty</button>';
-  h+='<button onclick="courierArrivalWA('+c.id+','+inv.id+')" style="font-size:8px;padding:4px 11px;background:rgba(77,163,255,.08);border:1px solid rgba(77,163,255,.3);color:var(--blue);border-radius:4px;cursor:pointer;font-family:var(--fd);font-weight:700">\u{1F4F1} WA: কুরিয়ারে পৌঁছেছে</button>';
+  h+='<button onclick="courierArrivalWA('+c.id+','+inv.id+')" style="font-size:8px;padding:4px 11px;background:rgba(77,163,255,.08);border:1px solid rgba(77,163,255,.3);color:var(--blue);border-radius:4px;cursor:pointer;font-family:var(--fd);font-weight:700">\u{1F4F1} WA: à¦à§à¦°à¦¿à¦¯à¦¼à¦¾à¦°à§ à¦ªà§à¦à¦à§à¦à§</button>';
   h+='<button onclick="courierPickupWA('+c.id+','+inv.id+')" style="font-size:8px;padding:4px 11px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn);border-radius:4px;cursor:pointer;font-family:var(--fd);font-weight:700">\u23F0 WA: Pickup Reminder</button>';
   h+='</div>';
   h+='</div>';
 
-  // ── Returns linked (CORRECT calculation)
+  // ââ Returns linked (CORRECT calculation)
   const rets=inv.returns||[];
   if(rets.length){
     // CORRECT: per-invoice adjusted calculations
@@ -2676,7 +2676,7 @@ function renderInvoiceCard(c, inv, showCustInfo){
       h+='<td><span style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.3);border-radius:3px;padding:0 5px;font-size:9px">'+(RL[r.reason]||r.reason)+'</span></td>';
       h+='<td style="font-family:var(--fm);font-weight:600;color:var(--gold);text-align:right">\u09F3'+fmtNum(rSalesD)+'<div style="font-size:8px;color:var(--text3);">customer \u09AA\u09BE\u09AC\u09C7</div></td>';
       h+='<td style="font-family:var(--fm);color:var(--cyan);text-align:right">\u09F3'+fmtNum(rCostA)+'</td>';
-      h+='<td style="font-family:var(--fm);font-weight:600;color:'+(rFix>0?'var(--red)':'var(--text3)')+';text-align:right">'+(rFix>0?'\u09F3'+fmtNum(rFix)+'<div style="font-size:8px;color:var(--text3);">CTG\u09B0 Loss</div>':'—')+'</td>';
+      h+='<td style="font-family:var(--fm);font-weight:600;color:'+(rFix>0?'var(--red)':'var(--text3)')+';text-align:right">'+(rFix>0?'\u09F3'+fmtNum(rFix)+'<div style="font-size:8px;color:var(--text3);">CTG\u09B0 Loss</div>':'â')+'</td>';
       h+='<td><span style="font-size:9px;color:'+stColor+'">'+stLabel+'</span></td>';
       h+='<td style="font-family:var(--fm);font-weight:700;color:'+(curNet>=0?'var(--green)':'var(--red)')+'text-align:right">\u09F3'+fmtNum(curNet)+'</td>';
       h+='<td><button onclick="genReturnWA('+c.id+','+inv.id+','+r.id+')" '+'style="font-family:var(--fd);font-size:8px;font-weight:700;padding:3px 9px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.3);color:#25d366;border-radius:4px;cursor:pointer">\u{1F4F1} WA</button></td>';
@@ -2699,7 +2699,7 @@ function renderInvoiceCard(c, inv, showCustInfo){
     h+='</div>';
   }
 
-  // ── Action buttons
+  // ââ Action buttons
   h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)">';
   h+='<button onclick="genPayReport('+c.id+','+inv.id+')" style="font-size:8px;padding:4px 10px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.3);color:#25d366;border-radius:4px;cursor:pointer;font-family:var(--fd);font-weight:700">\u{1F4F1} WA Report</button>';
   h+='<button onclick="sendWAReminder('+c.id+','+inv.id+')" style="font-size:8px;padding:4px 10px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn);border-radius:4px;cursor:pointer;font-family:var(--fd);font-weight:700">\u23F0 WA Reminder</button>';
@@ -2712,7 +2712,7 @@ function renderInvoiceCard(c, inv, showCustInfo){
   return h;
 }
 
-// ── Payment v2 (with method + reference) ─────────────────
+// ââ Payment v2 (with method + reference) âââââââââââââââââ
 function addPaymentV2(cid, invId){
   const c=db.customers.find(function(x){return x.id===cid;}); if(!c) return;
   const inv=(c.invoices||[]).find(function(i){return i.id===invId;}); if(!inv) return;
@@ -2756,7 +2756,7 @@ function markWarranty(cid, invId, status){
   notify(status==='active'?'\u{1F6E1}\uFE0F Warranty activated':'\u2705 Warranty closed');
 }
 
-// ── saveCourierField v2 (enhanced with _cb, _cr, _rc, _wd keys) ──────────────
+// ââ saveCourierField v2 (enhanced with _cb, _cr, _rc, _wd keys) ââââââââââââââ
 function saveCourierField(cid, invId, fieldKey){
   var c = db.customers.find(function(x){return x.id===cid;}); if(!c) return;
   var inv = (c.invoices||[]).find(function(i){return i.id===invId;}); if(!inv) return;
@@ -2783,7 +2783,7 @@ function saveCourierField(cid, invId, fieldKey){
   notify('\u2705 Saved');
 }
 
-// ── WA: Courier Arrival Notification ─────────────────────────────────────────
+// ââ WA: Courier Arrival Notification âââââââââââââââââââââââââââââââââââââââââ
 // Short month format: "11 Jun 2026"
 function fmtDateShort(d){
   var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -2803,7 +2803,7 @@ function getPrevDue(c, invId){
   return total;
 }
 
-// ── WA Message 1: Courier Arrival ───────────────────────────────────────────
+// ââ WA Message 1: Courier Arrival âââââââââââââââââââââââââââââââââââââââââââ
 function courierArrivalWA(cid, invId){
   var c=db.customers.find(function(x){return x.id===cid;}); if(!c) return;
   var inv=(c.invoices||[]).find(function(i){return i.id===invId;}); if(!inv) return;
@@ -2839,7 +2839,7 @@ function courierArrivalWA(cid, invId){
     .catch(function(){notify('Copy failed',true);});
 }
 
-// ── WA Message 2: Pickup Reminder (warranty countdown) ───────────────────────
+// ââ WA Message 2: Pickup Reminder (warranty countdown) âââââââââââââââââââââââ
 function courierPickupWA(cid, invId){
   var c=db.customers.find(function(x){return x.id===cid;}); if(!c) return;
   var inv=(c.invoices||[]).find(function(i){return i.id===invId;}); if(!inv) return;
@@ -2890,9 +2890,9 @@ function toggleBlockOrder(cid, invId){
   notify(inv.blockedNextOrder?'\u{1F6D1} Next order blocked':'\u2705 Block removed');
 }
 
-// ══════════════════════════════════════════════════════════
-// PAYMENT TRACKER — Auto-compute helpers
-// ══════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// PAYMENT TRACKER â Auto-compute helpers
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 // Auto-compute tracker fields for one invoice
 function computeTracker(inv, iA, iPd, pays){
@@ -2918,7 +2918,7 @@ function computeTracker(inv, iA, iPd, pays){
   // 3. Days since invoice
   var daysSinceInv = Math.floor((today - invoiceDate) / 86400000);
 
-  // 4. Pay Days: invoice date → last payment date
+  // 4. Pay Days: invoice date â last payment date
   var payDays = null;
   if(pays.length && iPd >= iA){
     var last = pays.reduce(function(a,p){return new Date(p.date)>new Date(a.date)?p:a;}, pays[0]);
@@ -2930,7 +2930,7 @@ function computeTracker(inv, iA, iPd, pays){
   if(inv.promiseDate && iDue > 0){
     var promiseDateObj = new Date(inv.promiseDate);
     if(today > promiseDateObj){
-      // Promise date passed, no payment — count it (once)
+      // Promise date passed, no payment â count it (once)
       promiseBreaks = Math.max(promiseBreaks, 1);
     }
   }
@@ -3020,7 +3020,7 @@ function sendWAReminder(cid, invId){
     .catch(function(){notify('Copy failed',true);});
 }
 
-// ── Override renderTabInvoice (customer modal) ───────────
+// ââ Override renderTabInvoice (customer modal) âââââââââââ
 function renderTabInvoice(c){
   const el=document.getElementById('mtc_invoice'); if(!el) return;
   if(!invItems[c.id]) invItems[c.id]=[];
@@ -3070,9 +3070,9 @@ function renderTabInvoice(c){
 
 // Keep old loadInv working (invoice section now is sales dashboard)
 
-// ════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // ACTIVITY INTELLIGENCE + INTELLIGENT CHECKLIST
-// ════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 const ACT_TYPES = [
   {id:'call',            label:'\u{1F4DE} Call',              score:0,   color:'var(--blue)'},
   {id:'wa_offer',        label:'\u{1F4F1} WhatsApp Offer',    score:0,   color:'var(--green)'},
@@ -3152,7 +3152,7 @@ function addActivityLog(cid){
   notify('\u2705 Activity added');
 }
 
-// ── Intelligent checklist ───────────────────────────────
+// ââ Intelligent checklist âââââââââââââââââââââââââââââââ
 const STAGE_CHECKS = {
   1:['Customer verify \u0995\u09B0\u09BE \u09B9\u09DF\u09C7\u099B\u09C7','WhatsApp intro + QC video \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u09B9\u09DF\u09C7\u099B\u09C7','Stock list \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u09B9\u09DF\u09C7\u099B\u09C7','Price inquiry \u098F\u09B8\u09C7\u099B\u09C7'],
   2:['Shop/business verify','FAQ \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u09B9\u09DF\u09C7\u099B\u09C7','Trust content (QC proof) \u09A6\u09C7\u0996\u09BE\u09A8\u09CB \u09B9\u09DF\u09C7\u099B\u09C7','Buying intent confirm'],
@@ -3237,9 +3237,9 @@ function toggleCheck(cid, idx){
   showModalTab('checklist', cid);
 }
 
-// ════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // STOCK AGEING + MODEL DEMAND
-// ════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function getAgeBucket(age){
   if(age<=30) return {label:'Healthy', cls:'age-h', color:'var(--green)', bg:'rgba(52,211,153,.05)', emoji:'\u{1F7E2}'};
   if(age<=45) return {label:'Watch', cls:'age-w', color:'var(--warn)', bg:'rgba(245,158,11,.05)', emoji:'\u{1F7E1}'};
@@ -3448,7 +3448,7 @@ function renderStockTable(){
     h+='<td><span class="'+bk.cls+'">'+bk.emoji+' '+bk.label+'</span></td>';
     // Rcvd
     h+='<td style="font-family:var(--fm)">'+b.qtyReceived+'</td>';
-    // Sold ±
+    // Sold Â±
     h+='<td><div style="display:flex;align-items:center;gap:3px">';
     h+='<button class="qb" onclick="chgSold('+b.id+',-1)">\u2212</button>';
     h+='<span style="font-family:var(--fm);font-size:11px;font-weight:600;color:var(--cyan);min-width:20px;text-align:center">'+(b.qtySold||0)+'</span>';
@@ -3460,7 +3460,7 @@ function renderStockTable(){
     h+='<td><div style="font-family:var(--fm);font-size:10px">\u09F3'+fmtNum(cost)+'</div>';
     if(multiP&&wavg&&wavg!==cost) h+='<div style="font-family:var(--fm);font-size:8px;color:var(--gold)">Avg:\u09F3'+fmtNum(wavg)+'</div>';
     h+='</td>';
-    // Expected Sell Price — editable
+    // Expected Sell Price â editable
     h+='<td><input type="number" value="'+(sellP||'')+'" placeholder="\u09B8\u09C7\u099F..." ';
     h+='onchange="saveExpectedSellPrice('+b.id+',this.value)" ';
     h+='style="width:80px;padding:3px 6px;font-family:var(--fm);font-size:10px;text-align:right;border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.04)"></td>';
@@ -3483,7 +3483,7 @@ function renderStockTable(){
     h+='<td><span style="font-family:var(--fm);font-size:12px;font-weight:700;color:'+(sold30>=5?'var(--green)':sold30>=2?'var(--cyan)':'var(--text3)')+'">'+sold30+'pcs</span></td>';
     var _retS=getModelReturnStats(b.model);
     var _retColor=_retS.retPct>5?'var(--red)':_retS.retPct>3?'var(--warn)':'var(--green)';
-    h+='<td style="font-family:var(--fm);font-size:11px;font-weight:700;text-align:center;color:'+(_retS.retQty>0?'var(--orange)':'var(--text3)')+"'>"+(_retS.retQty>0?_retS.retQty+'pcs':'—')+'</td>';
+    h+='<td style="font-family:var(--fm);font-size:11px;font-weight:700;text-align:center;color:'+(_retS.retQty>0?'var(--orange)':'var(--text3)')+"'>"+(_retS.retQty>0?_retS.retQty+'pcs':'â')+'</td>';
     h+='<td style="font-family:var(--fm);font-size:10px;text-align:center;color:'+_retColor+"'>"+_retS.retPct+'%</td>';
     // Sell-Out Days
     h+='<td>';
@@ -3537,14 +3537,14 @@ function delBatch(id){
 function delCust(cid){
   cid = Number(cid)||cid;
   var c = db.customers.find(function(x){return x.id===cid||x.id===Number(cid);});
-  if(!c){ notify('Customer পাওয়া যায়নি',true); return; }
-  if(!confirm('"+c.name+" — পুরো customer + invoices + returns + payments সরাবেন? এই action undo করা যাবে না।'.replace('"+c.name+"',c.name))) return;
+  if(!c){ notify('Customer à¦ªà¦¾à¦à¦¯à¦¼à¦¾ à¦¯à¦¾à¦¯à¦¼à¦¨à¦¿',true); return; }
+  if(!confirm('"+c.name+" â à¦ªà§à¦°à§ customer + invoices + returns + payments à¦¸à¦°à¦¾à¦¬à§à¦¨? à¦à¦ action undo à¦à¦°à¦¾ à¦¯à¦¾à¦¬à§ à¦¨à¦¾à¥¤'.replace('"+c.name+"',c.name))) return;
   var idx = db.customers.findIndex(function(x){return x.id===cid||x.id===Number(cid);});
-  if(idx<0){ notify('পাওয়া যায়নি',true); return; }
+  if(idx<0){ notify('à¦ªà¦¾à¦à¦¯à¦¼à¦¾ à¦¯à¦¾à¦¯à¦¼à¦¨à¦¿',true); return; }
   db.customers.splice(idx,1);
   saveDB(); syncToFirebase();
   renderPipeline(); renderSalesDashboard();
-  notify('🗑️ '+c.name+' সরানো হয়েছে');
+  notify('ðï¸ '+c.name+' à¦¸à¦°à¦¾à¦¨à§ à¦¹à¦¯à¦¼à§à¦à§');
 }
 
 
@@ -3899,7 +3899,7 @@ function renderCapitalBlockers(){
   el.innerHTML=h;
 }
 
-// ── Model Demand ────────────────────────────────────────
+// ââ Model Demand ââââââââââââââââââââââââââââââââââââââââ
 function getModelStats(){
   var stats = {};
   db.customers.forEach(function(c){
@@ -4062,7 +4062,7 @@ function genOfferWA(s){
 
 
 
-// ── Customer Model Intelligence Engine ──────────────────────────────────────
+// ââ Customer Model Intelligence Engine ââââââââââââââââââââââââââââââââââââââ
 function getCustomerModelStats(c){
   var stats = {};
   (c.invoices||[]).forEach(function(inv){
@@ -4144,7 +4144,7 @@ function getCustSalesAdvice(c, mStats){
     advice.push('\u23F3 Old demand model-\u098F clearance offer test \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8: '+onames);
   }
   // Recent activity
-  if(recentQty===0&&totQty>0) advice.push('\u{1F4A4} \u09B6\u09C7\u09B7 ৩০ \u09A6\u09BF\u09A8\u09C7 \u0995\u09CB\u09A8\u09CB order \u09A8\u09C7\u0987 \u2014 Reactivation offer \u09AA\u09BE\u09A0\u09BE\u09A8');
+  if(recentQty===0&&totQty>0) advice.push('\u{1F4A4} \u09B6\u09C7\u09B7 à§©à§¦ \u09A6\u09BF\u09A8\u09C7 \u0995\u09CB\u09A8\u09CB order \u09A8\u09C7\u0987 \u2014 Reactivation offer \u09AA\u09BE\u09A0\u09BE\u09A8');
   else if(recentQty>0) advice.push('\u2705 \u09B8\u09AE\u09CD\u09AA\u09CD\u09B0\u09A4\u09BF \u09B8\u0995\u09CD\u09B0\u09BF\u09AF\u09BC \u2014 follow-up \u0995\u09B0\u09C1\u09A8');
   // Strategy
   if(hotModels.length>1) advice.push('\u{1F4E6} Mixed lot offer: \u09B9\u09CB\u099F model mix \u0995\u09B0\u09C7 3\u20135 pcs bundle offer \u09A6\u09BF\u09A8');
@@ -4179,7 +4179,7 @@ function genCustOfferWA(cid){
     .catch(function(){notify('Copy failed',true);});
 }
 
-// ── MODELS TAB ───────────────────────────────────────────────────────────────
+// ââ MODELS TAB âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function renderTabModels(c){
   var el=document.getElementById('mtc_models'); if(!el) return;
   var mStats=getCustomerModelStats(c);
@@ -4189,7 +4189,7 @@ function renderTabModels(c){
   var due=Math.max(0,tA-tP);
 
   var h='';
-  // ── Model input for quick tracking ────────────────────────────────────────
+  // ââ Model input for quick tracking ââââââââââââââââââââââââââââââââââââââââ
   h+='<div style="background:rgba(23,32,48,.6);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:12px">';
   h+='<div style="font-size:9px;color:var(--text3);font-family:var(--fm);margin-bottom:8px">Customer \u0995\u09CB\u09A8 model \u09AC\u09C7\u09B6\u09BF \u0995\u09C7\u09A8\u09C7 \u2014 \u09A8\u09BF\u099A\u09C7 track \u0995\u09B0\u09C1\u09A8 \u0985\u09A5\u09AC\u09BE invoice \u09AF\u09CB\u0997 \u0995\u09B0\u09C1\u09A8</div>';
   h+='<div style="display:flex;gap:6px">';
@@ -4205,7 +4205,7 @@ function renderTabModels(c){
 
   var totQty=mStats.reduce(function(a,s){return a+s.tot;},0);
 
-  // ── Offer recommendations (top 5) ────────────────────────────────────────
+  // ââ Offer recommendations (top 5) ââââââââââââââââââââââââââââââââââââââââ
   var recs=mStats.map(function(s){return {s:s,pat:getCustModelPattern(s)};})
     .map(function(x){x.rec=getCustModelRec(x.s,x.pat);return x;})
     .sort(function(a,b){return b.rec.pri-a.rec.pri;});
@@ -4213,7 +4213,7 @@ function renderTabModels(c){
 
   h+='<div style="background:rgba(34,211,238,.04);border:1px solid rgba(34,211,238,.15);border-radius:8px;padding:12px;margin-bottom:12px">';
   h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
-  h+='<span style="font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--cyan)">\u{1F3AF} Offer Suggestions \u2014 \u098F\u0996\u09A8 কোন model দেবেন</span>';
+  h+='<span style="font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--cyan)">\u{1F3AF} Offer Suggestions \u2014 \u098F\u0996\u09A8 à¦à§à¦¨ model à¦¦à§à¦¬à§à¦¨</span>';
   h+='<button onclick="genCustOfferWA('+c.id+')" style="font-family:var(--fd);font-size:8px;font-weight:700;padding:4px 10px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.3);color:#25d366;border-radius:5px;cursor:pointer">\u{1F4F1} WA Offer</button>';
   h+='</div>';
   if(!topRecs.length){
@@ -4235,7 +4235,7 @@ function renderTabModels(c){
   }
   h+='</div>';
 
-  // ── Sales Growth Advice ───────────────────────────────────────────────────
+  // ââ Sales Growth Advice âââââââââââââââââââââââââââââââââââââââââââââââââââ
   h+='<div style="background:rgba(251,191,36,.04);border:1px solid rgba(251,191,36,.15);border-radius:8px;padding:12px;margin-bottom:12px">';
   h+='<div style="font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:8px">\u{1F4A1} Sales Growth Advice</div>';
   advice.forEach(function(line){
@@ -4243,10 +4243,10 @@ function renderTabModels(c){
   });
   h+='</div>';
 
-  // ── Full model history table ──────────────────────────────────────────────
+  // ââ Full model history table ââââââââââââââââââââââââââââââââââââââââââââââ
   h+='<div style="background:rgba(18,24,32,.8);border:1px solid var(--border);border-radius:8px;overflow:hidden">';
   h+='<div style="padding:10px 12px;display:flex;justify-content:space-between;align-items:center">';
-  h+='<span style="font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3)">All Model History \u2014 মোট '+totQty+'pcs</span>';
+  h+='<span style="font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3)">All Model History \u2014 à¦®à§à¦ '+totQty+'pcs</span>';
   h+='</div>';
   h+='<div class="tbl-wrap"><table>';
   h+='<thead><tr><th>Model</th><th>Total</th><th>30d</th><th>Last Bought</th><th>Avg/Order</th><th>ROI</th><th>Return</th><th>Pattern</th><th>Rec</th></tr></thead><tbody>';
@@ -4426,10 +4426,10 @@ function genDemandOfferWA(cid){
 }
 
 
-// ═══════════════════════════════════════════════════════════════
-// RETURN MODULE — CTG Click Shop
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// RETURN MODULE â CTG Click Shop
 // Goal: QC improvement + Fix cost tracking + Customer analysis
-// ═══════════════════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 function getAllReturns(){
   var period=(document.getElementById('retPagePeriod')||{}).value||'all';
@@ -4477,9 +4477,9 @@ var QC_ACTIONS={
   keyboard:'Keyboard key-by-key test \u0995\u09B0\u09C1\u09A8',
   charging:'Charger port + charging test mandatory',
   body:'Body inspection photo \u09A6\u09BF\u09A8 customer-\u0995\u09C7',
-  qc_fail:'QC process review \u0995\u09B0\u09C1\u09A8 \u2014 কোন step miss হচ্ছে?',
-  courier_damage:'Packaging upgrade করুন + courier claim নিন',
-  cust_claim:'এই customer verify করুন \u2014 repeat claim হলে সতর্ক',
+  qc_fail:'QC process review \u0995\u09B0\u09C1\u09A8 \u2014 à¦à§à¦¨ step miss à¦¹à¦à§à¦à§?',
+  courier_damage:'Packaging upgrade à¦à¦°à§à¦¨ + courier claim à¦¨à¦¿à¦¨',
+  cust_claim:'à¦à¦ customer verify à¦à¦°à§à¦¨ \u2014 repeat claim à¦¹à¦²à§ à¦¸à¦¤à¦°à§à¦',
 };
 
 function renderReturnDashboard(){
@@ -4493,7 +4493,7 @@ function renderReturnDashboard(){
   var rets=getAllReturns();
   var custId=parseInt((cfEl||{}).value)||null;
 
-  // ── KPI Cards ────────────────────────────────────────────────────────────
+  // ââ KPI Cards ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   var kpiEl=document.getElementById('retKpis');
   if(kpiEl){
     var totQty    = rets.reduce(function(a,r){return a+r.qty;},0);
@@ -4529,7 +4529,7 @@ function renderReturnDashboard(){
 
   var h='';
 
-  // ── Row 1: Reason breakdown + QC Action ───────────────────────────────────
+  // ââ Row 1: Reason breakdown + QC Action âââââââââââââââââââââââââââââââââââ
   var reasonStats={};
   rets.forEach(function(r){
     var k=r.reason||'other';
@@ -4545,7 +4545,7 @@ function renderReturnDashboard(){
 
   // Reason breakdown
   h+='<div class="card">';
-  h+='<div class="ctit" style="color:var(--orange);margin-bottom:10px">\u26A0\uFE0F Return Reasons \u2014 কোন সমস্যা কতবার</div>';
+  h+='<div class="ctit" style="color:var(--orange);margin-bottom:10px">\u26A0\uFE0F Return Reasons \u2014 à¦à§à¦¨ à¦¸à¦®à¦¸à§à¦¯à¦¾ à¦à¦¤à¦¬à¦¾à¦°</div>';
   reasons.forEach(function(rs){
     var pct=Math.round(rs.qty/maxRQ*100);
     h+='<div style="margin-bottom:8px">';
@@ -4567,7 +4567,7 @@ function renderReturnDashboard(){
     h+='<div style="color:var(--text3);font-size:10px">\u2705 \u098F\u0996\u09A8\u09CB \u0995\u09CB\u09A8\u09CB \u09AC\u09BE\u09B0\u09AC\u09BE\u09B0 \u09B8\u09AE\u09B8\u09CD\u09AF\u09BE \u09A8\u09C7\u0987</div>';
   } else {
     repeatReasons.forEach(function(rs){
-      var action=QC_ACTIONS[Object.keys(REASON_LABELS).find(function(k){return REASON_LABELS[k]===rs.label;})||rs.label]||'এই সমস্যার QC step শক্ত করুন';
+      var action=QC_ACTIONS[Object.keys(REASON_LABELS).find(function(k){return REASON_LABELS[k]===rs.label;})||rs.label]||'à¦à¦ à¦¸à¦®à¦¸à§à¦¯à¦¾à¦° QC step à¦¶à¦à§à¦¤ à¦à¦°à§à¦¨';
       h+='<div style="display:flex;gap:8px;padding:7px 9px;background:rgba(255,255,255,.03);border-left:2px solid '+rs.color+';border-radius:3px;margin-bottom:5px">';
       h+='<div style="flex:1">';
       h+='<div style="font-size:10px;font-weight:600;color:'+rs.color+';font-family:var(--fu)">'+rs.label+' \u00D7'+rs.count+' times</div>';
@@ -4590,7 +4590,7 @@ function renderReturnDashboard(){
   h+='</div>';
   h+='</div></div>';
 
-  // ── Row 2: Model Analysis + Customer Analysis ─────────────────────────────
+  // ââ Row 2: Model Analysis + Customer Analysis âââââââââââââââââââââââââââââ
   h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">';
 
   // Model breakdown
@@ -4606,8 +4606,8 @@ function renderReturnDashboard(){
   var models=Object.values(modelStats).sort(function(a,b){return b.qty-a.qty;});
 
   h+='<div class="card">';
-  h+='<div class="ctit" style="color:var(--red);margin-bottom:10px">\u{1F4BB} Model-wise Return \u2014 কোন model বেশি ফিরছে</div>';
-  if(!models.length){h+='<div style="color:var(--text3);font-size:10px">\u2714\uFE0F কোনো model data নেই</div>';}
+  h+='<div class="ctit" style="color:var(--red);margin-bottom:10px">\u{1F4BB} Model-wise Return \u2014 à¦à§à¦¨ model à¦¬à§à¦¶à¦¿ à¦«à¦¿à¦°à¦à§</div>';
+  if(!models.length){h+='<div style="color:var(--text3);font-size:10px">\u2714\uFE0F à¦à§à¦¨à§ model data à¦¨à§à¦</div>';}
   models.slice(0,7).forEach(function(m){
     var topReason=Object.entries(m.reasons).sort(function(a,b){return b[1]-a[1];})[0];
     var trLabel=topReason?(REASON_LABELS[topReason[0]]||topReason[0]):'';
@@ -4636,8 +4636,8 @@ function renderReturnDashboard(){
   var custs=Object.values(custStats).sort(function(a,b){return b.qty-a.qty;});
 
   h+='<div class="card">';
-  h+='<div class="ctit" style="color:var(--purple);margin-bottom:10px">\u{1F464} Customer-wise Return \u2014 কে বেশি ফেরত দিচ্ছে</div>';
-  if(!custs.length){h+='<div style="color:var(--text3);font-size:10px">\u2714\uFE0F কোনো customer return নেই</div>';}
+  h+='<div class="ctit" style="color:var(--purple);margin-bottom:10px">\u{1F464} Customer-wise Return \u2014 à¦à§ à¦¬à§à¦¶à¦¿ à¦«à§à¦°à¦¤ à¦¦à¦¿à¦à§à¦à§</div>';
+  if(!custs.length){h+='<div style="color:var(--text3);font-size:10px">\u2714\uFE0F à¦à§à¦¨à§ customer return à¦¨à§à¦</div>';}
   custs.slice(0,7).forEach(function(cu){
     // Get total purchased by this customer
     var c=db.customers.find(function(x){return x.id===cu.id;});
@@ -4659,13 +4659,13 @@ function renderReturnDashboard(){
   });
   h+='</div></div>';
 
-  // ── Customer-specific detail (when filtered) ──────────────────────────────
+  // ââ Customer-specific detail (when filtered) ââââââââââââââââââââââââââââââ
   if(custId){
     var c=db.customers.find(function(x){return x.id===custId;});
     if(c) h+=renderCustReturnDetail(c,rets);
   }
 
-  // ── Full Return Log Table ─────────────────────────────────────────────────
+  // ââ Full Return Log Table âââââââââââââââââââââââââââââââââââââââââââââââââ
   h+='<div class="card">';
   h+='<div class="ctit" style="margin-bottom:10px">\u{1F4CB} Full Return Log \u2014 '+rets.length+' records</div>';
   h+='<div class="tbl-wrap"><table>';
@@ -4744,7 +4744,7 @@ function renderCustReturnDetail(c, rets){
   // Action
   if(actions.length){
     h+='<div style="background:rgba(251,191,36,.05);border:1px solid rgba(251,191,36,.2);border-radius:7px;padding:10px">';
-    h+='<div style="font-family:var(--fd);font-size:8px;font-weight:700;color:var(--gold);margin-bottom:5px">\u{1F4A1} করণীয়</div>';
+    h+='<div style="font-family:var(--fd);font-size:8px;font-weight:700;color:var(--gold);margin-bottom:5px">\u{1F4A1} à¦à¦°à¦£à§à¦¯à¦¼</div>';
     actions.forEach(function(a){h+='<div style="font-family:var(--fu);font-size:9px;color:var(--text2);padding:2px 0">'+a+'</div>';});
     h+='</div>';
   }
@@ -4759,10 +4759,10 @@ function filterReturnByCust(cid){
   document.getElementById('returns').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// EXPENSE MODULE — CTG Click Shop
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// EXPENSE MODULE â CTG Click Shop
 // Formula: Gross Profit - Office Expense - Return Fix Cost = Net Profit
-// ═══════════════════════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 var EXP_CATS = {
   salary:'Salary', lunch:'\u09A6\u09C1\u09AA\u09C1\u09B0\u09C7\u09B0 \u0996\u09BE\u09AC\u09BE\u09B0',
@@ -4895,9 +4895,9 @@ function renderExpenseDashboard(){
     var monthExps  = allExps.filter(function(e){return e.date>=monthStart;});
     var todayAmt   = todayExps.reduce(function(a,e){return e.expenseType!=='personal'?a+e.amount:a;},0);
     var weekAmt    = weekExps.reduce(function(a,e){return e.expenseType!=='personal'?a+e.amount:a;},0);
-    // monthAmt = office/other expenses ONLY (auto_return excluded → handled by monthRetFix)
+    // monthAmt = office/other expenses ONLY (auto_return excluded â handled by monthRetFix)
     var monthAmt   = monthExps.reduce(function(a,e){
-      if(e.source==='auto_return') return a;  // skip — monthRetFix already counts this
+      if(e.source==='auto_return') return a;  // skip â monthRetFix already counts this
       return e.expenseType!=='personal'?a+e.amount:a;
     },0);
     var lifetimeAmt= allExps.reduce(function(a,e){return e.expenseType!=='personal'?a+e.amount:a;},0);
@@ -5000,7 +5000,7 @@ function renderExpenseDashboard(){
     if(e.source!=='auto_return'){
       h+='<button onclick="editExpense('+e.id+')" style="font-family:var(--fd);font-size:7px;font-weight:700;padding:2px 6px;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.25);color:var(--cyan);border-radius:3px;cursor:pointer">\u270F\uFE0F</button>';
     }
-    h+='<button onclick="deleteExpense('+e.id+')" style="font-family:var(--fd);font-size:7px;font-weight:700;padding:2px 6px;background:rgba(232,33,26,.08);border:1px solid rgba(232,33,26,.25);color:var(--red);border-radius:3px;cursor:pointer">🗑</button>';
+    h+='<button onclick="deleteExpense('+e.id+')" style="font-family:var(--fd);font-size:7px;font-weight:700;padding:2px 6px;background:rgba(232,33,26,.08);border:1px solid rgba(232,33,26,.25);color:var(--red);border-radius:3px;cursor:pointer">ð</button>';
     h+='</div></td>';
     h+='</tr>';
   });
@@ -5031,7 +5031,7 @@ function openExpenseForm(editId){
   } else {
     ['ef_amt','ef_note'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
     var c2=document.getElementById('ef_cat'); if(c2) c2.value='';
-    if(t) t.textContent='💸 Expense \u09AF\u09CB\u0997 \u0995\u09B0\u09C1\u09A8';
+    if(t) t.textContent='ð¸ Expense \u09AF\u09CB\u0997 \u0995\u09B0\u09C1\u09A8';
   }
   openModalById('expModal');
 }
@@ -5068,7 +5068,7 @@ function deleteExpense(id){
   expDB.expenses=(expDB.expenses||[]).filter(function(e){return e.id!==id;});
   saveExpenseDB();
   renderExpenseDashboard();
-  notify('🗑 Expense deleted');
+  notify('ð Expense deleted');
 }
 
 function updateExpType(){
@@ -5081,11 +5081,11 @@ function updateExpType(){
 }
 
 
-// ═══════════════════════════════════════════════════════════════════
-// NET WORTH & GROWTH TRACKER — CTG Click Shop
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// NET WORTH & GROWTH TRACKER â CTG Click Shop
 // Formula: Assets - Liabilities = Net Worth
 // 2026 Target: Working Capital 3 Crore BDT
-// ═══════════════════════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 var ASSETS_TARGET = 30000000; // 3 Crore
 
@@ -5170,7 +5170,7 @@ function renderAssetsCharts(snaps){
   var wcPct3 =Math.min(100,Math.round(lastCalc.workingCap/ASSETS_TARGET*100));
   var wcPct1 =Math.min(100,Math.round(lastCalc.workingCap/10000000*100));
 
-  // ── Line chart: monthly WC trend toward 3 Crore ──
+  // ââ Line chart: monthly WC trend toward 3 Crore ââ
   var W=360,H=120,PL=45,PR=10,PT=14,PB=24;
   var cW=W-PL-PR, cH=H-PT-PB;
   var maxWC=Math.max(ASSETS_TARGET,Math.max.apply(null,calcs.map(function(c){return c.workingCap;})));
@@ -5301,7 +5301,7 @@ function renderAssetsCharts(snaps){
 }
 
 
-// ── EMI TRACKER ──────────────────────────────────────────────────────────────
+// ââ EMI TRACKER ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 var DEFAULT_EMIS = [
   {id:1, bank:'BRAC Bank', monthly:67388, remaining:16, totalLoan:0, note:'Business EMI'}
 ];
@@ -5343,7 +5343,7 @@ function renderEmiTracker(){
     h+='<div style="display:flex;gap:4px;margin-top:8px">';
     h+='<button onclick="payEmiMonth('+e.id+')" style="flex:1;font-family:var(--fd);font-size:7px;font-weight:700;padding:3px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.25);color:var(--green);border-radius:3px;cursor:pointer">\u2705 Pay Month</button>';
     h+='<button onclick="editEmi('+e.id+')" style="font-family:var(--fd);font-size:7px;font-weight:700;padding:3px 6px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:var(--text3);border-radius:3px;cursor:pointer">\u270F\uFE0F</button>';
-    h+='<button onclick="delEmi('+e.id+')" style="font-family:var(--fd);font-size:7px;font-weight:700;padding:3px 6px;background:rgba(232,33,26,.08);border:1px solid rgba(232,33,26,.3);color:var(--red);border-radius:3px;cursor:pointer" title="EMI সরিয়ে দিন">\u{1F5D1}</button>';
+    h+='<button onclick="delEmi('+e.id+')" style="font-family:var(--fd);font-size:7px;font-weight:700;padding:3px 6px;background:rgba(232,33,26,.08);border:1px solid rgba(232,33,26,.3);color:var(--red);border-radius:3px;cursor:pointer" title="EMI à¦¸à¦°à¦¿à¦¯à¦¼à§ à¦¦à¦¿à¦¨">\u{1F5D1}</button>';
     h+='</div>';
     h+='</div>';
   });
@@ -5392,14 +5392,14 @@ function editEmi(emiId){
   notify('\u2705 EMI updated: '+newR+' months remaining');
 }
 function delEmi(eid){
-  if(!confirm('এই EMI entry সরিয়ে দিবেন? এই action undo করা যাবে না।')) return;
+  if(!confirm('à¦à¦ EMI entry à¦¸à¦°à¦¿à¦¯à¦¼à§ à¦¦à¦¿à¦¬à§à¦¨? à¦à¦ action undo à¦à¦°à¦¾ à¦¯à¦¾à¦¬à§ à¦¨à¦¾à¥¤')) return;
   eid = Number(eid)||eid;
   var idx = (assetsDB.emis||[]).findIndex(function(x){return x.id===eid||x.id===Number(eid);});
-  if(idx<0){ notify('EMI পাওয়া যায়নি',true); return; }
+  if(idx<0){ notify('EMI à¦ªà¦¾à¦à¦¯à¦¼à¦¾ à¦¯à¦¾à¦¯à¦¼à¦¨à¦¿',true); return; }
   assetsDB.emis.splice(idx,1);
   saveAssetsDB();
   renderEmiTracker();
-  notify('\u{1F5D1} EMI সরানো হয়েছে');
+  notify('\u{1F5D1} EMI à¦¸à¦°à¦¾à¦¨à§ à¦¹à¦¯à¦¼à§à¦à§');
 }
 
 
@@ -5603,7 +5603,7 @@ function renderModelDemand(){
   var stopCount   = stats.filter(function(s){var p=getFinalAction(s).priority;return p==='stop'||p==='clear';}).length;
   var capRisk     = stats.reduce(function(a,s){return a+s.avail*(s.costPerPc||0);},0);
 
-  // ── KPI Cards ────────────────────────────────────────────────────────────────
+  // ââ KPI Cards ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   var cards = document.getElementById('demandCards');
   if(cards){
     var kpis=[
@@ -5623,14 +5623,14 @@ function renderModelDemand(){
     cards.innerHTML=ch;
   }
 
-  // ── Filter ──────────────────────────────────────────────────────────────────
+  // ââ Filter ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   var filtered = stats;
   if(filter==='star')   filtered = stats.filter(function(s){return classifyModel(s)==='star';});
   if(filter==='rebuy')  filtered = stats.filter(function(s){return getFinalAction(s).priority==='rebuy';});
   if(filter==='lock')   filtered = stats.filter(function(s){return (s.avgAge||0)>45;});
   if(filter==='stop')   filtered = stats.filter(function(s){var p=getFinalAction(s).priority;return p==='stop'||p==='clear';});
 
-  // ── Main Table ───────────────────────────────────────────────────────────────
+  // ââ Main Table âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // Customer-specific WA offer section
   var custOfferEl=document.getElementById('demandCustOffer');
   if(custOfferEl){
@@ -5655,7 +5655,7 @@ function renderModelDemand(){
                     fa.priority==='stop'||fa.priority==='clear'?'rgba(156,163,175,.03)':
                     fa.priority==='reduce'||fa.priority==='offer'?'rgba(249,115,22,.02)':'';
         th+='<tr style="background:'+rowBg+'">';
-        // Model name — customer-specific or aggregate
+        // Model name â customer-specific or aggregate
         var _cmd=null;
         if(custFilterId){
           var _fc=db.customers.find(function(x){return x.id===custFilterId;});
@@ -5676,7 +5676,7 @@ function renderModelDemand(){
           +'background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.25);color:#25d366;cursor:pointer">'
           +'\u{1F4F1} Offer WA</button>'
           +'</td>';
-        // Demand Class — customer pattern or overall
+        // Demand Class â customer pattern or overall
         var _demBadge = _cmd
           ? (function(){
               var _p=getCustModelPattern(_cmd);
@@ -5706,7 +5706,7 @@ function renderModelDemand(){
         th+='<td>'+getReturnBadge(s.retPct)+'</td>';
         // Sell-Out Days
         th+='<td>'+getSellOutBadge(s.sellOutDays)+'</td>';
-        // Final Action — customer rec or overall
+        // Final Action â customer rec or overall
         var _faH;
         if(_cmd){
           var _cp=getCustModelPattern(_cmd),_cr=getCustModelRec(_cmd,_cp);
@@ -5717,7 +5717,7 @@ function renderModelDemand(){
             +(s.retPct>8?'<div style="font-size:8px;color:var(--red);margin-top:2px">\u26A0\uFE0F High Return Risk</div>':'');
         }
         th+='<td>'+_faH+'</td>';
-        // Customer column — show top buyers of this model
+        // Customer column â show top buyers of this model
         var topBuyers=[];
         db.customers.forEach(function(c){
           var qty=0;
@@ -5750,12 +5750,12 @@ function renderModelDemand(){
     }
   }
 
-  // ── Section 1: Star / Rebuy ──────────────────────────────────────────────────
+  // ââ Section 1: Star / Rebuy ââââââââââââââââââââââââââââââââââââââââââââââââââ
   var starEl=document.getElementById('starList');
   if(starEl){
     var stars=stats.filter(function(s){var p=getFinalAction(s).priority;return p==='rebuy'||p==='small'||classifyModel(s)==='star';}).slice(0,6);
     var sh='';
-    if(!stars.length) sh='<div style="color:var(--text3);font-size:11px;padding:8px">এখনো Star model নেই</div>';
+    if(!stars.length) sh='<div style="color:var(--text3);font-size:11px;padding:8px">à¦à¦à¦¨à§ Star model à¦¨à§à¦</div>';
     stars.forEach(function(s){
       var fa=getFinalAction(s);
       sh+='<div style="display:flex;align-items:center;gap:8px;padding:9px 11px;'
@@ -5769,12 +5769,12 @@ function renderModelDemand(){
     starEl.innerHTML=sh;
   }
 
-  // ── Section 2: Watch / Offer Push ────────────────────────────────────────────
+  // ââ Section 2: Watch / Offer Push ââââââââââââââââââââââââââââââââââââââââââââ
   var watchEl=document.getElementById('watchList');
   if(watchEl){
     var watches=stats.filter(function(s){var p=getFinalAction(s).priority;return p==='offer'||p==='watch'||p==='monitor';}).slice(0,6);
     var wh='';
-    if(!watches.length) wh='<div style="color:var(--green);font-size:11px;padding:8px">\u2705 কোনো Watch model নেই</div>';
+    if(!watches.length) wh='<div style="color:var(--green);font-size:11px;padding:8px">\u2705 à¦à§à¦¨à§ Watch model à¦¨à§à¦</div>';
     watches.forEach(function(s){
       var fa=getFinalAction(s);
       wh+='<div style="display:flex;align-items:center;gap:8px;padding:9px 11px;'
@@ -5788,12 +5788,12 @@ function renderModelDemand(){
     watchEl.innerHTML=wh;
   }
 
-  // ── Section 3: Capital Lock / Stop Buy ────────────────────────────────────────
+  // ââ Section 3: Capital Lock / Stop Buy ââââââââââââââââââââââââââââââââââââââââ
   var lockEl=document.getElementById('lockList');
   if(lockEl){
     var locks=stats.filter(function(s){var p=getFinalAction(s).priority;return p==='stop'||p==='clear'||p==='reduce'||p==='avoid';}).slice(0,6);
     var lh='';
-    if(!locks.length) lh='<div style="color:var(--green);font-size:11px;padding:8px">\u2705 কোনো Capital Lock নেই</div>';
+    if(!locks.length) lh='<div style="color:var(--green);font-size:11px;padding:8px">\u2705 à¦à§à¦¨à§ Capital Lock à¦¨à§à¦</div>';
     locks.forEach(function(s){
       var fa=getFinalAction(s);
       lh+='<div style="display:flex;align-items:center;gap:8px;padding:9px 11px;'
@@ -5809,11 +5809,11 @@ function renderModelDemand(){
 }
 
 
-// ════════════════════════════════════════════════════════
-// CUSTOMERS — Add/Edit form · Nav · renderAll · Init
-// ════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// CUSTOMERS â Add/Edit form Â· Nav Â· renderAll Â· Init
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
-// ── Add / Edit Customer form ────────────────────────────
+// ââ Add / Edit Customer form ââââââââââââââââââââââââââââ
 function openAddCustomer(){
   db.editingId = null;
   const t = document.getElementById('custFormTitle'); if(t) t.textContent='\u2795 \u09A8\u09A4\u09C1\u09A8 Customer';
@@ -5877,7 +5877,7 @@ function saveCustomer(){
   renderAll();
 }
 
-// ── Navigation ──────────────────────────────────────────
+// ââ Navigation ââââââââââââââââââââââââââââââââââââââââââ
 const NAV_SECTIONS = ['pipeline','dashboard','invoice','stockage','modeldemand','returns','expensepage','assetspage'];
 
 function goTo(sec, btn){
@@ -5896,7 +5896,7 @@ function goTo(sec, btn){
   if(sec==='assetspage')  renderAssetsDashboard();
 }
 
-// ── renderAll (called after every data change) ──────────
+// ââ renderAll (called after every data change) ââââââââââ
 function renderAll(){
   refreshStockList();
 
@@ -5906,7 +5906,7 @@ function renderAll(){
   // Populate invoice picker
   const picker = document.getElementById('custPicker');
   if(picker){
-    picker.innerHTML = '<option value="">— Customer select \u0995\u09B0\u09C1\u09A8 —</option>';
+    picker.innerHTML = '<option value="">â Customer select \u0995\u09B0\u09C1\u09A8 â</option>';
     const sorted = db.customers.slice().sort((a,b)=>a.name.localeCompare(b.name));
     sorted.forEach(function(c){
       picker.innerHTML += '<option value="'+c.id+'">'+c.name+(c.city?' ('+c.city+')':'')+'</option>';
@@ -5936,7 +5936,7 @@ function updateRecentBatches(){
   el.innerHTML = h;
 }
 
-// ── Invoice section: load customer ──────────────────────
+// ââ Invoice section: load customer ââââââââââââââââââââââ
 function loadInv(){
   const picker = document.getElementById('custPicker');
   const el = document.getElementById('salesDashWrap'); if(!el) return;
@@ -5958,7 +5958,7 @@ function loadInv(){
   document.getElementById('invInline_'+id).innerHTML = content;
 }
 
-// ── INIT ────────────────────────────────────────────────
+// ââ INIT ââââââââââââââââââââââââââââââââââââââââââââââââ
 document.addEventListener('DOMContentLoaded', function(){
   loadDB();
   // Set stock date default
@@ -5980,7 +5980,7 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 
 
-// ── Functions kept for compatibility ────────────────────
+// ââ Functions kept for compatibility ââââââââââââââââââââ
 
 function saveInvoice(cid){
   // Delegate to saveAddInvoice via modal
@@ -6238,9 +6238,9 @@ function saveReturn(){
       notify('Max return qty: '+maxReturn+'pcs',true); return;
     }
 
-    // CORRECT: salesDeducted = qty × sell price (revenue deduction, NOT loss)
+    // CORRECT: salesDeducted = qty Ã sell price (revenue deduction, NOT loss)
     var salesDeducted = qty * sellPrice;
-    // CORRECT: costAdjusted = qty × buy price (COGS reversal, item back in stock)
+    // CORRECT: costAdjusted = qty Ã buy price (COGS reversal, item back in stock)
     var costAdjusted  = qty * buyPrice;
 
     var RL={display:'Display Issue',battery:'Battery Issue',keyboard:'Keyboard Problem',
@@ -6259,7 +6259,7 @@ function saveReturn(){
       sellPrice:sellPrice, buyPrice:buyPrice,
       salesDeducted:salesDeducted,   // revenue deduction
       costAdjusted:costAdjusted,     // COGS reversal
-      fixCost:fixCost,               // real repair cost → expense
+      fixCost:fixCost,               // real repair cost â expense
       returnStatus:returnStatus,     // pending/checking/repairing/ready/scrap
       note:note,
       refundAmt:0                    // legacy: always 0 now
@@ -6275,8 +6275,8 @@ function saveReturn(){
       type:'return',color:'var(--orange)'});
 
     // Stock: add returned item back
-    // If status is 'ready' → normal sellable stock
-    // Otherwise → return pending stock (tracked separately)
+    // If status is 'ready' â normal sellable stock
+    // Otherwise â return pending stock (tracked separately)
     var retCostPerPc = buyPrice + (fixCost>0 ? Math.round(fixCost/(qty||1)) : 0);
     stockDB.batches.unshift({
       id:Date.now(), model:model, brand:autoDetectBrandFromName(model),
@@ -6296,7 +6296,7 @@ function saveReturn(){
       if(!expDB.expenses) expDB.expenses=[];
       expDB.expenses.unshift({
         id:Date.now(), date:retDate,
-        category:'return_fix', amount:fixCost*qty, // total (per-pc × qty)
+        category:'return_fix', amount:fixCost*qty, // total (per-pc Ã qty)
         paidFrom:'office_cash', expenseType:'return_fix',
         source:'auto_return',
         note:rl+' | '+model+' \xd7'+qty+' | Fix Cost/pc: \u09F3'+fmtNum(fixCost),
@@ -6355,7 +6355,7 @@ function deletePayment(cid, invId, payId){
   notify('Payment deleted');
 }
 
-// ── Sales Dashboard ───────────────────────────────
+// ââ Sales Dashboard âââââââââââââââââââââââââââââââ
 function renderSalesDashboard(){
   const el=document.getElementById('salesDashWrap'); if(!el) return;
   updateWeekTarget();
@@ -6478,7 +6478,7 @@ function renderSalesDashboard(){
 
   // Global KPIs (filtered)
   const kTotInv=filtered.length;
-  // ── Return-adjusted calculations ─────────────────────
+  // ââ Return-adjusted calculations âââââââââââââââââââââ
   // Gross (original invoice, before return)
   var kGrossQty   = filtered.reduce(function(a,i){return a+(i.items||[]).reduce(function(b,x){return b+x.qty;},0);},0);
   var kGrossSales = filtered.reduce(function(a,i){return a+(i.items||[]).reduce(function(b,x){return b+x.qty*(x.price||0);},0);},0);
@@ -6566,7 +6566,7 @@ function renderSalesDashboard(){
   var kROI=kGrossROI;
 
   let h='';
-  // ── ROW 1: Qty (Gross / Return / Real) ─────────────────
+  // ââ ROW 1: Qty (Gross / Return / Real) âââââââââââââââââ
   h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">';
   [{label:'\u{1F4E6} Gross Qty',  val:kGrossQty+'pcs', col:'var(--text2)', sub:'invoice total'},
    {label:'\u21A9\uFE0F Return Qty', val:kRetQty>0?'\u2212'+kRetQty+'pcs':'0 pcs', col:kRetQty>0?'var(--orange)':'var(--text3)', sub:kReturn+' invoices'},
@@ -6575,7 +6575,7 @@ function renderSalesDashboard(){
     h+='<div class="kpi-card"><div class="kpi-label">'+k.label+'</div><div class="kpi-val" style="color:'+k.col+';font-size:18px">'+k.val+'</div><div class="kpi-sub">'+k.sub+'</div></div>';
   });
   h+='</div>';
-  // ── ROW 2: Sales Amount ─────────────────────────────────
+  // ââ ROW 2: Sales Amount âââââââââââââââââââââââââââââââââ
   h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">';
   [{label:'\u{1F4B0} Gross Sales',    val:fmtMoney(kGrossSales),  col:'var(--text2)',  sub:'original invoice'},
    {label:'\u21A9\uFE0F Customer Return Amt', val:kSalesDeducted>0?fmtMoney(kSalesDeducted):'\u2014', col:kSalesDeducted>0?'var(--gold)':'var(--text3)', sub:'full sell price returned'},
@@ -6584,7 +6584,7 @@ function renderSalesDashboard(){
     h+='<div class="kpi-card"><div class="kpi-label">'+k.label+'</div><div class="kpi-val" style="color:'+k.col+';font-size:18px">'+k.val+'</div><div class="kpi-sub">'+k.sub+'</div></div>';
   });
   h+='</div>';
-  // ── ROW 3: Profit ───────────────────────────────────────
+  // ââ ROW 3: Profit âââââââââââââââââââââââââââââââââââââââ
   h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px">';
   [{label:'\u{1F4CA} Adj Gross Profit', val:fmtMoney(kAdjGross),  col:'var(--green)',  sub:'ROI '+kGrossROI+'%'},
    {label:'\u{1F527} Fix Cost (Loss)',   val:kFixCost>0?fmtMoney(kFixCost):'\u2014',  col:kFixCost>0?'var(--red)':'var(--text3)',    sub:'return repair'},
@@ -6594,7 +6594,7 @@ function renderSalesDashboard(){
     h+='<div class="kpi-card"><div class="kpi-label">'+k.label+'</div><div class="kpi-val" style="color:'+k.col+';font-size:16px">'+k.val+'</div><div class="kpi-sub">'+k.sub+'</div></div>';
   });
   h+='</div>';
-  // ── // ── ROW Admin KPI: Avg ROI + Avg Profit/Pc (Admin Only) ──────────  var _adminEmail='rashadulalamovi@gmail.com';var _cu=window.firebase&&window.firebase.auth&&window.firebase.auth().currentUser;if(_cu&&_cu.email===_adminEmail){var kAvgROI=kTotC>0?Math.round((kRealSales-kTotC)/kTotC*100):0;var kAvgProfitPc=kRealQty>0?Math.round((kRealSales-kTotC)/kRealQty):0;h+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;">';[{label:'\uD83D\uDCC8 Avg ROI',val:(kTotC>0?kAvgROI+'%':'\u2014'),col:kAvgROI>=25?'var(--green)':kAvgROI>=15?'var(--warn)':'var(--red)',sub:'per invoice avg \u00B7 admin only'},{label:'\uD83D\uDCB0 Avg Profit / Pc',val:(kRealQty>0?fmtMoney(kAvgProfitPc):'\u2014'),col:kAvgProfitPc>=3000?'var(--green)':kAvgProfitPc>=2000?'var(--gold)':'var(--red)',sub:'net profit \u00F7 qty \u00B7 admin only'}].forEach(function(k){h+='<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);"><div class="kpi-label">'+k.label+'</div><div class="kpi-val" style="color:'+k.col+';font-size:28px;">'+k.val+'</div><div class="kpi-sub">'+k.sub+'</div></div>';});h+='</div>';}  // ── ROW 4: Payment tracking   ──────────────────────────────────
+  // ââ // ââ ROW Admin KPI: Avg ROI + Avg Profit/Pc (Admin Only) ââââââââââ  var _adminEmail='rashadulalamovi@gmail.com';var _cu=window.firebase&&window.firebase.auth&&window.firebase.auth().currentUser;if(_cu&&_cu.email===_adminEmail){var kAvgROI=kTotC>0?Math.round((kRealSales-kTotC)/kTotC*100):0;var kAvgProfitPc=kRealQty>0?Math.round((kRealSales-kTotC)/kRealQty):0;h+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;">';[{label:'\uD83D\uDCC8 Avg ROI',val:(kTotC>0?kAvgROI+'%':'\u2014'),col:kAvgROI>=25?'var(--green)':kAvgROI>=15?'var(--warn)':'var(--red)',sub:'per invoice avg \u00B7 admin only'},{label:'\uD83D\uDCB0 Avg Profit / Pc',val:(kRealQty>0?fmtMoney(kAvgProfitPc):'\u2014'),col:kAvgProfitPc>=3000?'var(--green)':kAvgProfitPc>=2000?'var(--gold)':'var(--red)',sub:'net profit \u00F7 qty \u00B7 admin only'}].forEach(function(k){h+='<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);"><div class="kpi-label">'+k.label+'</div><div class="kpi-val" style="color:'+k.col+';font-size:28px;">'+k.val+'</div><div class="kpi-sub">'+k.sub+'</div></div>';});h+='</div>';}  // ââ ROW 4: Payment tracking   ââââââââââââââââââââââââââââââââââ
   h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px">';
   [{label:'\u{1F4B5} Total Paid',      val:fmtMoney(kPd),       col:'var(--green)',  sub:kPct+'% collected', bg:'rgba(52,211,153,.05)', bc:'rgba(52,211,153,.2)'},
    {label:'\u{1F4B3} Payment Due',     val:fmtMoney(kDueAmt),   col:'var(--orange)', sub:kDueInvs.length+' invoices', bg:'rgba(249,115,22,.05)', bc:'rgba(249,115,22,.2)'},
@@ -6607,7 +6607,7 @@ function renderSalesDashboard(){
       +'<div class="kpi-sub">'+k.sub+'</div></div>';
   });
   h+='</div>';
-  // ── ROW 5: Return Credit Tracking ────────────────────────────
+  // ââ ROW 5: Return Credit Tracking ââââââââââââââââââââââââââââ
   if(kReturnCredit>0){
     h+='<div style="background:rgba(249,115,22,.04);border:1px solid rgba(249,115,22,.15);border-radius:8px;padding:10px;margin-bottom:14px">';
     h+='<div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--orange);margin-bottom:8px">\u21A9\uFE0F Return Credit Tracker</div>';
@@ -6626,7 +6626,7 @@ function renderSalesDashboard(){
     h+='</div></div>';
   }
 
-  // ── Filters + Invoice list ────────────────────────────
+  // ââ Filters + Invoice list ââââââââââââââââââââââââââââ
   h+='<div style="background:rgba(18,24,32,.8);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:14px">';
   h+='<div style="font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:11px">\u{1F50D} Custom Filter</div>';
   h+='<div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:10px">';
@@ -6679,7 +6679,7 @@ function clearSdFilter(){ ["sdFiltCust","sdFiltStat","sdFiltFrom","sdFiltTo","sd
 function clearDateRange(){ var a=document.getElementById("sdFiltFrom"),b=document.getElementById("sdFiltTo"); if(a)a.value=""; if(b)b.value=""; }
 
 function clearMonth(){ var m=document.getElementById("sdFiltMonth"); if(m)m.value=""; }
-// ── Weekly Target ─────────────────────────────────────
+// ââ Weekly Target âââââââââââââââââââââââââââââââââââââ
 function saveMonthTarget(){
   var inp=document.getElementById('monthTargetInput'); if(!inp) return;
   var v=parseInt(inp.value)||0;
@@ -6694,7 +6694,7 @@ function saveWeekTarget(){
 }
 
 function getWeekBounds(weekIndex){
-  // Legacy: rolling weeks — kept for backward compat
+  // Legacy: rolling weeks â kept for backward compat
   var d=new Date(), day=d.getDay();
   var diff=day===6?0:day+1;
   var sat=new Date(d); sat.setDate(d.getDate()-diff-weekIndex*7);
@@ -6703,7 +6703,7 @@ function getWeekBounds(weekIndex){
   return {start:fmt(sat),end:fmt(fri)};
 }
 function getMonthWeeks(){
-  // Month-aligned Sat→Fri weeks starting from 1st of current month
+  // Month-aligned SatâFri weeks starting from 1st of current month
   var fmt=function(dt){
     var y=dt.getFullYear(),m=String(dt.getMonth()+1).padStart(2,'0'),
         d=String(dt.getDate()).padStart(2,'0');
@@ -6718,9 +6718,9 @@ function getMonthWeeks(){
     var dow=wStart.getDay(); // 0=Sun,6=Sat
     // Days until next Friday (end of week)
     var daysToFri;
-    if(dow===6)      daysToFri=6;  // Sat → +6 = Fri
-    else if(dow===0) daysToFri=5;  // Sun → +5 = Fri
-    else             daysToFri=5-dow; // Mon(1)→4, Tue→3, Wed→2, Thu→1, Fri→0
+    if(dow===6)      daysToFri=6;  // Sat â +6 = Fri
+    else if(dow===0) daysToFri=5;  // Sun â +5 = Fri
+    else             daysToFri=5-dow; // Mon(1)â4, Tueâ3, Wedâ2, Thuâ1, Friâ0
     var wEnd=new Date(wStart);
     wEnd.setDate(wStart.getDate()+daysToFri);
     if(wEnd>end) wEnd=new Date(end); // clamp to month end
@@ -6768,7 +6768,7 @@ function updateTargetBar(){
     var _mw=getMonthWeeks(); var _wt=_mw.length>0?Math.ceil(monthTarget/_mw.length):0;
     mStats.innerHTML=mPct+'% \u00B7 Actual: <b>'+monthSales.qty+'pcs</b>'
       +(monthTarget>0?' \u00B7 Remaining: <span style="color:'+(rem>0?'var(--orange)':'var(--green)')+'">'+rem+'pcs</span>':'')
-      +' \u00B7 Weekly target: <span style="color:var(--cyan)">'+_wt+'pcs</span> · '+_mw.length+' weeks';
+      +' \u00B7 Weekly target: <span style="color:var(--cyan)">'+_wt+'pcs</span> Â· '+_mw.length+' weeks';
   }
   var mQ=document.getElementById('monthActualQty'); if(mQ) mQ.textContent=monthSales.qty+' pcs';
   var mA=document.getElementById('monthActualAmt'); if(mA) mA.innerHTML='\u09F3'+fmtNum(Math.round(monthSales.amt));
@@ -6777,7 +6777,7 @@ function updateTargetBar(){
   var grid=document.getElementById('weekMiniGrid'); if(!grid) return;
   var wh='';
   var monthWeeks=getMonthWeeks();
-  // weekTarget per week (month total ÷ number of weeks)
+  // weekTarget per week (month total Ã· number of weeks)
   var weekTarget=monthTarget>0?Math.ceil(monthTarget/monthWeeks.length):0;
   for(var w=0;w<monthWeeks.length;w++){
     var wb=monthWeeks[w];
@@ -6804,7 +6804,7 @@ function updateWeekTarget(){ updateTargetBar(); }
 
 
 
-// ── Demo Data Loader ────────────────────────────
+// ââ Demo Data Loader ââââââââââââââââââââââââââââ
 
 
 function copyBankInfoWA(){
@@ -6837,7 +6837,7 @@ function copyBankInfoWA(){
     .catch(function(){notify('Copy failed',true);});
 }
 
-function loadDemoData(){ notify('Demo data disabled — real data যোগ করুন',true); }
+function loadDemoData(){ notify('Demo data disabled â real data à¦¯à§à¦ à¦à¦°à§à¦¨',true); }
 
 function renderStockModelSummary(){
   var el=document.getElementById('stockModelSummary'); if(!el) return;
@@ -6878,7 +6878,7 @@ function renderStockModelSummary(){
   el.innerHTML=h;
 }
 
-// ─── Return Adjustment Helpers ──────────────────────────────
+// âââ Return Adjustment Helpers ââââââââââââââââââââââââââââââ
 function getPendingReturnCredit(custId){
   var c=db.customers.find(function(x){return x.id===custId;}); if(!c) return 0;
   var total=0;
@@ -6931,7 +6931,7 @@ function markReturnCashRefund(custId,invId,retId,amount,refDate,method,note){
   var r=(inv.returns||[]).find(function(x){return x.id===retId;}); if(!r) return;
   var amt=amount||(r.salesDeducted||r.refundAmt||0);
   var dt=refDate||TODAY;
-  // Store on return record — NOT expense module (cash refund != business expense)
+  // Store on return record â NOT expense module (cash refund != business expense)
   r.adjustmentType='cash_refunded';
   r.adjustmentDate=dt;
   r.adjustmentAmount=amt;
@@ -7005,7 +7005,7 @@ function openReturnAdjustModal(custId,invId,retId){
   openModalById('retAdjModal');
 }
 
-// ─── WA Stock List Generator ─────────────────────────────────
+// âââ WA Stock List Generator âââââââââââââââââââââââââââââââââ
 function buildSimpleStockList(){
   var merged = {};
   (stockDB.batches||[]).forEach(function(b){
@@ -7029,7 +7029,7 @@ function buildSimpleStockList(){
 
 function formatSimpleWAMsg(opts){
   var list = buildSimpleStockList();
-  if(!list.length) return 'স্টক খালি — কোনো available model পাওয়া যায়নি।';
+  if(!list.length) return 'à¦¸à§à¦à¦ à¦à¦¾à¦²à¦¿ â à¦à§à¦¨à§ available model à¦ªà¦¾à¦à¦¯à¦¼à¦¾ à¦¯à¦¾à¦¯à¦¼à¦¨à¦¿à¥¤';
   var showPrice = opts.showPrice !== false;
   var showQty   = opts.showQty   !== false;
   var line = '\u2501'.repeat(20);
@@ -7097,10 +7097,10 @@ function renderStockWASection(){
     +'\u{1F4CB} Generate Stock List</button>'
     +'</div>';
 }
-// ── Admin KPI Patch: Avg ROI + Avg Profit/Pc (Admin Only) ─────────────────────── function injectAdminKpiCards(){   var ADMIN='rashadulalamovi@gmail.com';   var auth=window.firebase&&window.firebase.auth&&window.firebase.auth();   if(!auth)return;   var cu=auth.currentUser;   if(!cu||cu.email!==ADMIN)return;   var wrap=document.getElementById('salesDashWrap');   if(!wrap||document.getElementById('adminKpiRow'))return;   var customers=db&&db.customers||[];   var fCust=(document.getElementById('sdFiltCust')||{}).value||'';   var fStat=(document.getElementById('sdFiltStat')||{}).value||'';   var fFrom=(document.getElementById('sdFiltFrom')||{}).value||'';   var fTo=(document.getElementById('sdFiltTo')||{}).value||'';   var fMonth=(document.getElementById('sdFiltMonth')||{}).value||'';   var kGrossQty=0,kTotC=0,kRetQty=0,kSalesDeducted=0,kGrossSales=0;   customers.forEach(function(c){     (c.invoices||[]).forEach(function(inv){       if(fCust&&String(c.id)!==fCust)return;       if(fStat&&inv.status!==fStat)return;       if(fFrom&&inv.date<fFrom)return;       if(fTo&&inv.date>fTo)return;       if(fMonth&&(inv.date||'').slice(0,7)!==fMonth)return;       (inv.items||[]).forEach(function(x){         kGrossQty+=x.qty||0;         kGrossSales+=x.qty*(x.price||0);         kTotC+=x.purchasePrice?x.qty*x.purchasePrice:0;       });       (inv.returns||[]).forEach(function(r){         kRetQty+=r.qty||0;         kSalesDeducted+=r.salesDeducted||r.refundAmt||0;       });     });   });   var kRealQty=kGrossQty-kRetQty;   var kRealSales=kGrossSales-kSalesDeducted;   var kAvgROI=kTotC>0?Math.round((kRealSales-kTotC)/kTotC*100):0;   var kAvgPcProfit=kRealQty>0?Math.round((kRealSales-kTotC)/kRealQty):0;   var roiCol=kAvgROI>=25?'var(--green)':kAvgROI>=15?'var(--warn)':'var(--red)';   var pcCol=kAvgPcProfit>=3000?'var(--green)':kAvgPcProfit>=2000?'var(--gold)':'var(--red)';   var html='<div id="adminKpiRow" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;">'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCC8 Average ROI</div>'     +'<div class="kpi-val" style="color:'+roiCol+';font-size:28px;">'+(kTotC>0?kAvgROI+'%':'\u2014')+'</div>'     +'<div class="kpi-sub">per invoice avg \u00B7 admin only</div></div>'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCB0 Avg Profit / Pc</div>'     +'<div class="kpi-val" style="color:'+pcCol+';font-size:28px;">'+(kRealQty>0?fmtMoney(kAvgPcProfit):'\u2014')+'</div>'     +'<div class="kpi-sub">net profit \u00F7 qty \u00B7 admin only</div></div></div>';   var ch=Array.from(wrap.children);   var fe=ch.find(function(el){return el.querySelector&&el.querySelector('#sdFiltCust');});   if(fe){fe.insertAdjacentHTML('beforebegin',html);}else{wrap.insertAdjacentHTML('beforeend',html);} } var _rsdOrig=window.renderSalesDashboard; window.renderSalesDashboard=function(){if(_rsdOrig)_rsdOrig.apply(this,arguments);setTimeout(injectAdminKpiCards,50);}; firebase.auth().onAuthStateChanged(function(u){   if(u&&u.email==='rashadulalamovi@gmail.com'){     setTimeout(function(){if(document.getElementById('salesDashWrap')&&!document.getElementById('adminKpiRow')){renderSalesDashboard();}},300);   } }); </script>
+// ââ Admin KPI Patch: Avg ROI + Avg Profit/Pc (Admin Only) âââââââââââââââââââââââ function injectAdminKpiCards(){   var ADMIN='rashadulalamovi@gmail.com';   var auth=window.firebase&&window.firebase.auth&&window.firebase.auth();   if(!auth)return;   var cu=auth.currentUser;   if(!cu||cu.email!==ADMIN)return;   var wrap=document.getElementById('salesDashWrap');   if(!wrap||document.getElementById('adminKpiRow'))return;   var customers=db&&db.customers||[];   var fCust=(document.getElementById('sdFiltCust')||{}).value||'';   var fStat=(document.getElementById('sdFiltStat')||{}).value||'';   var fFrom=(document.getElementById('sdFiltFrom')||{}).value||'';   var fTo=(document.getElementById('sdFiltTo')||{}).value||'';   var fMonth=(document.getElementById('sdFiltMonth')||{}).value||'';   var kGrossQty=0,kTotC=0,kRetQty=0,kSalesDeducted=0,kGrossSales=0;   customers.forEach(function(c){     (c.invoices||[]).forEach(function(inv){       if(fCust&&String(c.id)!==fCust)return;       if(fStat&&inv.status!==fStat)return;       if(fFrom&&inv.date<fFrom)return;       if(fTo&&inv.date>fTo)return;       if(fMonth&&(inv.date||'').slice(0,7)!==fMonth)return;       (inv.items||[]).forEach(function(x){         kGrossQty+=x.qty||0;         kGrossSales+=x.qty*(x.price||0);         kTotC+=x.purchasePrice?x.qty*x.purchasePrice:0;       });       (inv.returns||[]).forEach(function(r){         kRetQty+=r.qty||0;         kSalesDeducted+=r.salesDeducted||r.refundAmt||0;       });     });   });   var kRealQty=kGrossQty-kRetQty;   var kRealSales=kGrossSales-kSalesDeducted;   var kAvgROI=kTotC>0?Math.round((kRealSales-kTotC)/kTotC*100):0;   var kAvgPcProfit=kRealQty>0?Math.round((kRealSales-kTotC)/kRealQty):0;   var roiCol=kAvgROI>=25?'var(--green)':kAvgROI>=15?'var(--warn)':'var(--red)';   var pcCol=kAvgPcProfit>=3000?'var(--green)':kAvgPcProfit>=2000?'var(--gold)':'var(--red)';   var html='<div id="adminKpiRow" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;">'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCC8 Average ROI</div>'     +'<div class="kpi-val" style="color:'+roiCol+';font-size:28px;">'+(kTotC>0?kAvgROI+'%':'\u2014')+'</div>'     +'<div class="kpi-sub">per invoice avg \u00B7 admin only</div></div>'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCB0 Avg Profit / Pc</div>'     +'<div class="kpi-val" style="color:'+pcCol+';font-size:28px;">'+(kRealQty>0?fmtMoney(kAvgPcProfit):'\u2014')+'</div>'     +'<div class="kpi-sub">net profit \u00F7 qty \u00B7 admin only</div></div></div>';   var ch=Array.from(wrap.children);   var fe=ch.find(function(el){return el.querySelector&&el.querySelector('#sdFiltCust');});   if(fe){fe.insertAdjacentHTML('beforebegin',html);}else{wrap.insertAdjacentHTML('beforeend',html);} } var _rsdOrig=window.renderSalesDashboard; window.renderSalesDashboard=function(){if(_rsdOrig)_rsdOrig.apply(this,arguments);setTimeout(injectAdminKpiCards,50);}; firebase.auth().onAuthStateChanged(function(u){   if(u&&u.email==='rashadulalamovi@gmail.com'){     setTimeout(function(){if(document.getElementById('salesDashWrap')&&!document.getElementById('adminKpiRow')){renderSalesDashboard();}},300);   } }); </script>
 
 
-<!-- ═══ WA STOCK GENERATOR MODAL ════════════════════════ -->
+<!-- âââ WA STOCK GENERATOR MODAL ââââââââââââââââââââââââ -->
 <div class="modal-ov" id="waStockModal">
   <div class="modal" style="max-width:600px;width:95vw">
     <div class="modal-hdr">
@@ -7112,11 +7112,11 @@ function renderStockWASection(){
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--fd);font-size:10px;font-weight:700;color:var(--text3)">
           <input type="checkbox" id="waOptPrice" checked style="accent-color:#25d366;width:14px;height:14px">
-          &#x1F4B0; Price দেখাবে
+          &#x1F4B0; Price à¦¦à§à¦à¦¾à¦¬à§
         </label>
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-family:var(--fd);font-size:10px;font-weight:700;color:var(--text3)">
           <input type="checkbox" id="waOptQty" checked style="accent-color:#25d366;width:14px;height:14px">
-          &#x1F4E6; Qty দেখাবে
+          &#x1F4E6; Qty à¦¦à§à¦à¦¾à¦¬à§
         </label>
       </div>
       <!-- Regenerate -->
@@ -7162,7 +7162,7 @@ function renderStockWASection(){
 </div>
 
 <!-- Firebase Auth SDK -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js">// ── Admin KPI Patch: Avg ROI + Avg Profit/Pc (Admin Only) ─────────────────────── function injectAdminKpiCards(){   var ADMIN='rashadulalamovi@gmail.com';   var auth=window.firebase&&window.firebase.auth&&window.firebase.auth();   if(!auth)return;   var cu=auth.currentUser;   if(!cu||cu.email!==ADMIN)return;   var wrap=document.getElementById('salesDashWrap');   if(!wrap||document.getElementById('adminKpiRow'))return;   var customers=db&&db.customers||[];   var fCust=(document.getElementById('sdFiltCust')||{}).value||'';   var fStat=(document.getElementById('sdFiltStat')||{}).value||'';   var fFrom=(document.getElementById('sdFiltFrom')||{}).value||'';   var fTo=(document.getElementById('sdFiltTo')||{}).value||'';   var fMonth=(document.getElementById('sdFiltMonth')||{}).value||'';   var kGrossQty=0,kTotC=0,kRetQty=0,kSalesDeducted=0,kGrossSales=0;   customers.forEach(function(c){     (c.invoices||[]).forEach(function(inv){       if(fCust&&String(c.id)!==fCust)return;       if(fStat&&inv.status!==fStat)return;       if(fFrom&&inv.date<fFrom)return;       if(fTo&&inv.date>fTo)return;       if(fMonth&&(inv.date||'').slice(0,7)!==fMonth)return;       (inv.items||[]).forEach(function(x){         kGrossQty+=x.qty||0;         kGrossSales+=x.qty*(x.price||0);         kTotC+=x.purchasePrice?x.qty*x.purchasePrice:0;       });       (inv.returns||[]).forEach(function(r){         kRetQty+=r.qty||0;         kSalesDeducted+=r.salesDeducted||r.refundAmt||0;       });     });   });   var kRealQty=kGrossQty-kRetQty;   var kRealSales=kGrossSales-kSalesDeducted;   var kAvgROI=kTotC>0?Math.round((kRealSales-kTotC)/kTotC*100):0;   var kAvgPcProfit=kRealQty>0?Math.round((kRealSales-kTotC)/kRealQty):0;   var roiCol=kAvgROI>=25?'var(--green)':kAvgROI>=15?'var(--warn)':'var(--red)';   var pcCol=kAvgPcProfit>=3000?'var(--green)':kAvgPcProfit>=2000?'var(--gold)':'var(--red)';   var html='<div id="adminKpiRow" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;">'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCC8 Average ROI</div>'     +'<div class="kpi-val" style="color:'+roiCol+';font-size:28px;">'+(kTotC>0?kAvgROI+'%':'\u2014')+'</div>'     +'<div class="kpi-sub">per invoice avg \u00B7 admin only</div></div>'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCB0 Avg Profit / Pc</div>'     +'<div class="kpi-val" style="color:'+pcCol+';font-size:28px;">'+(kRealQty>0?fmtMoney(kAvgPcProfit):'\u2014')+'</div>'     +'<div class="kpi-sub">net profit \u00F7 qty \u00B7 admin only</div></div></div>';   var ch=Array.from(wrap.children);   var fe=ch.find(function(el){return el.querySelector&&el.querySelector('#sdFiltCust');});   if(fe){fe.insertAdjacentHTML('beforebegin',html);}else{wrap.insertAdjacentHTML('beforeend',html);} } var _rsdOrig=window.renderSalesDashboard; window.renderSalesDashboard=function(){if(_rsdOrig)_rsdOrig.apply(this,arguments);setTimeout(injectAdminKpiCards,50);}; firebase.auth().onAuthStateChanged(function(u){   if(u&&u.email==='rashadulalamovi@gmail.com'){     setTimeout(function(){if(document.getElementById('salesDashWrap')&&!document.getElementById('adminKpiRow')){renderSalesDashboard();}},300);   } }); </script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js">// ââ Admin KPI Patch: Avg ROI + Avg Profit/Pc (Admin Only) âââââââââââââââââââââââ function injectAdminKpiCards(){   var ADMIN='rashadulalamovi@gmail.com';   var auth=window.firebase&&window.firebase.auth&&window.firebase.auth();   if(!auth)return;   var cu=auth.currentUser;   if(!cu||cu.email!==ADMIN)return;   var wrap=document.getElementById('salesDashWrap');   if(!wrap||document.getElementById('adminKpiRow'))return;   var customers=db&&db.customers||[];   var fCust=(document.getElementById('sdFiltCust')||{}).value||'';   var fStat=(document.getElementById('sdFiltStat')||{}).value||'';   var fFrom=(document.getElementById('sdFiltFrom')||{}).value||'';   var fTo=(document.getElementById('sdFiltTo')||{}).value||'';   var fMonth=(document.getElementById('sdFiltMonth')||{}).value||'';   var kGrossQty=0,kTotC=0,kRetQty=0,kSalesDeducted=0,kGrossSales=0;   customers.forEach(function(c){     (c.invoices||[]).forEach(function(inv){       if(fCust&&String(c.id)!==fCust)return;       if(fStat&&inv.status!==fStat)return;       if(fFrom&&inv.date<fFrom)return;       if(fTo&&inv.date>fTo)return;       if(fMonth&&(inv.date||'').slice(0,7)!==fMonth)return;       (inv.items||[]).forEach(function(x){         kGrossQty+=x.qty||0;         kGrossSales+=x.qty*(x.price||0);         kTotC+=x.purchasePrice?x.qty*x.purchasePrice:0;       });       (inv.returns||[]).forEach(function(r){         kRetQty+=r.qty||0;         kSalesDeducted+=r.salesDeducted||r.refundAmt||0;       });     });   });   var kRealQty=kGrossQty-kRetQty;   var kRealSales=kGrossSales-kSalesDeducted;   var kAvgROI=kTotC>0?Math.round((kRealSales-kTotC)/kTotC*100):0;   var kAvgPcProfit=kRealQty>0?Math.round((kRealSales-kTotC)/kRealQty):0;   var roiCol=kAvgROI>=25?'var(--green)':kAvgROI>=15?'var(--warn)':'var(--red)';   var pcCol=kAvgPcProfit>=3000?'var(--green)':kAvgPcProfit>=2000?'var(--gold)':'var(--red)';   var html='<div id="adminKpiRow" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;">'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCC8 Average ROI</div>'     +'<div class="kpi-val" style="color:'+roiCol+';font-size:28px;">'+(kTotC>0?kAvgROI+'%':'\u2014')+'</div>'     +'<div class="kpi-sub">per invoice avg \u00B7 admin only</div></div>'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCB0 Avg Profit / Pc</div>'     +'<div class="kpi-val" style="color:'+pcCol+';font-size:28px;">'+(kRealQty>0?fmtMoney(kAvgPcProfit):'\u2014')+'</div>'     +'<div class="kpi-sub">net profit \u00F7 qty \u00B7 admin only</div></div></div>';   var ch=Array.from(wrap.children);   var fe=ch.find(function(el){return el.querySelector&&el.querySelector('#sdFiltCust');});   if(fe){fe.insertAdjacentHTML('beforebegin',html);}else{wrap.insertAdjacentHTML('beforeend',html);} } var _rsdOrig=window.renderSalesDashboard; window.renderSalesDashboard=function(){if(_rsdOrig)_rsdOrig.apply(this,arguments);setTimeout(injectAdminKpiCards,50);}; firebase.auth().onAuthStateChanged(function(u){   if(u&&u.email==='rashadulalamovi@gmail.com'){     setTimeout(function(){if(document.getElementById('salesDashWrap')&&!document.getElementById('adminKpiRow')){renderSalesDashboard();}},300);   } }); </script>
 
 <script>
 (function() {
@@ -7299,15 +7299,15 @@ function renderStockWASection(){
     }
   });
 })();
-// ── Admin KPI Patch: Avg ROI + Avg Profit/Pc (Admin Only) ─────────────────────── function injectAdminKpiCards(){   var ADMIN='rashadulalamovi@gmail.com';   var auth=window.firebase&&window.firebase.auth&&window.firebase.auth();   if(!auth)return;   var cu=auth.currentUser;   if(!cu||cu.email!==ADMIN)return;   var wrap=document.getElementById('salesDashWrap');   if(!wrap||document.getElementById('adminKpiRow'))return;   var customers=db&&db.customers||[];   var fCust=(document.getElementById('sdFiltCust')||{}).value||'';   var fStat=(document.getElementById('sdFiltStat')||{}).value||'';   var fFrom=(document.getElementById('sdFiltFrom')||{}).value||'';   var fTo=(document.getElementById('sdFiltTo')||{}).value||'';   var fMonth=(document.getElementById('sdFiltMonth')||{}).value||'';   var kGrossQty=0,kTotC=0,kRetQty=0,kSalesDeducted=0,kGrossSales=0;   customers.forEach(function(c){     (c.invoices||[]).forEach(function(inv){       if(fCust&&String(c.id)!==fCust)return;       if(fStat&&inv.status!==fStat)return;       if(fFrom&&inv.date<fFrom)return;       if(fTo&&inv.date>fTo)return;       if(fMonth&&(inv.date||'').slice(0,7)!==fMonth)return;       (inv.items||[]).forEach(function(x){         kGrossQty+=x.qty||0;         kGrossSales+=x.qty*(x.price||0);         kTotC+=x.purchasePrice?x.qty*x.purchasePrice:0;       });       (inv.returns||[]).forEach(function(r){         kRetQty+=r.qty||0;         kSalesDeducted+=r.salesDeducted||r.refundAmt||0;       });     });   });   var kRealQty=kGrossQty-kRetQty;   var kRealSales=kGrossSales-kSalesDeducted;   var kAvgROI=kTotC>0?Math.round((kRealSales-kTotC)/kTotC*100):0;   var kAvgPcProfit=kRealQty>0?Math.round((kRealSales-kTotC)/kRealQty):0;   var roiCol=kAvgROI>=25?'var(--green)':kAvgROI>=15?'var(--warn)':'var(--red)';   var pcCol=kAvgPcProfit>=3000?'var(--green)':kAvgPcProfit>=2000?'var(--gold)':'var(--red)';   var html='<div id="adminKpiRow" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;">'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCC8 Average ROI</div>'     +'<div class="kpi-val" style="color:'+roiCol+';font-size:28px;">'+(kTotC>0?kAvgROI+'%':'\u2014')+'</div>'     +'<div class="kpi-sub">per invoice avg \u00B7 admin only</div></div>'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCB0 Avg Profit / Pc</div>'     +'<div class="kpi-val" style="color:'+pcCol+';font-size:28px;">'+(kRealQty>0?fmtMoney(kAvgPcProfit):'\u2014')+'</div>'     +'<div class="kpi-sub">net profit \u00F7 qty \u00B7 admin only</div></div></div>';   var ch=Array.from(wrap.children);   var fe=ch.find(function(el){return el.querySelector&&el.querySelector('#sdFiltCust');});   if(fe){fe.insertAdjacentHTML('beforebegin',html);}else{wrap.insertAdjacentHTML('beforeend',html);} } var _rsdOrig=window.renderSalesDashboard; window.renderSalesDashboard=function(){if(_rsdOrig)_rsdOrig.apply(this,arguments);setTimeout(injectAdminKpiCards,50);}; firebase.auth().onAuthStateChanged(function(u){   if(u&&u.email==='rashadulalamovi@gmail.com'){     setTimeout(function(){if(document.getElementById('salesDashWrap')&&!document.getElementById('adminKpiRow')){renderSalesDashboard();}},300);   } }); </script>
+// ââ Admin KPI Patch: Avg ROI + Avg Profit/Pc (Admin Only) âââââââââââââââââââââââ function injectAdminKpiCards(){   var ADMIN='rashadulalamovi@gmail.com';   var auth=window.firebase&&window.firebase.auth&&window.firebase.auth();   if(!auth)return;   var cu=auth.currentUser;   if(!cu||cu.email!==ADMIN)return;   var wrap=document.getElementById('salesDashWrap');   if(!wrap||document.getElementById('adminKpiRow'))return;   var customers=db&&db.customers||[];   var fCust=(document.getElementById('sdFiltCust')||{}).value||'';   var fStat=(document.getElementById('sdFiltStat')||{}).value||'';   var fFrom=(document.getElementById('sdFiltFrom')||{}).value||'';   var fTo=(document.getElementById('sdFiltTo')||{}).value||'';   var fMonth=(document.getElementById('sdFiltMonth')||{}).value||'';   var kGrossQty=0,kTotC=0,kRetQty=0,kSalesDeducted=0,kGrossSales=0;   customers.forEach(function(c){     (c.invoices||[]).forEach(function(inv){       if(fCust&&String(c.id)!==fCust)return;       if(fStat&&inv.status!==fStat)return;       if(fFrom&&inv.date<fFrom)return;       if(fTo&&inv.date>fTo)return;       if(fMonth&&(inv.date||'').slice(0,7)!==fMonth)return;       (inv.items||[]).forEach(function(x){         kGrossQty+=x.qty||0;         kGrossSales+=x.qty*(x.price||0);         kTotC+=x.purchasePrice?x.qty*x.purchasePrice:0;       });       (inv.returns||[]).forEach(function(r){         kRetQty+=r.qty||0;         kSalesDeducted+=r.salesDeducted||r.refundAmt||0;       });     });   });   var kRealQty=kGrossQty-kRetQty;   var kRealSales=kGrossSales-kSalesDeducted;   var kAvgROI=kTotC>0?Math.round((kRealSales-kTotC)/kTotC*100):0;   var kAvgPcProfit=kRealQty>0?Math.round((kRealSales-kTotC)/kRealQty):0;   var roiCol=kAvgROI>=25?'var(--green)':kAvgROI>=15?'var(--warn)':'var(--red)';   var pcCol=kAvgPcProfit>=3000?'var(--green)':kAvgPcProfit>=2000?'var(--gold)':'var(--red)';   var html='<div id="adminKpiRow" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;">'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCC8 Average ROI</div>'     +'<div class="kpi-val" style="color:'+roiCol+';font-size:28px;">'+(kTotC>0?kAvgROI+'%':'\u2014')+'</div>'     +'<div class="kpi-sub">per invoice avg \u00B7 admin only</div></div>'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCB0 Avg Profit / Pc</div>'     +'<div class="kpi-val" style="color:'+pcCol+';font-size:28px;">'+(kRealQty>0?fmtMoney(kAvgPcProfit):'\u2014')+'</div>'     +'<div class="kpi-sub">net profit \u00F7 qty \u00B7 admin only</div></div></div>';   var ch=Array.from(wrap.children);   var fe=ch.find(function(el){return el.querySelector&&el.querySelector('#sdFiltCust');});   if(fe){fe.insertAdjacentHTML('beforebegin',html);}else{wrap.insertAdjacentHTML('beforeend',html);} } var _rsdOrig=window.renderSalesDashboard; window.renderSalesDashboard=function(){if(_rsdOrig)_rsdOrig.apply(this,arguments);setTimeout(injectAdminKpiCards,50);}; firebase.auth().onAuthStateChanged(function(u){   if(u&&u.email==='rashadulalamovi@gmail.com'){     setTimeout(function(){if(document.getElementById('salesDashWrap')&&!document.getElementById('adminKpiRow')){renderSalesDashboard();}},300);   } }); </script>
 
 <script>
-// ── Sales Dashboard: Average Profit + Avg Profit/Pc KPI ────────────────
+// ââ Sales Dashboard: Average Profit + Avg Profit/Pc KPI ââââââââââââââââ
 function injectAvgProfitKpis() {
   var wrap = document.getElementById('salesDashWrap');
   if (!wrap || document.getElementById('avgProfitKpiRow')) return;
 
-    // ── Read computed values from existing KPI cards ─────────────────────
+    // ââ Read computed values from existing KPI cards âââââââââââââââââââââ
     function parseKpiNum(text) {
       var digits = text.replace(/[^\d]/g, '');
       return digits ? parseInt(digits, 10) : 0;
@@ -7326,7 +7326,7 @@ function injectAvgProfitKpis() {
       }
     });
 
-    // ── Count invoices (rows with a YYYY-MM-DD date) ──────────────────────
+    // ââ Count invoices (rows with a YYYY-MM-DD date) ââââââââââââââââââââââ
     var kInvCount = Array.from(wrap.querySelectorAll('tr')).filter(function(r) {
       return /\d{4}-\d{2}-\d{2}/.test(r.textContent);
     }).length;
@@ -7341,14 +7341,14 @@ function injectAvgProfitKpis() {
     var html =
       '<div id="avgProfitKpiRow" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;">'
       + '<div class="kpi-card">'
-      +   '<div class="kpi-label">💰 AVG PROFIT / INVOICE</div>'
-      +   '<div class="kpi-val" style="color:' + invCol + ';">' + (kInvCount > 0 ? fmtMoney(kAvgInvProfit) : '—') + '</div>'
-      +   '<div class="kpi-sub">total profit ÷ ' + kInvCount + ' invoices</div>'
+      +   '<div class="kpi-label">ð° AVG PROFIT / INVOICE</div>'
+      +   '<div class="kpi-val" style="color:' + invCol + ';">' + (kInvCount > 0 ? fmtMoney(kAvgInvProfit) : 'â') + '</div>'
+      +   '<div class="kpi-sub">total profit Ã· ' + kInvCount + ' invoices</div>'
       + '</div>'
       + '<div class="kpi-card">'
-      +   '<div class="kpi-label">📊 AVG PROFIT / PC</div>'
-      +   '<div class="kpi-val" style="color:' + pcCol + ';">' + (kRealQty > 0 ? fmtMoney(kAvgPcProfit) : '—') + '</div>'
-      +   '<div class="kpi-sub">net profit ÷ ' + kRealQty + ' pcs · target ৳3000+</div>'
+      +   '<div class="kpi-label">ð AVG PROFIT / PC</div>'
+      +   '<div class="kpi-val" style="color:' + pcCol + ';">' + (kRealQty > 0 ? fmtMoney(kAvgPcProfit) : 'â') + '</div>'
+      +   '<div class="kpi-sub">net profit Ã· ' + kRealQty + ' pcs Â· target à§³3000+</div>'
       + '</div>'
       + '</div>';
   var firstChild = wrap.firstElementChild;
@@ -7364,6 +7364,44 @@ function injectAvgProfitKpis() {
     if (_orig) _orig.apply(this, arguments);
     setTimeout(injectAvgProfitKpis, 80);
   };
+})();
+</script>
+
+<script>
+// ── CTG CRM: Role-Based Access Control ─────────────────────────────────────────────
+// Admin: rashadulalamovi@gmail.com  → Sales tab + KPI cards VISIBLE
+// Staff (Emon etc.)                 → Sales tab + KPI cards HIDDEN
+(function(){
+  var ADMIN_EMAIL='rashadulalamovi@gmail.com';
+  function applyRoleAccess(user){
+    var isAdmin=user&&user.email===ADMIN_EMAIL;
+    var salesBtn=document.querySelector('.nb[onclick*="invoice"]');
+    if(salesBtn)salesBtn.style.display=isAdmin?''  :'none';
+    if(!isAdmin){var inv=document.getElementById('invoice');if(inv&&inv.classList.contains('active')){var pb=document.querySelector('.nb[onclick*="pipeline"]');if(typeof goTo==='function')goTo('pipeline',pb);}}
+    if(isAdmin&&!window._adminKpiPatched){
+      window._adminKpiPatched=true;
+      var _orig=window.renderSalesDashboard;
+      if(_orig){window.renderSalesDashboard=function(){_orig.apply(this,arguments);setTimeout(injectAdminKpiCards,60);};}
+      setTimeout(function(){if(document.getElementById('salesDashWrap')&&!document.getElementById('adminKpiRow')){if(typeof renderSalesDashboard==='function')renderSalesDashboard();}},400);
+    }
+  }
+  function injectAdminKpiCards(){
+    var wrap=document.getElementById('salesDashWrap');
+    if(!wrap||document.getElementById('adminKpiRow'))return;
+    var customers=(window.db&&window.db.customers)||[];
+    var gQty=0,tC=0,rQty=0,sDeduct=0,gSales=0;
+    customers.forEach(function(c){(c.invoices||[]).forEach(function(inv){(inv.items||[]).forEach(function(x){gQty+=x.qty||0;gSales+=x.qty*(x.price||0);tC+=x.purchasePrice?x.qty*x.purchasePrice:0;});(inv.returns||[]).forEach(function(r){rQty+=r.qty||0;sDeduct+=r.salesDeducted||r.refundAmt||0;});});});
+    var rQtyNet=gQty-rQty,rSales=gSales-sDeduct;
+    var avgROI=tC>0?Math.round((rSales-tC)/tC*100):0;
+    var avgPc=rQtyNet>0?Math.round((rSales-tC)/rQtyNet):0;
+    var roiCol=avgROI>=25?'var(--green)':avgROI>=15?'var(--warn)":'var(--red)';
+    var pcCol=avgPc>=3000?'var(--green)':avgPc>=2000?'var(--gold)':'var(--red)';
+    var html='<div id="adminKpiRow" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;"><div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,.04);"><div class="kpi-label">📈 AVG PROFIT / INVOICE</div><div class="kpi-val" style="color:'+roiCol+';font-size:28px;">'+( tC>0?avgROI+'%':'\u2014')+'</div><div class="kpi-sub">avg ROI · admin only</div></div><div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,.04);"><div class="kpi-label">💰 AVG PROFIT / PC</div><div class="kpi-val" style="color:'+pcCol+';font-size:28px;">'+( rQtyNet>0?'৳'+(avgPc).toLocaleString():'\u2014')+'</div><div class="kpi-sub">net profit ÷ qty · admin only</div></div></div>';
+    var ch=Array.from(wrap.children);
+    var fe=ch.find(function(el){return el.querySelector&&el.querySelector('#sdFiltCust');});
+    if(fe){fe.insertAdjacentHTML('beforebegin',html);}else{wrap.insertAdjacentHTML('afterbegin',html);}
+  }
+  var _t=setInterval(function(){if(window.firebase&&window.firebase.auth){clearInterval(_t);firebase.auth().onAuthStateChanged(applyRoleAccess);}},200);
 })();
 </script>
 </body>
