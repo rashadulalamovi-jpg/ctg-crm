@@ -7414,5 +7414,53 @@ function injectAvgProfitKpis() {
   var _t=setInterval(function(){if(window.firebase&&window.firebase.auth){clearInterval(_t);firebase.auth().onAuthStateChanged(applyRoleAccess);}},200);
 })();
 </script>
+
+<script>
+// ── CTG CRM: Role-Based Access Control ────────────────────────────────────
+// Admin: rashadulalamovi@gmail.com  → Sales tab + KPI cards VISIBLE
+// Staff (Emon etc.)                 → Sales tab + KPI cards HIDDEN
+(function(){
+  var ADMIN_EMAIL='rashadulalamovi@gmail.com';
+  function applyRoleAccess(user){
+    var isAdmin=user&&user.email===ADMIN_EMAIL;
+    var salesBtn=document.querySelector('.nb[onclick*="invoice"]');
+    if(salesBtn)salesBtn.style.display=isAdmin?''  :'none';
+    if(!isAdmin){var inv=document.getElementById('invoice');if(inv&&inv.classList.contains('active')){var pb=document.querySelector('.nb[onclick*="pipeline"]');if(typeof goTo==='function')goTo('pipeline',pb);}}
+    if(isAdmin&&!window._adminKpiPatched){
+      window._adminKpiPatched=true;
+      var _orig=window.renderSalesDashboard;
+      if(_orig){window.renderSalesDashboard=function(){_orig.apply(this,arguments);setTimeout(injectAdminKpiCards,60);};}
+      setTimeout(function(){if(document.getElementById('salesDashWrap')&&!document.getElementById('adminKpiRow')){if(typeof renderSalesDashboard==='function')renderSalesDashboard();}},400);
+    }
+  }
+  function injectAdminKpiCards(){
+    var wrap=document.getElementById('salesDashWrap');
+    if(!wrap||document.getElementById('adminKpiRow'))return;
+    var customers=(window.db&&window.db.customers)||[];
+    var gQty=0,tC=0,rQty=0,sDeduct=0,gSales=0;
+    customers.forEach(function(c){(c.invoices||[]).forEach(function(inv){(inv.items||[]).forEach(function(x){gQty+=x.qty||0;gSales+=x.qty*(x.price||0);tC+=x.purchasePrice?x.qty*x.purchasePrice:0;});(inv.returns||[]).forEach(function(r){rQty+=r.qty||0;sDeduct+=r.salesDeducted||r.refundAmt||0;});});});
+    var rQtyNet=gQty-rQty,rSales=gSales-sDeduct;
+    var avgROI=tC>0?Math.round((rSales-tC)/tC*100):0;
+    var avgPc=rQtyNet>0?Math.round((rSales-tC)/rQtyNet):0;
+    var roiCol=avgROI>=25?'var(--green)':avgROI>=15?'var(--warn)'  :'var(--red)';
+    var pcCol=avgPc>=3000?'var(--green)':avgPc>=2000?'var(--gold)'  :'var(--red)';
+    var kpiLabel1='\uD83D\uDCC8 AVG PROFIT / INVOICE';
+    var kpiLabel2='\uD83D\uDCB0 AVG PROFIT / PC';
+    var html='<div id="adminKpiRow" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;">'
+      +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,.04);">'
+      +'<div class="kpi-label">'+kpiLabel1+'</div>'
+      +'<div class="kpi-val" style="color:'+roiCol+';font-size:28px;">'+( tC>0?avgROI+'%':'—')+'</div>'
+      +'<div class="kpi-sub">avg ROI · admin only</div></div>'
+      +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,.04);">'
+      +'<div class="kpi-label">'+kpiLabel2+'</div>'
+      +'<div class="kpi-val" style="color:'+pcCol+';font-size:28px;">'+( rQtyNet>0?'৳'+(avgPc).toLocaleString():'—')+'</div>'
+      +'<div class="kpi-sub">net profit ÷ qty · admin only</div></div></div>';
+    var ch=Array.from(wrap.children);
+    var fe=ch.find(function(el){return el.querySelector&&el.querySelector('#sdFiltCust');});
+    if(fe){fe.insertAdjacentHTML('beforebegin',html);}else{wrap.insertAdjacentHTML('afterbegin',html);}
+  }
+  var _t=setInterval(function(){if(window.firebase&&window.firebase.auth){clearInterval(_t);firebase.auth().onAuthStateChanged(applyRoleAccess);}},200);
+})();
+</script>
 </body>
 </html>
