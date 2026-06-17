@@ -7368,15 +7368,27 @@ function injectAvgProfitKpis() {
 </script>
 
 <script>
-// ── CTG CRM: Role-Based Access Control ────────────────────────────────────
-// Hides existing #avgProfitKpiRow (AVG PROFIT/INVOICE + AVG PROFIT/PC)
-// from Staff (Emon). Admin sees everything.
+// ── CTG CRM: Role-Based Access Control ──────────────────────────────────────
+// Hidden from Emon: #avgProfitKpiRow + Adj Gross Profit + Net Profit KPI cards
+// Admin (rashadulalamovi@gmail.com) sees everything.
 (function(){
   var ADMIN_EMAIL='rashadulalamovi@gmail.com';
   var _isAdmin=false;
   function hideKpi(){
+    // 1. Hide avgProfitKpiRow
     var row=document.getElementById('avgProfitKpiRow');
-    if(row) row.style.display=_isAdmin?''  :'none';
+    if(row) row.style.display=_isAdmin?'':'none';
+    // 2. Hide Adj Gross Profit + Net Profit kpi-cards
+    var labels=document.querySelectorAll('#salesDashWrap .kpi-label');
+    for(var i=0;i<labels.length;i++){
+      var txt=labels[i].textContent||'';
+      if(txt.indexOf('Adj Gross Profit')!==-1||txt.indexOf('Net Profit')!==-1){
+        var card=labels[i].parentElement;
+        if(card&&card.className.indexOf('kpi-card')!==-1){
+          card.style.display=_isAdmin?'':'none';
+        }
+      }
+    }
   }
   function applyRoleAccess(user){
     _isAdmin=!!(user&&user.email===ADMIN_EMAIL);
