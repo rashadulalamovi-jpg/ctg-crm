@@ -307,7 +307,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
   <button class="nb" onclick="goTo('modeldemand',this)">&#x1F4C8; Model Demand</button>
   <button class="nb" onclick="goTo('returns',this)">↩️ Returns</button>
   <button class="nb" onclick="goTo('expensepage',this)">💸 Expense</button>
-  <button class="nb" onclick="goTo('assetspage',this)">📈 Net Worth</button>
+  <button class="nb" onclick="goTo('assetspage',this)">ð Net Worth</button>
 </nav>
 
 <div class="main">
@@ -382,7 +382,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
     <button class="stab"        id="st_add"     onclick="switchStab('add')">+ &#x09A8;&#x09A4;&#x09C1;&#x09A8; Batch</button>
     <button class="stab"        id="st_slow"    onclick="switchStab('slow')">&#x26A0;&#xFE0F; Slow 45d+</button>
     <button class="stab"        id="st_dead"    onclick="switchStab('dead')">&#x1F480; Dead 90d+</button>
-    <button class="stab"        id="st_history" onclick="switchStab('history')">📊 Buy History</button>
+    <button class="stab"        id="st_history" onclick="switchStab('history')">ð Buy History</button>
   </div>
   <div id="capitalBlockers" style="margin-bottom:8px"></div>
   <div class="stab-c" id="sc_history"></div>
@@ -630,7 +630,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
 <div id="assetspage" class="sec">
   <div class="flex-between mb-18">
     <div>
-      <div style="font-family:var(--fd);font-size:22px;font-weight:800">📈 Net Worth &amp; Growth Tracker</div>
+      <div style="font-family:var(--fd);font-size:22px;font-weight:800">ð Net Worth &amp; Growth Tracker</div>
       <div style="font-family:var(--fm);font-size:10px;color:var(--text3)">Assets â¢ Liabilities â¢ Net Worth â¢ 3 Crore Working Capital Target</div>
     </div>
     <button class="btn btn-r" onclick="openAssetsForm(null)" style="font-size:11px">+ New Snapshot</button>
@@ -712,7 +712,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
         <button class="mtab active" id="mt_overview"      onclick="showModalTab('overview')">&#x1F4CA; Overview</button>
         <button class="mtab"        id="mt_invoice"       onclick="showModalTab('invoice')">&#x1F9FE; Invoice</button>
         <button class="mtab"        id="mt_intelligence"  onclick="showModalTab('intelligence')">&#x1F9E0; Intelligence</button>
-        <button class="mtab"        id="mt_models"        onclick="showModalTab('models')">📈 Models</button>
+        <button class="mtab"        id="mt_models"        onclick="showModalTab('models')">ð Models</button>
         <button class="mtab"        id="mt_activity"      onclick="showModalTab('activity')">&#x1F4CB; Activity</button>
         <button class="mtab"        id="mt_checklist"     onclick="showModalTab('checklist')">&#x2705; Checklist</button>
       </div>
@@ -3633,35 +3633,32 @@ function switchStab(tab){
 }
 
 function renderTodayKPIBar(){
-  var today=new Date();
-  var todayStr=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
-  var dow=today.getDay(); var dfm=dow===0?6:dow-1;
-  var ws=new Date(today); ws.setDate(today.getDate()-dfm);
-  var weekStr=ws.getFullYear()+'-'+String(ws.getMonth()+1).padStart(2,'0')+'-'+String(ws.getDate()).padStart(2,'0');
-  var monStr=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-01';
-  var sd={}; try{sd=JSON.parse(localStorage.getItem('ctgstock_v2')||'{}')}catch(e){}
-  var ba=sd.batches||[];
-  var tBuy=ba.reduce(function(s,b){return s+((b.entryDate||''  ).slice(0,10)===todayStr?(b.qtyReceived||0):0);},0);
-  var cd={}; try{cd=JSON.parse(localStorage.getItem('ctgcrm_v18')||'{}')}catch(e){}
+  var t=new Date();
+  function fmt(d){return d.getFullYear()+'-'+(d.getMonth()+1<10?'0':'')+(d.getMonth()+1)+'-'+(d.getDate()<10?'0':'')+d.getDate();}
+  var td=fmt(t);
+  var ws=new Date(t); var dw=t.getDay(); ws.setDate(t.getDate()-(dw===0?6:dw-1)); var wd=fmt(ws);
+  var mn=t.getFullYear()+'-'+(t.getMonth()+1<10?'0':'')+(t.getMonth()+1)+'-01';
+  var sd={}; try{sd=JSON.parse(localStorage.getItem('ctgstock_v2')||'{}');}catch(e){}
+  var tB=(sd.batches||[]).reduce(function(s,b){return s+((b.entryDate||'').slice(0,10)===td?(b.qtyReceived||0):0);},0);
+  var cd={}; try{cd=JSON.parse(localStorage.getItem('ctgcrm_v18')||'{}');}catch(e){}
   var ai=[]; (cd.customers||[]).forEach(function(c){(c.invoices||[]).forEach(function(i){ai.push(i);});});
-  function rs(l){return l.reduce(function(s,inv){var r=(inv.returns||[]).reduce(function(x,t){return x+(t.qty||t.returnQty||1);},0);return s+((inv.qty||0)-r);},0);}
-  function fi(f){return ai.filter(function(inv){var d=(inv.date||''  ).slice(0,10);return d>=f&&d<=todayStr;});}
-  var tS=rs(fi(todayStr)); var wS=rs(fi(weekStr)); var mS=rs(fi(monStr));
+  function rs(l){return l.reduce(function(s,v){var r=(v.returns||[]).reduce(function(x,t){return x+(t.qty||t.returnQty||1);},0);return s+((v.qty||0)-r);},0);}
+  function fi(f){return ai.filter(function(v){var d=(v.date||'').slice(0,10);return d>=f&&d<=td;});}
+  var tS=rs(fi(td)),wS=rs(fi(wd)),mS=rs(fi(mn));
   function kc(ic,lb,vl,cl,br){
-    return '<div style="background:#0c1520;border:1px solid '+br+';border-top:3px solid '+cl+';border-radius:8px;padding:14px 10px;text-align:center;flex:1;">'+
-      '<div style="font-size:15px;margin-bottom:4px;">'+ic+'</div>'+
-      '<div style="color:#6b7a8d;font-size:10px;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">'+lb+'</div>'+
-      '<div style="color:'+cl+';font-size:24px;font-weight:700;line-height:1;">'+vl+'</div>'+
-    '</div>';
+    return '<div style="background:#0c1520;border:1px solid '+br+';border-top:3px solid '+cl+';border-radius:8px;padding:14px 10px;text-align:center;flex:1;">'
+      +'<div style="font-size:15px;margin-bottom:4px;">'+ic+'</div>'
+      +'<div style="color:#6b7a8d;font-size:10px;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">'+lb+'</div>'
+      +'<div style="color:'+cl+';font-size:24px;font-weight:700;line-height:1;">'+vl+'</div>'
+      +'</div>';
   }
-  return '<div style="display:flex;gap:10px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #1a2a3a;">'+
-    kc('\uD83D\uDCE6','Today Buy',tBuy+' pcs','#4fc3f7','#1a3a4a')+
-    kc('\u2705','Today Sold',tS+' pcs','#4caf50','#1a3a1a')+
-    kc('\uD83D\uDCCA','This Week Sold',wS+' pcs','#ff9800','#3a2a0a')+
-    kc('\uD83D\uDCC8','This Month Sold',mS+' pcs','#ce93d8','#2a1a3a')+
-  '</div>';
+  return '<div style="display:flex;gap:10px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #1a2a3a;">'
+    +kc('📦','Today Buy',tB+' pcs','#4fc3f7','#1a3a4a')
+    +kc('✅','Today Sold',tS+' pcs','#4caf50','#1a3a1a')
+    +kc('📊','This Week Sold',wS+' pcs','#ff9800','#3a2a0a')
+    +kc('📈','This Month Sold',mS+' pcs','#ce93d8','#2a1a3a')
+    +'</div>';
 }
-
 function renderStockKPIBar(){
   var today=new Date();
   var todayStr=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
@@ -3880,10 +3877,18 @@ function renderModelBuyHistory(){
   function fmtM(n){if(!n)return '৳'+0;if(n>=10000000)return '৳'+(n/10000000).toFixed(1)+'Cr';if(n>=100000)return '৳'+(n/100000).toFixed(1)+'L';return '৳'+n.toLocaleString('en-IN');}
   function roiBadge(roi){if(roi==null)return '<span style="color:#555">—</span>';var cl=roi>=20?'#00d4aa':roi>=15?'#4ade80':roi>=10?'#facc15':roi>=0?'#fb923c':'#ef4444';return '<span style="background:'+cl+'22;color:'+cl+';border:1px solid '+cl+'44;border-radius:4px;padding:1px 6px;font-size:12px;font-weight:700">'+roi+'%</span>';}
   function fBtn(v,l,a){
-  return '<button onclick="window._bhFilter=\''  +v+'\';renderModelBuyHistory()" style="padding:5px 12px;border-radius:20px;border:1px solid '+(a?'#e8211a':'#253545')+';background:'+(a?'rgba(232,33,26,.18)':'rgba(255,255,255,.03)')+';color:'+(a?'#ff7070':'#7a8899')+';font-size:11px;cursor:pointer;font-weight:'+(a?'600':'400')+';white-space:nowrap;">'+l+'</button>';
+var ac=a?'rgba(232,33,26,.18)':'rgba(255,255,255,.03)';
+var bc=a?'#e8211a':'#253545';
+var tc=a?'#ff7070':'#7a8899';
+var fw=a?'600':'400';
+return '<button onclick="window._bhFilter=\x27'+v+'\x27;renderModelBuyHistory()" style="padding:5px 12px;border-radius:20px;border:1px solid '+bc+';background:'+ac+';color:'+tc+';font-size:11px;cursor:pointer;font-weight:'+fw+';white-space:nowrap;">'+l+'</button>';
 }
   function sBtn(v,l,a){
-  return '<button onclick="window._bhSort=\''  +v+'\';renderModelBuyHistory()" style="padding:5px 12px;border-radius:20px;border:1px solid '+(a?'#4fc3f7':'#253545')+';background:'+(a?'rgba(79,195,247,.15)':'rgba(255,255,255,.03)')+';color:'+(a?'#4fc3f7':'#7a8899')+';font-size:11px;cursor:pointer;font-weight:'+(a?'600':'400')+';white-space:nowrap;">'+l+'</button>';
+var bc=a?'#4fc3f7':'#253545';
+var bg=a?'rgba(79,195,247,.15)':'rgba(255,255,255,.03)';
+var tc=a?'#4fc3f7':'#7a8899';
+var fw=a?'600':'400';
+return '<button onclick="window._bhSort=\x27'+v+'\x27;renderModelBuyHistory()" style="padding:5px 12px;border-radius:20px;border:1px solid '+bc+';background:'+bg+';color:'+tc+';font-size:11px;cursor:pointer;font-weight:'+fw+';white-space:nowrap;">'+l+'</button>';
 }
 
   var roiC=avgROI>=20?'#00d4aa':avgROI>=15?'#4ade80':avgROI>=10?'#facc15':'#ef4444';
@@ -3920,30 +3925,31 @@ function renderModelBuyHistory(){
   h+='<span style="background:#0f172a;color:#93c5fd;border:1px solid #1e3a5f;border-radius:12px;padding:2px 10px;font-size:11px;margin:2px">⏸️ Hold '+dc.h+'</span>';
   h+='<span style="background:#1a0000;color:#f87171;border:1px solid #b91c1c;border-radius:12px;padding:2px 10px;font-size:11px;margin:2px">❌ Avoid '+dc.av+'</span>';
   h+='<span style="background:#0f172a;color:#64748b;border:1px solid #334155;border-radius:12px;padding:2px 10px;font-size:11px;margin:2px">❓ No Data '+dc.nd+'</span></div>';
-  h+='<div style="background:#0c1520;border:1px solid #1c2d3d;border-radius:10px;padding:14px 16px;margin-bottom:14px;">'+
-    '<div style="display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-bottom:10px;">'+
-    '<span style="color:#4a5a6a;font-size:10px;font-weight:700;letter-spacing:1px;min-width:48px;text-transform:uppercase;">Filter</span>'+
-    fBtn('all','All',flt==='all')+
-    fBtn('rebuy','\u2B50 Rebuy',flt==='rebuy')+
-    fBtn('smallqty','\uD83D\uDFE1 Small',flt==='smallqty')+
-    fBtn('hold','\u23F8\uFE0F Hold',flt==='hold')+
-    fBtn('avoid','\u274C Avoid',flt==='avoid')+
-    fBtn('lowroi','Low ROI',flt==='lowroi')+
-    fBtn('caplock','\uD83D\uDD12 Cap Lock',flt==='caplock')+
-    fBtn('fast','\u26A1 Fast',flt==='fast')+
-    fBtn('slow','\uD83D\uDC22 Slow',flt==='slow')+
-    '</div>'+
-    '<div style="display:flex;flex-wrap:wrap;gap:7px;align-items:center;">'+
-    '<span style="color:#4a5a6a;font-size:10px;font-weight:700;letter-spacing:1px;min-width:48px;text-transform:uppercase;">Sort</span>'+
-    sBtn('default','Decision',srt==='default')+
-    sBtn('rd','ROI \u2193',srt==='rd')+
-    sBtn('ra','ROI \u2191',srt==='ra')+
-    sBtn('cr','Cap Risk',srt==='cr')+
-    sBtn('sp','Fastest',srt==='sp')+
-    sBtn('rp','Return %',srt==='rp')+
-    '<span style="color:#4a5a6a;font-size:11px;margin-left:auto;padding:4px 10px;background:#131d2b;border-radius:12px;">'+data.length+' models</span>'+
-    '</div>'+
-    '</div>'</div>';
+  h+='<div style="background:#0c1520;border:1px solid #1c2d3d;border-radius:10px;padding:14px 16px;margin-bottom:14px;">';
+h+='<div style="display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-bottom:10px;">';
+h+='<span style="color:#4a5a6a;font-size:10px;font-weight:700;letter-spacing:1px;min-width:48px;text-transform:uppercase;">Filter</span>';
+h+=fBtn('all','All',flt==='all');
+h+=fBtn('rebuy','⭐ Rebuy',flt==='rebuy');
+h+=fBtn('smallqty','🟡 Small',flt==='smallqty');
+h+=fBtn('hold','⏸️ Hold',flt==='hold');
+h+=fBtn('avoid','❌ Avoid',flt==='avoid');
+h+=fBtn('lowroi','Low ROI',flt==='lowroi');
+h+=fBtn('caplock','🔒 Cap Lock',flt==='caplock');
+h+=fBtn('fast','⚡ Fast',flt==='fast');
+h+=fBtn('slow','🐢 Slow',flt==='slow');
+h+='</div>';
+h+='<div style="display:flex;flex-wrap:wrap;gap:7px;align-items:center;">';
+h+='<span style="color:#4a5a6a;font-size:10px;font-weight:700;letter-spacing:1px;min-width:48px;text-transform:uppercase;">Sort</span>';
+h+=sBtn('default','Decision',srt==='default');
+h+=sBtn('rd','ROI ↓',srt==='rd');
+h+=sBtn('ra','ROI ↑',srt==='ra');
+h+=sBtn('cr','Cap Risk',srt==='cr');
+h+=sBtn('sp','Fastest',srt==='sp');
+h+=sBtn('rp','Return %',srt==='rp');
+h+='<span style="color:#4a5a6a;font-size:11px;margin-left:auto;padding:4px 10px;background:#131d2b;border-radius:12px;">'+data.length+' models</span>';
+h+='</div>';
+h+='</div>';
+  h+='</div>';
 
   // ROW 4 — Table
   var thr='padding:8px 6px;font-size:10px;color:#64748b;font-weight:700;letter-spacing:0.5px;text-align:right;white-space:nowrap;border-bottom:1px solid #1e293b';
@@ -3978,7 +3984,7 @@ function renderModelBuyHistory(){
     h+='</tr>';
   });
   h+='</tbody></table></div></div>';
-  el.innerHTML=renderTodayKPIBar()+h;
+  el.innerHTML=h;
 }
 
 function renderCapitalBlockers(){
@@ -4008,7 +4014,7 @@ function renderCapitalBlockers(){
     h+='</div>';
   });
   h+='</div>';
-  el.innerHTML=h;
+  el.innerHTML=renderTodayKPIBar()+h;
 }
 
 // ââ Model Demand ââââââââââââââââââââââââââââââââââââââââ
@@ -7458,7 +7464,7 @@ function injectAvgProfitKpis() {
       +   '<div class="kpi-sub">total profit Ã· ' + kInvCount + ' invoices</div>'
       + '</div>'
       + '<div class="kpi-card">'
-      +   '<div class="kpi-label">📊 AVG PROFIT / PC</div>'
+      +   '<div class="kpi-label">ð AVG PROFIT / PC</div>'
       +   '<div class="kpi-val" style="color:' + pcCol + ';">' + (kRealQty > 0 ? fmtMoney(kAvgPcProfit) : 'â') + '</div>'
       +   '<div class="kpi-sub">net profit Ã· ' + kRealQty + ' pcs Â· target à§³3000+</div>'
       + '</div>'
