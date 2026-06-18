@@ -3625,6 +3625,8 @@ function switchStab(tab){
     if(b) b.classList.toggle('active', t===tab);
     if(c) c.classList.toggle('active', t===tab);
   });
+  var capEl=document.getElementById('capitalBlockers');
+  if(capEl) capEl.style.display=(tab==='all')?'':'none';
   if(tab==='add'){ var d=document.getElementById('sb_d'); if(d&&!d.value) d.value=TODAY; }
   if(tab==='history'){ renderModelBuyHistory(); return; }
   renderStockAll();
