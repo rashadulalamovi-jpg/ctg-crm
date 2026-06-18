@@ -3632,7 +3632,43 @@ function switchStab(tab){
   renderStockAll();
 }
 
+function renderStockKPIBar(){
+  var today=new Date();
+  var todayStr=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  var dow=today.getDay(); var dfm=dow===0?6:dow-1;
+  var ws=new Date(today); ws.setDate(today.getDate()-dfm);
+  var weekStr=ws.getFullYear()+'-'+String(ws.getMonth()+1).padStart(2,'0')+'-'+String(ws.getDate()).padStart(2,'0');
+  var monStr=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-01';
+  var sd={}; try{sd=JSON.parse(localStorage.getItem('ctgstock_v2')||'{}')}catch(e){}
+  var ba=sd.batches||[];
+  var tBuy=ba.reduce(function(s,b){return s+((b.entryDate||''  ).slice(0,10)===todayStr?(b.qtyReceived||0):0);},0);
+  var cd={}; try{cd=JSON.parse(localStorage.getItem('ctgcrm_v18')||'{}')}catch(e){}
+  var ai=[];
+  (cd.customers||[]).forEach(function(c){(c.invoices||[]).forEach(function(i){ai.push(i);});});
+  function rs(list){return list.reduce(function(s,inv){var r=(inv.returns||[]).reduce(function(x,t){return x+(t.qty||t.returnQty||1);},0);return s+((inv.qty||0)-r);},0);}
+  function fi(from){return ai.filter(function(inv){var d=(inv.date||''  ).slice(0,10);return d>=from&&d<=todayStr;});}
+  var tSold=rs(fi(todayStr)); var wSold=rs(fi(weekStr)); var mSold=rs(fi(monStr));
+  function card(ic,lb,vl,sb,cl,br){
+    return '<div style="background:#0e1929;border:1px solid '+br+';border-top:3px solid '+cl+';border-radius:8px;padding:16px 12px;text-align:center;">'+
+      '<div style="font-size:16px;margin-bottom:5px;">'+ic+'</div>'+
+      '<div style="color:#6b7a8d;font-size:10px;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">'+lb+'</div>'+
+      '<div style="color:'+cl+';font-size:26px;font-weight:700;line-height:1;">'+vl+'</div>'+
+      '<div style="color:#3d4d5c;font-size:10px;margin-top:4px;">'+sb+'</div>'+
+    '</div>';
+  }
+  var h='<div id="stockKpiBar" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 18px 0;">';
+  h+=card('📦','Today Buy',tBuy+' pcs','\u09A8\u09A4\u09C1\u09A8 purchase','#4fc3f7','#1a3a4a');
+  h+=card('\u2705','Today Sold',tSold+' pcs','Real sold (after return)','#4caf50','#1a3a1a');
+  h+=card('📊','This Week Sold',wSold+' pcs',weekStr.slice(5)+' \u2192 today','#ff9800','#3a2a0a');
+  h+=card('📈','This Month Sold',mSold+' pcs',monStr.slice(5)+' \u2192 today','#ce93d8','#2a1a3a');
+  h+='</div>';
+  var ex=document.getElementById('stockKpiBar'); if(ex) ex.remove();
+  var sg=document.getElementById('stockage'); var wa=document.getElementById('waStockGen');
+  if(sg&&wa){var tmp=document.createElement('div'); tmp.innerHTML=h; sg.insertBefore(tmp.firstChild,wa);}
+}
+
 function renderStockAll(){
+  renderStockKPIBar();
   renderStockBuckets();
   renderStockModelSummary();
   renderStockWASection();
