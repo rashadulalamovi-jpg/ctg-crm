@@ -399,7 +399,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
       </div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>Model</th><th>Entry</th><th>বয়স;</th><th>Status</th><th>Rcvd</th><th>Sold±</th><th>Avail</th><th>Cost/pc</th><th>Sell Price</th><th>Profit/pc</th><th>ROI%</th><th>7D Sold</th><th>30D Sold</th><th>Return Qty</th><th>Return %</th><th>Sell-Out</th><th>Action</th><th>Rebuy</th><th></th></tr></thead>
+          <thead><tr><th>Model</th><th>Entry</th><th>বয়স;</th><th>Status</th><th>Rcvd</th><th>Sold</th><th>Avail</th><th>Cost/pc</th><th>Sell Price</th><th>Profit/pc</th><th>ROI%</th><th>7D Sold</th><th>30D Sold</th><th>Return Qty</th><th>Return %</th><th>Sell-Out</th><th>Action</th><th>Rebuy</th><th></th></tr></thead>
           <tbody id="stockTbody"></tbody>
         </table>
       </div>
@@ -3449,12 +3449,8 @@ function renderStockTable(){
     h+='<td><span class="'+bk.cls+'">'+bk.emoji+' '+bk.label+'</span></td>';
     // Rcvd
     h+='<td style="font-family:var(--fm)">'+b.qtyReceived+'</td>';
-    // Sold ±
-    h+='<td><div style="display:flex;align-items:center;gap:3px">';
-    h+='<button class="qb" onclick="chgSold('+b.id+',-1)">\u2212</button>';
-    h+='<span style="font-family:var(--fm);font-size:11px;font-weight:600;color:var(--cyan);min-width:20px;text-align:center">'+(b.qtySold||0)+'</span>';
-    h+='<button class="qb" onclick="chgSold('+b.id+',1)">+</button>';
-    h+='</div></td>';
+    // Sold
+    h+='<td style="font-family:var(--fm);font-size:11px;font-weight:600;color:var(--cyan);text-align:center">'+(b.qtySold||0)+'</td>';
     // Avail
     h+='<td style="font-family:var(--fm);font-weight:700;color:'+(avail>0?'var(--cyan)':'var(--text3)')+'">'+avail+'</td>';
     // Cost/pc
