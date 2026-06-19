@@ -3674,39 +3674,17 @@ async function renderStockKPIBar(){
   batches.forEach(function(b){if((b.entryDate||b.createdAt||'').substring(0,10)===todayStr)todayBuy+=parseInt(b.qtyReceived)||0;});
   var todaySold=0,weekSold=0,monthSold=0;
   try{
-    var idbInvs=await new Promise(function(resolve){
-      var r2=indexedDB.open('firestore/[DEFAULT]/ctg-click-shop-crm/main');
-      r2.onsuccess=function(ev){
-        var idb=ev.target.result;
-        var tx=idb.transaction('remoteDocumentsV14','readonly');
-        var st=tx.objectStore('remoteDocumentsV14'); var arr=[];
-        var cur=st.openCursor();
-        cur.onsuccess=function(e2){
-          var c=e2.target.result; if(!c){resolve(arr);return;}
-          var flds=c.value&&c.value.document&&c.value.document.fields;
-          if(flds&&flds.invoices&&flds.invoices.arrayValue){
-            (flds.invoices.arrayValue.values||[]).forEach(function(iv){
-              var f=iv.mapValue&&iv.mapValue.fields; if(!f) return;
-              var dt=(f.date&&f.date.stringValue||'').substring(0,10);
-              var qty=parseInt(f.qty&&(f.qty.integerValue||f.qty.doubleValue)||0);
-              var ret=0;
-              (f.returns&&f.returns.arrayValue&&f.returns.arrayValue.values||[]).forEach(function(rv){
-                var rf=rv.mapValue&&rv.mapValue.fields;
-                if(rf&&rf.qty) ret+=parseInt(rf.qty.integerValue||rf.qty.doubleValue||0);
-              });
-              arr.push({date:dt,net:qty-ret});
-            });
-          }
-          c.continue();
-        };
-        cur.onerror=function(){resolve(arr);};
-      };
-      r2.onerror=function(){resolve([]);};
-    });
-    idbInvs.forEach(function(iv){
-      if(iv.date===todayStr) todaySold+=iv.net;
-      if(iv.date>=weekStartStr) weekSold+=iv.net;
-      if(iv.date>=monthStartStr) monthSold+=iv.net;
+    var fsSnap=await firebase.firestore().collection('customers').get();
+    fsSnap.forEach(function(doc){
+      (doc.data().invoices||[]).forEach(function(inv){
+        var dt=(inv.date||'').substring(0,10); if(!dt) return;
+        var qty=parseInt(inv.qty)||0;
+        var ret=0;(inv.returns||[]).forEach(function(r){ret+=parseInt(r.qty||r.pcs||0);});
+        var net=qty-ret;
+        if(dt===todayStr) todaySold+=net;
+        if(dt>=weekStartStr) weekSold+=net;
+        if(dt>=monthStartStr) monthSold+=net;
+      });
     });
   }catch(eig){}
   var wm=weekStart.getMonth()+1; var wd=weekStart.getDate();
