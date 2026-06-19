@@ -4053,7 +4053,17 @@ function renderCapitalBlockers(){
   var h='<div style="background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:8px;padding:10px;margin-bottom:10px">';
   h+='<div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--warn);margin-bottom:4px">';
   h+='\u26A0\uFE0F Capital Blocker \u2014 \u22642 pcs \u00B7 \u09AE\u09CB\u099F: \u09F3'+fmtNum(totCap)+' locked</div>';
-html+='<div id="clearanceWAWrap" style="margin:4px 0 2px 0;"><button onclick="document.getElementById(\'clearanceWAPanel\').style.display=document.getElementById(\'clearanceWAPanel\').style.display===\'none\'?\'block\':\'none\'" style="padding:4px 12px;background:#128C7E;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;">&#128242; Generate Clearance WA Msg</button><div id="clearanceWAPanel" style="display:none;background:#0d2426;border:1px solid #1a4d40;border-radius:6px;padding:10px 14px;margin:6px 0 0 0;"><div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;"><label style="font-size:12px;color:#aaa;">&#128176; Price:</label><button id="cPriceBtn" onclick="window.toggleCOpt(\'price\')" style="padding:2px 10px;border-radius:4px;border:1px solid #2ecc71;background:#1a4d1a;color:#2ecc71;cursor:pointer;font-size:12px;">ON</button><label style="font-size:12px;color:#aaa;margin-left:8px;">&#128230; Qty:</label><button id="cQtyBtn" onclick="window.toggleCOpt(\'qty\')" style="padding:2px 10px;border-radius:4px;border:1px solid #2ecc71;background:#1a4d1a;color:#2ecc71;cursor:pointer;font-size:12px;">ON</button></div><button onclick="window.genClearanceMsg()" style="width:100%;padding:8px;background:#128C7E;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;letter-spacing:.3px;">&#9889; Generate &amp; Copy to Clipboard</button></div></div>';
+  html+='<div id="clearanceWAWrap" style="margin:4px 0 6px 0;">';
+  html+='<button onclick="window.toggleWAPanel()" style="padding:4px 14px;background:#128C7E;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;">&#128242; Generate Clearance WA Msg</button>';
+  html+='<div id="clearanceWAPanel" style="display:none;background:#0d2426;border:1px solid #1a4d40;border-radius:6px;padding:10px 14px;margin-top:6px;">';
+  html+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">';
+  html+='<span style="font-size:12px;color:#aaa;">&#128176; Price:</span>';
+  html+='<button id="cPriceBtn" onclick="window.toggleCOpt(\'price\')" style="padding:2px 10px;border-radius:4px;border:1px solid #2ecc71;background:#1a4d1a;color:#2ecc71;cursor:pointer;font-size:12px;">ON</button>';
+  html+='<span style="font-size:12px;color:#aaa;margin-left:6px;">&#128230; Qty:</span>';
+  html+='<button id="cQtyBtn" onclick="window.toggleCOpt(\'qty\')" style="padding:2px 10px;border-radius:4px;border:1px solid #2ecc71;background:#1a4d1a;color:#2ecc71;cursor:pointer;font-size:12px;">ON</button>';
+  html+='</div>';
+  html+='<button onclick="window.genClearanceMsg(this)" style="width:100%;padding:8px;background:#128C7E;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">&#9889; Generate &amp; Copy</button>';
+  html+='</div></div>';
   h+='<div style="font-size:10px;color:var(--text3);margin-bottom:8px">';
   h+='Wholesale-\u098F 1\u20132 pc \u0986\u099F\u0995\u09C7 \u09A5\u09BE\u0995\u09B2\u09C7 capital rotate \u09B9\u09AF\u09BC \u09A8\u09BE\u0964 Sell \u0995\u09B0\u09C1\u09A8 \u09AC\u09BE bundle \u0995\u09B0\u09C1\u09A8\u0964</div>';
   small.forEach(function(b){
@@ -7576,61 +7586,34 @@ function injectAvgProfitKpis() {
 
 window._cShowPrice=true;
 window._cShowQty=true;
-window.toggleCOpt=function(opt){
-  if(opt==='price'){
-    window._cShowPrice=!window._cShowPrice;
-    var b=document.getElementById('cPriceBtn');
-    if(b){b.textContent=window._cShowPrice?'ON':'OFF';
-    b.style.background=window._cShowPrice?'#1a4d1a':'#4d1a1a';
-    b.style.borderColor=window._cShowPrice?'#2ecc71':'#e74c3c';
-    b.style.color=window._cShowPrice?'#2ecc71':'#e74c3c';}
-  } else {
-    window._cShowQty=!window._cShowQty;
-    var b=document.getElementById('cQtyBtn');
-    if(b){b.textContent=window._cShowQty?'ON':'OFF';
-    b.style.background=window._cShowQty?'#1a4d1a':'#4d1a1a';
-    b.style.borderColor=window._cShowQty?'#2ecc71':'#e74c3c';
-    b.style.color=window._cShowQty?'#2ecc71':'#e74c3c';}
-  }
+window.toggleWAPanel=function(){
+  var p=document.getElementById('clearanceWAPanel');
+  if(p)p.style.display=p.style.display==='none'?'block':'none';
 };
-window.genClearanceMsg=function(){
-  var batches=(JSON.parse(localStorage.getItem('ctgstock_v2')||'{"batches":[]}').batches||[]);
-  var items=batches.filter(function(b){
-    var av=(b.qtyReceived||0)-(b.qtySold||0);
-    return av>0&&av<=2&&(b.status||'healthy')!=='damaged'&&(b.status||'healthy')!=='written-off';
-  });
+window.toggleCOpt=function(opt){
+  var isP=opt==='price';
+  window[isP?'_cShowPrice':'_cShowQty']=!window[isP?'_cShowPrice':'_cShowQty'];
+  var b=document.getElementById(isP?'cPriceBtn':'cQtyBtn');
+  var v=window[isP?'_cShowPrice':'_cShowQty'];
+  if(b){b.textContent=v?'ON':'OFF';b.style.background=v?'#1a4d1a':'#4d1a1a';b.style.borderColor=v?'#2ecc71':'#e74c3c';b.style.color=v?'#2ecc71':'#e74c3c';}
+};
+window.genClearanceMsg=function(btn){
+  var data=JSON.parse(localStorage.getItem('ctgstock_v2')||'{"batches":[]}');
+  var batches=data.batches||[];
+  var items=batches.filter(function(b){var av=(b.qtyReceived||0)-(b.qtySold||0);return av>0&&av<=2&&(b.status||'healthy')!=='damaged'&&(b.status||'healthy')!=='written-off';});
   if(!items.length){alert('Capital Blocker list is empty!');return;}
   var lines='';
-  items.forEach(function(b){
-    var av=(b.qtyReceived||0)-(b.qtySold||0);
-    var line='\u2705 '+(b.model||b.id||'Unknown');
-    if(window._cShowQty)line+='  Qty: '+av+' pcs';
-    if(window._cShowPrice&&b.expectedSellPrice)line+='  Price: \u09F3'+Number(b.expectedSellPrice).toLocaleString('en-BD');
-    lines+=line+'\n';
-  });
+  items.forEach(function(b){var av=(b.qtyReceived||0)-(b.qtySold||0);var line='\u2705 '+(b.model||b.id||'Unknown');if(window._cShowQty)line+='  Qty: '+av+' pcs';if(window._cShowPrice&&b.expectedSellPrice)line+='  Price: \u09F3'+Number(b.expectedSellPrice).toLocaleString('en-BD');lines+=line+'\n';});
   var sep='\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n';
   var msg='\uD83D\uDD25 CTG Click Shop \u2013 Stock Clearance Offer\n'+sep;
-  msg+='\u09E7\u2013\u09E8 pcs limited stock clearance \u099A\u09B2\u099B\u09C7\u0964 ';
-  msg+='\u09AF\u09BE\u09B0\u09BE low qty / trial order / ready stock ';
-  msg+='\u09A8\u09BF\u09A4\u09C7 \u099A\u09BE\u09A8, \u09A4\u09BE\u09A6\u09C7\u09B0 ';
-  msg+='\u099C\u09A8\u09CD\u09AF \u09AD\u09BE\u09B2\u09CB opportunity.\n';
+  msg+='\u09E7\u2013\u09E8 pcs limited stock clearance \u099A\u09B2\u099B\u09C7\u0964 \u09AF\u09BE\u09B0\u09BE low qty / trial order / ready stock \u09A8\u09BF\u09A4\u09C7 \u099A\u09BE\u09A8, \u09A4\u09BE\u09A6\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF \u09AD\u09BE\u09B2\u09CB opportunity.\n';
   msg+=lines+sep;
-  msg+='\u2714\uFE0F Fully Tested Units\n';
-  msg+='\u2714\uFE0F Dubai Direct Sourcing\n';
-  msg+='\u2714\uFE0F Same-Day Courier Dispatch\n';
-  msg+='\u2714\uFE0F Business Grade Quality\n\n';
-  msg+='\uD83D\uDCCC \u09AF\u09C7\u0987 model \u09B2\u09BE\u0997\u09AC\u09C7 Model Name + Qty ';
-  msg+='\u09AA\u09BE\u09A0\u09BE\u09A8\u0964 Stock confirm \u0995\u09B0\u09C7 \u09A6\u09BF\u099A\u09CD\u099B\u09BF\u0964\n\n';
-  msg+='\uD83D\uDCCD Bangladesh Office\n';
-  msg+='CTG Click Shop Khatungonj, Chattogram Bangladesh\n\n';
-  msg+='\uD83D\uDCCD Dubai Office\n';
-  msg+='Mega World Computer Shop-E05, Industrial Area-5 Sharjah, United Arab Emirates';
-  navigator.clipboard.writeText(msg).then(function(){
-    var btn=event.target;btn.textContent='\u2705 Copied!';setTimeout(function(){btn.innerHTML='&#9889; Generate &amp; Copy to Clipboard';},2500);
-  }).catch(function(){
-    var ta=document.createElement('textarea');ta.value=msg;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
-    alert('\u2705 Message copied!');
-  });
+  msg+='\u2714\uFE0F Fully Tested Units\n\u2714\uFE0F Dubai Direct Sourcing\n\u2714\uFE0F Same-Day Courier Dispatch\n\u2714\uFE0F Business Grade Quality\n\n';
+  msg+='\uD83D\uDCCC \u09AF\u09C7\u0987 model \u09B2\u09BE\u0997\u09AC\u09C7 Model Name + Qty \u09AA\u09BE\u09A0\u09BE\u09A8\u0964 Stock confirm \u0995\u09B0\u09C7 \u09A6\u09BF\u099A\u09CD\u099B\u09BF\u0964\n\n';
+  msg+='\uD83D\uDCCD Bangladesh Office\nCTG Click Shop Khatungonj, Chattogram Bangladesh\n\n';
+  msg+='\uD83D\uDCCD Dubai Office\nMega World Computer Shop-E05, Industrial Area-5 Sharjah, United Arab Emirates';
+  var origHTML=btn?btn.innerHTML:'';
+  navigator.clipboard.writeText(msg).then(function(){if(btn){btn.textContent='\u2705 Copied!';setTimeout(function(){if(btn)btn.innerHTML=origHTML;},2500);}}).catch(function(){var ta=document.createElement('textarea');ta.value=msg;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);if(btn){btn.textContent='\u2705 Copied!';setTimeout(function(){if(btn)btn.innerHTML=origHTML;},2500);}});
 };
 </script>
 </body>
