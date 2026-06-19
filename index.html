@@ -3660,38 +3660,85 @@ function renderTodayKPIBar(){
     +'</div>';
 }
 function renderStockKPIBar(){
-  var today=new Date();
-  var todayStr=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
-  var dow=today.getDay(); var dfm=dow===0?6:dow-1;
-  var ws=new Date(today); ws.setDate(today.getDate()-dfm);
-  var weekStr=ws.getFullYear()+'-'+String(ws.getMonth()+1).padStart(2,'0')+'-'+String(ws.getDate()).padStart(2,'0');
-  var monStr=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-01';
-  var sd={}; try{sd=JSON.parse(localStorage.getItem('ctgstock_v2')||'{}')}catch(e){}
-  var ba=sd.batches||[];
-  var tBuy=ba.reduce(function(s,b){return s+((b.entryDate||''  ).slice(0,10)===todayStr?(b.qtyReceived||0):0);},0);
-  var cd={}; try{cd=JSON.parse(localStorage.getItem('ctgcrm_v18')||'{}')}catch(e){}
-  var ai=[];
-  (cd.customers||[]).forEach(function(c){(c.invoices||[]).forEach(function(i){ai.push(i);});});
-  function rs(list){return list.reduce(function(s,inv){var r=(inv.returns||[]).reduce(function(x,t){return x+(t.qty||t.returnQty||1);},0);return s+((inv.qty||0)-r);},0);}
-  function fi(from){return ai.filter(function(inv){var d=(inv.date||''  ).slice(0,10);return d>=from&&d<=todayStr;});}
-  var tSold=rs(fi(todayStr)); var wSold=rs(fi(weekStr)); var mSold=rs(fi(monStr));
-  function card(ic,lb,vl,sb,cl,br){
-    return '<div style="background:#0e1929;border:1px solid '+br+';border-top:3px solid '+cl+';border-radius:8px;padding:16px 12px;text-align:center;">'+
-      '<div style="font-size:16px;margin-bottom:5px;">'+ic+'</div>'+
-      '<div style="color:#6b7a8d;font-size:10px;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">'+lb+'</div>'+
-      '<div style="color:'+cl+';font-size:26px;font-weight:700;line-height:1;">'+vl+'</div>'+
-      '<div style="color:#3d4d5c;font-size:10px;margin-top:4px;">'+sb+'</div>'+
-    '</div>';
-  }
-  var h='<div id="stockKpiBar" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 18px 0;">';
-  h+=card('📦','Today Buy',tBuy+' pcs','\u09A8\u09A4\u09C1\u09A8 purchase','#4fc3f7','#1a3a4a');
-  h+=card('\u2705','Today Sold',tSold+' pcs','Real sold (after return)','#4caf50','#1a3a1a');
-  h+=card('📊','This Week Sold',wSold+' pcs',weekStr.slice(5)+' \u2192 today','#ff9800','#3a2a0a');
-  h+=card('📈','This Month Sold',mSold+' pcs',monStr.slice(5)+' \u2192 today','#ce93d8','#2a1a3a');
+  var el=document.getElementById('stockKpiBar'); if(!el) return;
+  var raw2=localStorage.getItem('ctgstock_v2'); if(!raw2){el.innerHTML='';return;}
+  var d=JSON.parse(raw2); var batches=d.batches||[];
+  var today=new Date(); today.setHours(0,0,0,0);
+  var totBuy=0,totSold=0,totUnsold=0,capAll=0;
+  var cats={fresh:{q:0,c:0},active:{q:0,c:0},watch:{q:0,c:0},slow:{q:0,c:0},lock:{q:0,c:0},dead:{q:0,c:0}};
+  var roiSum=0,roiN=0;
+  batches.forEach(function(b){
+    var recv=parseInt(b.qtyReceived)||0,sold=parseInt(b.qtySold)||0;
+    var cost=parseFloat(b.costPerPc)||0,sell=parseFloat(b.expectedSellPrice)||0;
+    var avail=recv-sold;
+    totBuy+=recv; totSold+=sold; totUnsold+=avail;
+    if(avail>0){
+      var cap=avail*cost; capAll+=cap;
+      var entry=new Date(b.entryDate||b.createdAt||'');
+      var age=isNaN(entry.getTime())?999:Math.floor((today-entry)/86400000);
+      if(age<=15){cats.fresh.q+=avail;cats.fresh.c+=cap;}
+      else if(age<=30){cats.active.q+=avail;cats.active.c+=cap;}
+      else if(age<=45){cats.watch.q+=avail;cats.watch.c+=cap;}
+      else if(age<=60){cats.slow.q+=avail;cats.slow.c+=cap;}
+      else if(age<=90){cats.lock.q+=avail;cats.lock.c+=cap;}
+      else{cats.dead.q+=avail;cats.dead.c+=cap;}
+    }
+    if(cost>0&&sell>0&&sold>0){roiSum+=(sell-cost)/cost*100;roiN++;}
+  });
+  var capRisk=cats.slow.c+cats.lock.c+cats.dead.c;
+  var capRiskPcs=cats.slow.q+cats.lock.q+cats.dead.q;
+  var avgROI=roiN>0?Math.round(roiSum/roiN):0;
+  var sellThru=totBuy>0?Math.round(totSold/totBuy*100):0;
+  var capAllL=Math.round(capAll/100000*10)/10;
+  var capRiskL=Math.round(capRisk/100000*10)/10;
+  var roiColor=avgROI>=20?'#10b981':avgROI>=15?'#f59e0b':avgROI>=10?'#fbbf24':'#ef4444';
+  var roiSignal=avgROI>=20?'On target':avgROI>=15?'Near target':'Below target';
+  var capRiskColor=capRisk>3000000?'#ef4444':capRisk>500000?'#f97316':'#10b981';
+  var h='<div style="display:flex;flex-direction:column;gap:6px;padding:8px 4px 4px">';
+  h+='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">';
+  h+='<div style="background:#0e1623;border:1px solid #1e2d42;border-radius:10px;padding:10px 12px">';
+  h+='<div style="font-size:9px;font-weight:700;color:#6b8ab0;letter-spacing:.6px;margin-bottom:3px">&#128230; TOTAL BUY QTY</div>';
+  h+='<div style="font-size:26px;font-weight:800;color:#e2e8f0;line-height:1">'+totBuy+'<span style="font-size:12px;color:#6b8ab0"> pcs</span></div>';
+  h+='<div style="font-size:10px;color:#6b8ab0;margin-top:4px">'+batches.length+' batches</div></div>';
+  h+='<div style="background:#0a1f12;border:1px solid #1a3a22;border-radius:10px;padding:10px 12px">';
+  h+='<div style="font-size:9px;font-weight:700;color:#4ade80;letter-spacing:.6px;margin-bottom:3px">&#9989; TOTAL SOLD QTY</div>';
+  h+='<div style="font-size:26px;font-weight:800;color:#4ade80;line-height:1">'+totSold+'<span style="font-size:12px;color:#4ade80"> pcs</span></div>';
+  h+='<div style="font-size:10px;color:#4ade80;margin-top:4px">'+sellThru+'% sell-through</div></div>';
+  h+='<div style="background:#1a0e0e;border:1px solid #3a1a1a;border-radius:10px;padding:10px 12px">';
+  h+='<div style="font-size:9px;font-weight:700;color:#f97316;letter-spacing:.6px;margin-bottom:3px">&#9200; TOTAL UNSOLD QTY</div>';
+  h+='<div style="font-size:26px;font-weight:800;color:#f97316;line-height:1">'+totUnsold+'<span style="font-size:12px;color:#f97316"> pcs</span></div>';
+  h+='<div style="font-size:10px;color:#f97316;margin-top:4px">&#2547;'+capAllL+'L at risk</div></div>';
+  h+='<div style="background:#111407;border:1px solid #2a2d0a;border-radius:10px;padding:10px 12px">';
+  h+='<div style="font-size:9px;font-weight:700;color:'+roiColor+';letter-spacing:.6px;margin-bottom:3px">&#128202; AVG PORTFOLIO ROI</div>';
+  h+='<div style="font-size:26px;font-weight:800;color:'+roiColor+';line-height:1">'+avgROI+'<span style="font-size:12px;color:'+roiColor+'">%</span></div>';
+  h+='<div style="font-size:10px;color:'+roiColor+';margin-top:4px">'+roiSignal+'</div></div>';
+  h+='<div style="background:#120e08;border:1px solid #2d1f0a;border-radius:10px;padding:10px 12px">';
+  h+='<div style="font-size:9px;font-weight:700;color:#f59e0b;letter-spacing:.6px;margin-bottom:3px">&#128274; CAPITAL AT RISK</div>';
+  h+='<div style="font-size:26px;font-weight:800;color:'+capRiskColor+';line-height:1">&#2547;'+capRiskL+'L</div>';
+  h+='<div style="font-size:10px;color:#6b7280;margin-top:4px">'+capRiskPcs+' units aged 46d+</div></div>';
   h+='</div>';
-  var ex=document.getElementById('stockKpiBar'); if(ex) ex.remove();
-  var sg=document.getElementById('stockage'); var wa=document.getElementById('waStockGen');
-  if(sg&&wa){var tmp=document.createElement('div'); tmp.innerHTML=h; sg.insertBefore(tmp.firstChild,wa);}
+  var ageCards=[
+    {lbl:'FRESH',days:'0&#8211;15 days',icon:'&#128994;',color:'#10b981',bg:'rgba(16,185,129,.08)',br:'rgba(16,185,129,.25)',q:cats.fresh.q,c:cats.fresh.c},
+    {lbl:'ACTIVE',days:'16&#8211;30 days',icon:'&#128309;',color:'#60a5fa',bg:'rgba(96,165,250,.08)',br:'rgba(96,165,250,.25)',q:cats.active.q,c:cats.active.c},
+    {lbl:'WATCH',days:'31&#8211;45 days',icon:'&#128995;',color:'#a78bfa',bg:'rgba(167,139,250,.08)',br:'rgba(167,139,250,.25)',q:cats.watch.q,c:cats.watch.c},
+    {lbl:'SLOW',days:'46&#8211;60 days',icon:'&#128992;',color:'#f97316',bg:'rgba(249,115,22,.1)',br:'rgba(249,115,22,.35)',q:cats.slow.q,c:cats.slow.c},
+    {lbl:'CAPITAL LOCK',days:'61+ days',icon:'&#128308;',color:'#ef4444',bg:'rgba(239,68,68,.1)',br:'rgba(239,68,68,.35)',q:cats.lock.q+cats.dead.q,c:cats.lock.c+cats.dead.c}
+  ];
+  h+='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">';
+  ageCards.forEach(function(ac){
+    var pct=totUnsold>0?Math.round(ac.q/totUnsold*100):0;
+    var capL=Math.round(ac.c/100000*10)/10;
+    h+='<div style="background:'+ac.bg+';border:1px solid '+ac.br+';border-radius:10px;padding:10px 12px">';
+    h+='<div style="font-size:9px;font-weight:700;color:'+ac.color+';letter-spacing:.5px;margin-bottom:1px">'+ac.icon+' '+ac.lbl+'</div>';
+    h+='<div style="font-size:9px;color:#555;margin-bottom:4px">'+ac.days+'</div>';
+    h+='<div style="font-size:22px;font-weight:800;color:'+ac.color+';line-height:1">'+ac.q+'<span style="font-size:11px;font-weight:500;color:'+ac.color+'"> pcs</span></div>';
+    h+='<div style="font-size:10px;color:#888;margin-top:3px">&#2547;'+capL+'L</div>';
+    h+='<div style="margin-top:5px;height:3px;background:#222;border-radius:2px"><div style="height:100%;width:'+pct+'%;background:'+ac.color+';border-radius:2px"></div></div>';
+    h+='<div style="font-size:9px;color:#555;margin-top:2px">'+pct+'% of unsold</div>';
+    h+='</div>';
+  });
+  h+='</div></div>';
+  el.innerHTML=h;
 }
 
 function renderStockAll(){
