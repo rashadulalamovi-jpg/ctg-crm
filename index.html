@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>CTG Click Shop â Intelligent Royal CRM</title>
+<title>CTG Click Shop — Intelligent Royal CRM</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Tiro+Bangla&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -255,7 +255,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
 
 <!-- SYNC BAR -->
 <div class="sync-bar">
-  <span id="syncStatus" style="color:var(--text3);transition:opacity .5s">â</span>
+  <span id="syncStatus" style="color:var(--text3);transition:opacity .5s">—</span>
   <span style="flex:1"></span>
   <button class="btn btn-o" onclick="loadFromFirebase()" style="font-size:8px;padding:3px 10px">&#x2193; Firebase</button>
   <button class="btn btn-o" onclick="syncToFirebase()" style="font-size:8px;padding:3px 10px">&#x2191; Sync</button>
@@ -294,7 +294,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
     <div style="height:4px;background:rgba(255,255,255,.05);border-radius:2px;overflow:hidden;position:relative">
       <div id="monthTargetFill" style="height:100%;background:linear-gradient(90deg,var(--cyan),var(--gold));border-radius:2px;transition:width .5s;width:0%"></div>
     </div>
-    <div id="monthTargetStats" style="font-family:var(--fm);font-size:9px;color:var(--text3);margin-top:2px">â</div>
+    <div id="monthTargetStats" style="font-family:var(--fm);font-size:9px;color:var(--text3);margin-top:2px">—</div>
   </div>
 </div>
 
@@ -307,7 +307,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
   <button class="nb" onclick="goTo('modeldemand',this)">&#x1F4C8; Model Demand</button>
   <button class="nb" onclick="goTo('returns',this)">↩️ Returns</button>
   <button class="nb" onclick="goTo('expensepage',this)">💸 Expense</button>
-  <button class="nb" onclick="goTo('assetspage',this)">ð Net Worth</button>
+  <button class="nb" onclick="goTo('assetspage',this)">📈 Net Worth</button>
 </nav>
 
 <div class="main">
@@ -373,7 +373,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
   <div id="waStockGen" style="margin-bottom:14px"></div>
   <!-- Stock Per Model -->
   <div style="margin-bottom:12px">
-    <div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">&#x1F4E6; Model Wise Stock â Available Now</div>
+    <div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">&#x1F4E6; Model Wise Stock — Available Now</div>
     <div id="stockModelSummary"></div>
   </div>
   <div class="g5 mb-14" id="stockBuckets"></div>
@@ -382,7 +382,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
     <button class="stab"        id="st_add"     onclick="switchStab('add')">+ &#x09A8;&#x09A4;&#x09C1;&#x09A8; Batch</button>
     <button class="stab"        id="st_slow"    onclick="switchStab('slow')">&#x26A0;&#xFE0F; Slow 45d+</button>
     <button class="stab"        id="st_dead"    onclick="switchStab('dead')">&#x1F480; Dead 90d+</button>
-    <button class="stab"        id="st_history" onclick="switchStab('history')">ð Buy History</button>
+    <button class="stab"        id="st_history" onclick="switchStab('history')">📊 Buy History</button>
   </div>
   <div id="capitalBlockers" style="margin-bottom:8px"></div>
   <div class="stab-c" id="sc_history"></div>
@@ -630,7 +630,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
 <div id="assetspage" class="sec">
   <div class="flex-between mb-18">
     <div>
-      <div style="font-family:var(--fd);font-size:22px;font-weight:800">ð Net Worth &amp; Growth Tracker</div>
+      <div style="font-family:var(--fd);font-size:22px;font-weight:800">📈 Net Worth &amp; Growth Tracker</div>
       <div style="font-family:var(--fm);font-size:10px;color:var(--text3)">Assets â¢ Liabilities â¢ Net Worth â¢ 3 Crore Working Capital Target</div>
     </div>
     <button class="btn btn-r" onclick="openAssetsForm(null)" style="font-size:11px">+ New Snapshot</button>
@@ -836,7 +836,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
           </optgroup>
           <optgroup label="Courier / QC">
             <option value="courier_damage">Courier Damage (ð¦)</option>
-            <option value="qc_fail">QC Fail â Missed in Check</option>
+            <option value="qc_fail">QC Fail — Missed in Check</option>
           </optgroup>
           <optgroup label="Customer">
             <option value="cust_claim">Customer Claim (verify first)</option>
@@ -846,7 +846,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
         </select>
         <input id="retReasonDetail" placeholder="à¦¬à¦¿à¦¸à§à¦¤à¦¾à¦°à¦¿à¦¤ à¦²à¦¿à¦à§à¦¨... (à¦¯à§à¦®à¦¨: display top-left cornerà§ à¦¦à¦¾à¦ à¦à¦¿à¦²)" style="display:none;font-family:var(--fu);font-size:10px;margin-top:0;border-color:rgba(249,115,22,.3)">
       </div>
-      <!-- Fix Cost â REAL LOSS -->
+      <!-- Fix Cost — REAL LOSS -->
       <div style="background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.2);border-radius:7px;padding:10px;margin-bottom:10px">
         <div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--orange);margin-bottom:7px">&#x1F4B8; Fix Cost (Real Loss)</div>
         <div class="fg-2">
@@ -968,7 +968,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js">// ââ Admin KPI Patch: Avg ROI + Avg Profit/Pc (Admin Only) âââââââââââââââââââââââ function injectAdminKpiCards(){   var ADMIN='rashadulalamovi@gmail.com';   var auth=window.firebase&&window.firebase.auth&&window.firebase.auth();   if(!auth)return;   var cu=auth.currentUser;   if(!cu||cu.email!==ADMIN)return;   var wrap=document.getElementById('salesDashWrap');   if(!wrap||document.getElementById('adminKpiRow'))return;   var customers=db&&db.customers||[];   var fCust=(document.getElementById('sdFiltCust')||{}).value||'';   var fStat=(document.getElementById('sdFiltStat')||{}).value||'';   var fFrom=(document.getElementById('sdFiltFrom')||{}).value||'';   var fTo=(document.getElementById('sdFiltTo')||{}).value||'';   var fMonth=(document.getElementById('sdFiltMonth')||{}).value||'';   var kGrossQty=0,kTotC=0,kRetQty=0,kSalesDeducted=0,kGrossSales=0;   customers.forEach(function(c){     (c.invoices||[]).forEach(function(inv){       if(fCust&&String(c.id)!==fCust)return;       if(fStat&&inv.status!==fStat)return;       if(fFrom&&inv.date<fFrom)return;       if(fTo&&inv.date>fTo)return;       if(fMonth&&(inv.date||'').slice(0,7)!==fMonth)return;       (inv.items||[]).forEach(function(x){         kGrossQty+=x.qty||0;         kGrossSales+=x.qty*(x.price||0);         kTotC+=x.purchasePrice?x.qty*x.purchasePrice:0;       });       (inv.returns||[]).forEach(function(r){         kRetQty+=r.qty||0;         kSalesDeducted+=r.salesDeducted||r.refundAmt||0;       });     });   });   var kRealQty=kGrossQty-kRetQty;   var kRealSales=kGrossSales-kSalesDeducted;   var kAvgROI=kTotC>0?Math.round((kRealSales-kTotC)/kTotC*100):0;   var kAvgPcProfit=kRealQty>0?Math.round((kRealSales-kTotC)/kRealQty):0;   var roiCol=kAvgROI>=25?'var(--green)':kAvgROI>=15?'var(--warn)':'var(--red)';   var pcCol=kAvgPcProfit>=3000?'var(--green)':kAvgPcProfit>=2000?'var(--gold)':'var(--red)';   var html='<div id="adminKpiRow" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;">'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCC8 Average ROI</div>'     +'<div class="kpi-val" style="color:'+roiCol+';font-size:28px;">'+(kTotC>0?kAvgROI+'%':'\u2014')+'</div>'     +'<div class="kpi-sub">per invoice avg \u00B7 admin only</div></div>'     +'<div class="kpi-card" style="border-top:2px solid var(--gold);background:rgba(255,215,0,0.04);">'     +'<div class="kpi-label">\uD83D\uDCB0 Avg Profit / Pc</div>'     +'<div class="kpi-val" style="color:'+pcCol+';font-size:28px;">'+(kRealQty>0?fmtMoney(kAvgPcProfit):'\u2014')+'</div>'     +'<div class="kpi-sub">net profit \u00F7 qty \u00B7 admin only</div></div></div>';   var ch=Array.from(wrap.children);   var fe=ch.find(function(el){return el.querySelector&&el.querySelector('#sdFiltCust');});   if(fe){fe.insertAdjacentHTML('beforebegin',html);}else{wrap.insertAdjacentHTML('beforeend',html);} } var _rsdOrig=window.renderSalesDashboard; window.renderSalesDashboard=function(){if(_rsdOrig)_rsdOrig.apply(this,arguments);setTimeout(injectAdminKpiCards,50);}; firebase.auth().onAuthStateChanged(function(u){   if(u&&u.email==='rashadulalamovi@gmail.com'){     setTimeout(function(){if(document.getElementById('salesDashWrap')&&!document.getElementById('adminKpiRow')){renderSalesDashboard();}},300);   } }); </script>
 <script>
 // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-// CTG CLICK SHOP â INTELLIGENT ROYAL CRM v2
+// CTG CLICK SHOP — INTELLIGENT ROYAL CRM v2
 // Core: Config Â· Utils Â· DB Â· Firebase
 // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 const LS_KEY    = 'ctgcrm_v18';
@@ -1005,7 +1005,7 @@ let _detailId = null;
 // ââ Utils âââââââââââââââââââââââââââââââââââââââââââââââ
 function getAge(d){ const a=Math.floor((Date.now()-new Date(d).getTime())/86400000); return a<0?0:a; }
 function fmtDate(d){
-  if(!d) return 'â';
+  if(!d) return '—';
   var months=['à¦à¦¾à¦¨à§à¦¯à¦¼à¦¾à¦°à¦¿','à¦«à§à¦¬à§à¦°à§à¦¯à¦¼à¦¾à¦°à¦¿','à¦®à¦¾à¦°à§à¦','à¦à¦ªà§à¦°à¦¿à¦²','à¦®à§','à¦à§à¦¨','à¦à§à¦²à¦¾à¦','à¦à¦à¦¸à§à¦','à¦¸à§à¦ªà§à¦à§à¦®à§à¦¬à¦°','à¦à¦à§à¦à§à¦¬à¦°','à¦¨à¦­à§à¦®à§à¦¬à¦°','à¦¡à¦¿à¦¸à§à¦®à§à¦¬à¦°'];
   var obj=new Date(d); if(isNaN(obj)) return d;
   return obj.getDate()+' '+months[obj.getMonth()]+' '+obj.getFullYear();
@@ -1771,7 +1771,7 @@ function renderDashboard(){
 }
 
 // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-// CUSTOMER DETAIL MODAL â 5 tabs
+// CUSTOMER DETAIL MODAL — 5 tabs
 // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function openDetail(id){
   const c = db.customers.find(x=>x.id===id); if(!c) return;
@@ -2034,7 +2034,7 @@ function renderTabIntel(c){
 }
 
 // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-// INVOICE v2 â Full Sales Dashboard + Enhanced Customer Invoice
+// INVOICE v2 — Full Sales Dashboard + Enhanced Customer Invoice
 // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 // ââ Migrate invoice to v2 schema ââââââââââââââââââââââââ
@@ -2106,7 +2106,7 @@ function getNextOrderDecision(c){
 function refreshStockList(){
   var dl=document.getElementById('slist'); if(!dl) return;
   dl.innerHTML='';
-  // Merge all batches by model â total available qty
+  // Merge all batches by model — total available qty
   var merged={};
   stockDB.batches.forEach(function(b){
     var avail=Math.max(0,(b.qtyReceived||0)-(b.qtySold||0));
@@ -2123,7 +2123,7 @@ function refreshStockList(){
   Object.keys(merged).sort().forEach(function(model){
     var opt=document.createElement('option');
     opt.value=model;
-    opt.label=model+' â '+merged[model]+'pcs available';
+    opt.label=model+' — '+merged[model]+'pcs available';
     dl.appendChild(opt);
   });
 }
@@ -2282,7 +2282,7 @@ function copyInvSummaryWA(){
   if(!addInvTargetId||!addInvItems.length){notify('Customer \u0993 Model \u09AF\u09CB\u0997 \u0995\u09B0\u09C1\u09A8',true);return;}
   var cu=db.customers.find(function(c){return c.id===addInvTargetId;});
   if(!cu){notify('Customer not found',true);return;}
-  var invNo=((document.getElementById('addInvNo')||{}).value||'â').trim();
+  var invNo=((document.getElementById('addInvNo')||{}).value||'—').trim();
   var invDate=(document.getElementById('addInvDate')||{}).value||TODAY;
   var status=(document.getElementById('addInvStat')||{}).value||'transit';
   var d=new Date(invDate);
@@ -2525,7 +2525,7 @@ function renderInvoiceCard(c, inv, showCustInfo){
   if(iDueNet>0){
     h+='<button onclick="sendWAReminder('+c.id+','+inv.id+')" ';
     h+='style="width:100%;margin:7px 0 5px;padding:9px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn);border-radius:6px;cursor:pointer;font-family:var(--fd);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">';
-    h+='â° WA Due Reminder à¦ªà¦¾à¦ à¦¾à¦¨ â '+_tk.overdueDays+'d overdue Â· Due: à§³'+fmtNum(iDue);
+    h+='â° WA Due Reminder à¦ªà¦¾à¦ à¦¾à¦¨ — '+_tk.overdueDays+'d overdue Â· Due: à§³'+fmtNum(iDue);
     h+='</button>';
   }
   // Add payment
@@ -2585,9 +2585,9 @@ function renderInvoiceCard(c, inv, showCustInfo){
   // Delivery tracking metrics
   h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px">';
   var metrics=[
-    {label:'\u{1F4E6}\u2192\u{1F3E2} Hub Days',  val:_dToHub!==null?_dToHub+'d':'â',  color:_dToHub!==null&&_dToHub<=2?'var(--green)':_dToHub!==null&&_dToHub<=4?'var(--warn)':'var(--orange)'},
-    {label:'\u{1F3E2}\u2192\u2705 Rcv Days', val:_dToRcv!==null?_dToRcv+'d':'â',  color:_dToRcv!==null&&_dToRcv<=1?'var(--green)':'var(--warn)'},
-    {label:'\u23F1 Total Days',     val:_dTotal!==null?_dTotal+'d':'â',  color:_dTotal!==null&&_dTotal<=4?'var(--green)':_dTotal!==null&&_dTotal<=7?'var(--warn)':'var(--red)'},
+    {label:'\u{1F4E6}\u2192\u{1F3E2} Hub Days',  val:_dToHub!==null?_dToHub+'d':'—',  color:_dToHub!==null&&_dToHub<=2?'var(--green)':_dToHub!==null&&_dToHub<=4?'var(--warn)':'var(--orange)'},
+    {label:'\u{1F3E2}\u2192\u2705 Rcv Days', val:_dToRcv!==null?_dToRcv+'d':'—',  color:_dToRcv!==null&&_dToRcv<=1?'var(--green)':'var(--warn)'},
+    {label:'\u23F1 Total Days',     val:_dTotal!==null?_dTotal+'d':'—',  color:_dTotal!==null&&_dTotal<=4?'var(--green)':_dTotal!==null&&_dTotal<=7?'var(--warn)':'var(--red)'},
     {label:'\u{1F6E1}\uFE0F Warranty Left', val:_wRemain+'d',                    color:_wColor},
   ];
   metrics.forEach(function(m){
@@ -2677,7 +2677,7 @@ function renderInvoiceCard(c, inv, showCustInfo){
       h+='<td><span style="background:rgba(249,115,22,.1);color:var(--orange);border:1px solid rgba(249,115,22,.3);border-radius:3px;padding:0 5px;font-size:9px">'+(RL[r.reason]||r.reason)+'</span></td>';
       h+='<td style="font-family:var(--fm);font-weight:600;color:var(--gold);text-align:right">\u09F3'+fmtNum(rSalesD)+'<div style="font-size:8px;color:var(--text3);">customer \u09AA\u09BE\u09AC\u09C7</div></td>';
       h+='<td style="font-family:var(--fm);color:var(--cyan);text-align:right">\u09F3'+fmtNum(rCostA)+'</td>';
-      h+='<td style="font-family:var(--fm);font-weight:600;color:'+(rFix>0?'var(--red)':'var(--text3)')+';text-align:right">'+(rFix>0?'\u09F3'+fmtNum(rFix)+'<div style="font-size:8px;color:var(--text3);">CTG\u09B0 Loss</div>':'â')+'</td>';
+      h+='<td style="font-family:var(--fm);font-weight:600;color:'+(rFix>0?'var(--red)':'var(--text3)')+';text-align:right">'+(rFix>0?'\u09F3'+fmtNum(rFix)+'<div style="font-size:8px;color:var(--text3);">CTG\u09B0 Loss</div>':'—')+'</td>';
       h+='<td><span style="font-size:9px;color:'+stColor+'">'+stLabel+'</span></td>';
       h+='<td style="font-family:var(--fm);font-weight:700;color:'+(curNet>=0?'var(--green)':'var(--red)')+'text-align:right">\u09F3'+fmtNum(curNet)+'</td>';
       h+='<td><button onclick="genReturnWA('+c.id+','+inv.id+','+r.id+')" '+'style="font-family:var(--fd);font-size:8px;font-weight:700;padding:3px 9px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.3);color:#25d366;border-radius:4px;cursor:pointer">\u{1F4F1} WA</button></td>';
@@ -2892,7 +2892,7 @@ function toggleBlockOrder(cid, invId){
 }
 
 // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-// PAYMENT TRACKER â Auto-compute helpers
+// PAYMENT TRACKER — Auto-compute helpers
 // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 // Auto-compute tracker fields for one invoice
@@ -2931,7 +2931,7 @@ function computeTracker(inv, iA, iPd, pays){
   if(inv.promiseDate && iDue > 0){
     var promiseDateObj = new Date(inv.promiseDate);
     if(today > promiseDateObj){
-      // Promise date passed, no payment â count it (once)
+      // Promise date passed, no payment — count it (once)
       promiseBreaks = Math.max(promiseBreaks, 1);
     }
   }
@@ -3457,7 +3457,7 @@ function renderStockTable(){
     h+='<td><div style="font-family:var(--fm);font-size:10px">\u09F3'+fmtNum(cost)+'</div>';
     if(multiP&&wavg&&wavg!==cost) h+='<div style="font-family:var(--fm);font-size:8px;color:var(--gold)">Avg:\u09F3'+fmtNum(wavg)+'</div>';
     h+='</td>';
-    // Expected Sell Price â editable
+    // Expected Sell Price — editable
     h+='<td><input type="number" value="'+(sellP||'')+'" placeholder="\u09B8\u09C7\u099F..." ';
     h+='onchange="saveExpectedSellPrice('+b.id+',this.value)" ';
     h+='style="width:80px;padding:3px 6px;font-family:var(--fm);font-size:10px;text-align:right;border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.04)"></td>';
@@ -3480,7 +3480,7 @@ function renderStockTable(){
     h+='<td><span style="font-family:var(--fm);font-size:12px;font-weight:700;color:'+(sold30>=5?'var(--green)':sold30>=2?'var(--cyan)':'var(--text3)')+'">'+sold30+'pcs</span></td>';
     var _retS=getModelReturnStats(b.model);
     var _retColor=_retS.retPct>5?'var(--red)':_retS.retPct>3?'var(--warn)':'var(--green)';
-    h+='<td style="font-family:var(--fm);font-size:11px;font-weight:700;text-align:center;color:'+(_retS.retQty>0?'var(--orange)':'var(--text3)')+"'>"+(_retS.retQty>0?_retS.retQty+'pcs':'â')+'</td>';
+    h+='<td style="font-family:var(--fm);font-size:11px;font-weight:700;text-align:center;color:'+(_retS.retQty>0?'var(--orange)':'var(--text3)')+"'>"+(_retS.retQty>0?_retS.retQty+'pcs':'—')+'</td>';
     h+='<td style="font-family:var(--fm);font-size:10px;text-align:center;color:'+_retColor+"'>"+_retS.retPct+'%</td>';
     // Sell-Out Days
     h+='<td>';
@@ -3535,7 +3535,7 @@ function delCust(cid){
   cid = Number(cid)||cid;
   var c = db.customers.find(function(x){return x.id===cid||x.id===Number(cid);});
   if(!c){ notify('Customer à¦ªà¦¾à¦à¦¯à¦¼à¦¾ à¦¯à¦¾à¦¯à¦¼à¦¨à¦¿',true); return; }
-  if(!confirm('"+c.name+" â à¦ªà§à¦°à§ customer + invoices + returns + payments à¦¸à¦°à¦¾à¦¬à§à¦¨? à¦à¦ action undo à¦à¦°à¦¾ à¦¯à¦¾à¦¬à§ à¦¨à¦¾à¥¤'.replace('"+c.name+"',c.name))) return;
+  if(!confirm('"+c.name+" — à¦ªà§à¦°à§ customer + invoices + returns + payments à¦¸à¦°à¦¾à¦¬à§à¦¨? à¦à¦ action undo à¦à¦°à¦¾ à¦¯à¦¾à¦¬à§ à¦¨à¦¾à¥¤'.replace('"+c.name+"',c.name))) return;
   var idx = db.customers.findIndex(function(x){return x.id===cid||x.id===Number(cid);});
   if(idx<0){ notify('à¦ªà¦¾à¦à¦¯à¦¼à¦¾ à¦¯à¦¾à¦¯à¦¼à¦¨à¦¿',true); return; }
   db.customers.splice(idx,1);
@@ -3984,7 +3984,7 @@ h+='</div>';
     h+='</tr>';
   });
   h+='</tbody></table></div></div>';
-  el.innerHTML=h;
+  el.innerHTML=renderTodayKPIBar()+h;
 }
 
 function renderCapitalBlockers(){
@@ -4014,7 +4014,7 @@ function renderCapitalBlockers(){
     h+='</div>';
   });
   h+='</div>';
-  el.innerHTML=renderTodayKPIBar()+h;
+  el.innerHTML=h;
 }
 
 // ââ Model Demand ââââââââââââââââââââââââââââââââââââââââ
@@ -4545,7 +4545,7 @@ function genDemandOfferWA(cid){
 
 
 // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-// RETURN MODULE â CTG Click Shop
+// RETURN MODULE — CTG Click Shop
 // Goal: QC improvement + Fix cost tracking + Customer analysis
 // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
@@ -4878,7 +4878,7 @@ function filterReturnByCust(cid){
 }
 
 // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-// EXPENSE MODULE â CTG Click Shop
+// EXPENSE MODULE — CTG Click Shop
 // Formula: Gross Profit - Office Expense - Return Fix Cost = Net Profit
 // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
@@ -5015,7 +5015,7 @@ function renderExpenseDashboard(){
     var weekAmt    = weekExps.reduce(function(a,e){return e.expenseType!=='personal'?a+e.amount:a;},0);
     // monthAmt = office/other expenses ONLY (auto_return excluded â handled by monthRetFix)
     var monthAmt   = monthExps.reduce(function(a,e){
-      if(e.source==='auto_return') return a;  // skip â monthRetFix already counts this
+      if(e.source==='auto_return') return a;  // skip — monthRetFix already counts this
       return e.expenseType!=='personal'?a+e.amount:a;
     },0);
     var lifetimeAmt= allExps.reduce(function(a,e){return e.expenseType!=='personal'?a+e.amount:a;},0);
@@ -5200,7 +5200,7 @@ function updateExpType(){
 
 
 // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-// NET WORTH & GROWTH TRACKER â CTG Click Shop
+// NET WORTH & GROWTH TRACKER — CTG Click Shop
 // Formula: Assets - Liabilities = Net Worth
 // 2026 Target: Working Capital 3 Crore BDT
 // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
@@ -5773,7 +5773,7 @@ function renderModelDemand(){
                     fa.priority==='stop'||fa.priority==='clear'?'rgba(156,163,175,.03)':
                     fa.priority==='reduce'||fa.priority==='offer'?'rgba(249,115,22,.02)':'';
         th+='<tr style="background:'+rowBg+'">';
-        // Model name â customer-specific or aggregate
+        // Model name — customer-specific or aggregate
         var _cmd=null;
         if(custFilterId){
           var _fc=db.customers.find(function(x){return x.id===custFilterId;});
@@ -5794,7 +5794,7 @@ function renderModelDemand(){
           +'background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.25);color:#25d366;cursor:pointer">'
           +'\u{1F4F1} Offer WA</button>'
           +'</td>';
-        // Demand Class â customer pattern or overall
+        // Demand Class — customer pattern or overall
         var _demBadge = _cmd
           ? (function(){
               var _p=getCustModelPattern(_cmd);
@@ -5824,7 +5824,7 @@ function renderModelDemand(){
         th+='<td>'+getReturnBadge(s.retPct)+'</td>';
         // Sell-Out Days
         th+='<td>'+getSellOutBadge(s.sellOutDays)+'</td>';
-        // Final Action â customer rec or overall
+        // Final Action — customer rec or overall
         var _faH;
         if(_cmd){
           var _cp=getCustModelPattern(_cmd),_cr=getCustModelRec(_cmd,_cp);
@@ -5835,7 +5835,7 @@ function renderModelDemand(){
             +(s.retPct>8?'<div style="font-size:8px;color:var(--red);margin-top:2px">\u26A0\uFE0F High Return Risk</div>':'');
         }
         th+='<td>'+_faH+'</td>';
-        // Customer column â show top buyers of this model
+        // Customer column — show top buyers of this model
         var topBuyers=[];
         db.customers.forEach(function(c){
           var qty=0;
@@ -5928,7 +5928,7 @@ function renderModelDemand(){
 
 
 // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-// CUSTOMERS â Add/Edit form Â· Nav Â· renderAll Â· Init
+// CUSTOMERS — Add/Edit form Â· Nav Â· renderAll Â· Init
 // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 // ââ Add / Edit Customer form ââââââââââââââââââââââââââââ
@@ -6024,7 +6024,7 @@ function renderAll(){
   // Populate invoice picker
   const picker = document.getElementById('custPicker');
   if(picker){
-    picker.innerHTML = '<option value="">â Customer select \u0995\u09B0\u09C1\u09A8 â</option>';
+    picker.innerHTML = '<option value="">— Customer select \u0995\u09B0\u09C1\u09A8 —</option>';
     const sorted = db.customers.slice().sort((a,b)=>a.name.localeCompare(b.name));
     sorted.forEach(function(c){
       picker.innerHTML += '<option value="'+c.id+'">'+c.name+(c.city?' ('+c.city+')':'')+'</option>';
@@ -6812,7 +6812,7 @@ function saveWeekTarget(){
 }
 
 function getWeekBounds(weekIndex){
-  // Legacy: rolling weeks â kept for backward compat
+  // Legacy: rolling weeks — kept for backward compat
   var d=new Date(), day=d.getDay();
   var diff=day===6?0:day+1;
   var sat=new Date(d); sat.setDate(d.getDate()-diff-weekIndex*7);
@@ -6955,7 +6955,7 @@ function copyBankInfoWA(){
     .catch(function(){notify('Copy failed',true);});
 }
 
-function loadDemoData(){ notify('Demo data disabled â real data à¦¯à§à¦ à¦à¦°à§à¦¨',true); }
+function loadDemoData(){ notify('Demo data disabled — real data à¦¯à§à¦ à¦à¦°à§à¦¨',true); }
 
 function renderStockModelSummary(){
   var el=document.getElementById('stockModelSummary'); if(!el) return;
@@ -7049,7 +7049,7 @@ function markReturnCashRefund(custId,invId,retId,amount,refDate,method,note){
   var r=(inv.returns||[]).find(function(x){return x.id===retId;}); if(!r) return;
   var amt=amount||(r.salesDeducted||r.refundAmt||0);
   var dt=refDate||TODAY;
-  // Store on return record â NOT expense module (cash refund != business expense)
+  // Store on return record — NOT expense module (cash refund != business expense)
   r.adjustmentType='cash_refunded';
   r.adjustmentDate=dt;
   r.adjustmentAmount=amt;
@@ -7147,7 +7147,7 @@ function buildSimpleStockList(){
 
 function formatSimpleWAMsg(opts){
   var list = buildSimpleStockList();
-  if(!list.length) return 'à¦¸à§à¦à¦ à¦à¦¾à¦²à¦¿ â à¦à§à¦¨à§ available model à¦ªà¦¾à¦à¦¯à¦¼à¦¾ à¦¯à¦¾à¦¯à¦¼à¦¨à¦¿à¥¤';
+  if(!list.length) return 'à¦¸à§à¦à¦ à¦à¦¾à¦²à¦¿ — à¦à§à¦¨à§ available model à¦ªà¦¾à¦à¦¯à¦¼à¦¾ à¦¯à¦¾à¦¯à¦¼à¦¨à¦¿à¥¤';
   var showPrice = opts.showPrice !== false;
   var showQty   = opts.showQty   !== false;
   var line = '\u2501'.repeat(20);
@@ -7460,12 +7460,12 @@ function injectAvgProfitKpis() {
       '<div id="avgProfitKpiRow" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;">'
       + '<div class="kpi-card">'
       +   '<div class="kpi-label">ð° AVG PROFIT / INVOICE</div>'
-      +   '<div class="kpi-val" style="color:' + invCol + ';">' + (kInvCount > 0 ? fmtMoney(kAvgInvProfit) : 'â') + '</div>'
+      +   '<div class="kpi-val" style="color:' + invCol + ';">' + (kInvCount > 0 ? fmtMoney(kAvgInvProfit) : '—') + '</div>'
       +   '<div class="kpi-sub">total profit Ã· ' + kInvCount + ' invoices</div>'
       + '</div>'
       + '<div class="kpi-card">'
       +   '<div class="kpi-label">ð AVG PROFIT / PC</div>'
-      +   '<div class="kpi-val" style="color:' + pcCol + ';">' + (kRealQty > 0 ? fmtMoney(kAvgPcProfit) : 'â') + '</div>'
+      +   '<div class="kpi-val" style="color:' + pcCol + ';">' + (kRealQty > 0 ? fmtMoney(kAvgPcProfit) : '—') + '</div>'
       +   '<div class="kpi-sub">net profit Ã· ' + kRealQty + ' pcs Â· target à§³3000+</div>'
       + '</div>'
       + '</div>';
