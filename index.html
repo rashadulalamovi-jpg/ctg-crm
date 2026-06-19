@@ -3824,167 +3824,111 @@ function calcModelBuyHistory(){
 function renderModelBuyHistory(){
   var el=document.getElementById('sc_history'); if(!el) return;
   var data=calcModelBuyHistory(); if(!data||!data.length){el.innerHTML='<div style="padding:40px;text-align:center;color:#888">No data</div>';return;}
-
-  // KPI numbers
-  var totBQ=data.reduce(function(s,d){return s+(d.totBought||0);},0);
-  var totSQ=data.reduce(function(s,d){return s+(d.totSold||0);},0);
-  var totUQ=data.reduce(function(s,d){return s+(d.unsold||0);},0);
-  var totCR=data.reduce(function(s,d){return s+(d.capitalAtRisk||0);},0);
-  var rArr=data.filter(function(d){return d.roi!=null&&d.totSold>0;});
-  var avgROI=rArr.length?Math.round(rArr.reduce(function(s,d){return s+d.roi;},0)/rArr.length):0;
-
-  // Highlights
-  var starBuys=data.filter(function(d){return d.dPri>=4;});
-  var avoidList=data.filter(function(d){return d.decision.indexOf('Avoid')!==-1;});
-  var soldM=data.filter(function(d){return d.totSold>0;});
-  var movM=soldM.filter(function(d){return d.avgHold>0;});
-  var fastM=movM.length?movM.reduce(function(f,d){return d.avgHold<f.avgHold?d:f;}):null;
-  var sc2=function(d){return (d.roi||0)*2+(d.totSold*2)-(d.avgHold||30);};
-  var bestM=soldM.length?soldM.reduce(function(b,d){return sc2(d)>sc2(b)?d:b;}):null;
-  var worstM=soldM.length?soldM.reduce(function(w,d){return (d.roi||0)<(w.roi||0)?d:w;}):null;
-
-  // Decision counts
-  var dc={s:0,b:0,sm:0,h:0,av:0,nd:0};
-  data.forEach(function(d){
-    if(d.dPri===5)dc.s++;
-    else if(d.dPri===4)dc.b++;
-    else if(d.decision.indexOf('Small')!==-1)dc.sm++;
-    else if(d.decision.indexOf('Hold')!==-1)dc.h++;
-    else if(d.decision.indexOf('Avoid')!==-1)dc.av++;
-    else dc.nd++;
-  });
-
-  // Filter + Sort
-  var flt=window._bhFilter||'all', srt=window._bhSort||'default';
-  var filt=data.slice();
-  if(flt==='rebuy')    filt=data.filter(function(d){return d.dPri>=4;});
-  else if(flt==='smallqty')filt=data.filter(function(d){return d.decision.indexOf('Small')!==-1;});
-  else if(flt==='hold') filt=data.filter(function(d){return d.decision.indexOf('Hold')!==-1||d.decision.indexOf('No Data')!==-1;});
-  else if(flt==='avoid')filt=data.filter(function(d){return d.decision.indexOf('Avoid')!==-1;});
-  else if(flt==='lowroi')filt=data.filter(function(d){return d.roi!=null&&d.roi<10;});
-  else if(flt==='hiret')filt=data.filter(function(d){return d.retPct>5;});
-  else if(flt==='caplock')filt=data.filter(function(d){return d.capitalAtRisk>0;});
-  else if(flt==='fast')filt=data.filter(function(d){return d.avgHold>0&&d.avgHold<=20;});
-  else if(flt==='slow')filt=data.filter(function(d){return d.unsold>0&&(d.avgHold>40||d.avgHold===0);});
-  if(srt==='default')filt.sort(function(a,b){return b.dPri-a.dPri;});
-  else if(srt==='rd')filt.sort(function(a,b){return (b.roi||0)-(a.roi||0);});
-  else if(srt==='ra')filt.sort(function(a,b){return (a.roi||-999)-(b.roi||-999);});
-  else if(srt==='cr')filt.sort(function(a,b){return b.capitalAtRisk-a.capitalAtRisk;});
-  else if(srt==='sp')filt.sort(function(a,b){return (a.avgHold||999)-(b.avgHold||999);});
-  else if(srt==='rp')filt.sort(function(a,b){return b.retPct-a.retPct;});
-
-  // Helpers
-  function fmtM(n){if(!n)return '৳'+0;if(n>=10000000)return '৳'+(n/10000000).toFixed(1)+'Cr';if(n>=100000)return '৳'+(n/100000).toFixed(1)+'L';return '৳'+n.toLocaleString('en-IN');}
-  function roiBadge(roi){if(roi==null)return '<span style="color:#555">—</span>';var cl=roi>=20?'#00d4aa':roi>=15?'#4ade80':roi>=10?'#facc15':roi>=0?'#fb923c':'#ef4444';return '<span style="background:'+cl+'22;color:'+cl+';border:1px solid '+cl+'44;border-radius:4px;padding:1px 6px;font-size:12px;font-weight:700">'+roi+'%</span>';}
-  function fBtn(v,l,a){
-var ac=a?'rgba(232,33,26,.18)':'rgba(255,255,255,.03)';
-var bc=a?'#e8211a':'#253545';
-var tc=a?'#ff7070':'#7a8899';
-var fw=a?'600':'400';
-return '<button onclick="window._bhFilter=\x27'+v+'\x27;renderModelBuyHistory()" style="padding:5px 12px;border-radius:20px;border:1px solid '+bc+';background:'+ac+';color:'+tc+';font-size:11px;cursor:pointer;font-weight:'+fw+';white-space:nowrap;">'+l+'</button>';
-}
-  function sBtn(v,l,a){
-var bc=a?'#4fc3f7':'#253545';
-var bg=a?'rgba(79,195,247,.15)':'rgba(255,255,255,.03)';
-var tc=a?'#4fc3f7':'#7a8899';
-var fw=a?'600':'400';
-return '<button onclick="window._bhSort=\x27'+v+'\x27;renderModelBuyHistory()" style="padding:5px 12px;border-radius:20px;border:1px solid '+bc+';background:'+bg+';color:'+tc+';font-size:11px;cursor:pointer;font-weight:'+fw+';white-space:nowrap;">'+l+'</button>';
-}
-
-  var roiC=avgROI>=20?'#00d4aa':avgROI>=15?'#4ade80':avgROI>=10?'#facc15':'#ef4444';
-  var roiLbl=avgROI>=20?'Excellent':avgROI>=15?'Good':avgROI>=10?'Below target':'Critical';
-  var spct=totBQ>0?Math.round(totSQ/totBQ*100):0;
-  var crL=Math.round(totCR/100000);
-
-  var h='<div style="padding:12px 4px">';
-
-  // ROW 1 — 5 KPI Cards
-  h+='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px">';
-  h+='<div style="background:#0f172a;border:1px solid #1e3a5f;border-radius:10px;padding:14px"><div style="color:#64748b;font-size:11px;letter-spacing:1px;margin-bottom:6px">📦 TOTAL BUY QTY</div><div style="color:#f8fafc;font-size:28px;font-weight:800">'+totBQ+'<span style="font-size:14px;color:#94a3b8">pcs</span></div><div style="color:#64748b;font-size:11px;margin-top:4px">'+data.length+' models</div></div>';
-  h+='<div style="background:#0a2318;border:1px solid #14532d;border-radius:10px;padding:14px"><div style="color:#64748b;font-size:11px;letter-spacing:1px;margin-bottom:6px">✅ TOTAL SOLD QTY</div><div style="color:#4ade80;font-size:28px;font-weight:800">'+totSQ+'<span style="font-size:14px;color:#94a3b8">pcs</span></div><div style="color:#64748b;font-size:11px;margin-top:4px">'+spct+'% sell-through</div></div>';
-  h+='<div style="background:#1a0a0a;border:1px solid #7f1d1d;border-radius:10px;padding:14px"><div style="color:#64748b;font-size:11px;letter-spacing:1px;margin-bottom:6px">📤 TOTAL UNSOLD QTY</div><div style="color:#ef4444;font-size:28px;font-weight:800">'+totUQ+'<span style="font-size:14px;color:#94a3b8">pcs</span></div><div style="color:#ef4444;font-size:11px;margin-top:4px">'+fmtM(totCR)+' at risk</div></div>';
-  h+='<div style="background:#0f172a;border:1px solid '+(avgROI>=15?'#14532d':'#7f1d1d')+';border-radius:10px;padding:14px"><div style="color:#64748b;font-size:11px;letter-spacing:1px;margin-bottom:6px">📊 AVG PORTFOLIO ROI</div><div style="color:'+roiC+';font-size:28px;font-weight:800">'+avgROI+'<span style="font-size:16px">%</span></div><div style="color:'+roiC+';font-size:11px;margin-top:4px">'+roiLbl+'</div></div>';
-  h+='<div style="background:#1a0a0a;border:1px solid #7f1d1d;border-radius:10px;padding:14px"><div style="color:#64748b;font-size:11px;letter-spacing:1px;margin-bottom:6px">🔒 CAPITAL AT RISK</div><div style="color:#ef4444;font-size:28px;font-weight:800">৳'+crL+'L</div><div style="color:#94a3b8;font-size:11px;margin-top:4px">'+totUQ+' unsold locked</div></div>';
+  var starL=data.filter(function(d){return d.decision.indexOf('Star')>=0;});
+  var buyL=data.filter(function(d){return d.decision.indexOf('Star')<0&&d.decision.indexOf('Buy')>=0;});
+  var smallL=data.filter(function(d){return d.decision.indexOf('Small')>=0;});
+  var holdL=data.filter(function(d){return d.decision.indexOf('Hold')>=0;});
+  var avoidL=data.filter(function(d){return d.decision.indexOf('Avoid')>=0;});
+  var ndL=data.filter(function(d){return d.decision.indexOf('No Data')>=0;});
+  var sd=data.filter(function(d){return d.totSold>0;});
+  var fastM=sd.slice().sort(function(a,b){return b.velocity-a.velocity;})[0]||{model:'&#8212;',velocity:0};
+  var bestM=sd.slice().sort(function(a,b){return b.roi-a.roi;})[0]||{model:'&#8212;',roi:0};
+  var worstM=sd.slice().sort(function(a,b){return a.roi-b.roi;})[0]||{model:'&#8212;',roi:0};
+  var bhF=window.bhFilter||'all';
+  var bhS=window.bhSort||'dec';
+  var rows=data.slice();
+  if(bhF==='star') rows=rows.filter(function(d){return d.decision.indexOf('Star')>=0;});
+  else if(bhF==='buy') rows=rows.filter(function(d){return d.decision.indexOf('Star')<0&&d.decision.indexOf('Buy')>=0;});
+  else if(bhF==='small') rows=rows.filter(function(d){return d.decision.indexOf('Small')>=0;});
+  else if(bhF==='hold') rows=rows.filter(function(d){return d.decision.indexOf('Hold')>=0;});
+  else if(bhF==='avoid') rows=rows.filter(function(d){return d.decision.indexOf('Avoid')>=0;});
+  else if(bhF==='lowroi') rows=rows.filter(function(d){return d.roi<10;});
+  else if(bhF==='cap') rows=rows.filter(function(d){return d.capitalAtRisk>200000;});
+  else if(bhF==='fast') rows=rows.filter(function(d){return d.velocity>5;});
+  else if(bhF==='slow') rows=rows.filter(function(d){return d.totSold===0||d.velocity<=1;});
+  if(bhS==='dec') rows.sort(function(a,b){return (a.dPri||9)-(b.dPri||9);});
+  else if(bhS==='roid') rows.sort(function(a,b){return b.roi-a.roi;});
+  else if(bhS==='roiu') rows.sort(function(a,b){return a.roi-b.roi;});
+  else if(bhS==='cap') rows.sort(function(a,b){return b.capitalAtRisk-a.capitalAtRisk;});
+  else if(bhS==='fast') rows.sort(function(a,b){return b.velocity-a.velocity;});
+  else if(bhS==='ret') rows.sort(function(a,b){return b.retPct-a.retPct;});
+  var h='';
+  h+='<div style="padding:10px 6px">';
+  h+='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px">';
+  h+='<div style="background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.4);border-radius:10px;padding:10px">';
+  h+='<div style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:.5px;margin-bottom:4px">&#11088; STAR BUY</div>';
+  h+='<div style="font-size:24px;font-weight:800;color:var(--gold);line-height:1">'+starL.length+'</div>';
+  h+='<div style="font-size:9px;color:#aaa;margin-top:5px;line-height:1.4">'+starL.slice(0,2).map(function(d){return d.model.replace(/^HP |^Dell /i,'').substring(0,18);}).join('<br>')+'</div>';
   h+='</div>';
-
-  // ROW 2 — 5 Highlight Cards
-  h+='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px">';
-  h+='<div style="background:linear-gradient(135deg,#2d1f00,#1a1200);border:1px solid #a16207;border-radius:10px;padding:14px"><div style="color:#a16207;font-size:11px;font-weight:700;margin-bottom:6px">⭐ Star Buy Models</div><div style="color:#fbbf24;font-size:24px;font-weight:800">'+starBuys.length+' <span style="font-size:12px;color:#a16207">models</span></div><div style="color:#a16207;font-size:10px;margin-top:4px">'+starBuys.slice(0,2).map(function(d){return d.model.replace('HP ','');}).join(', ')+(starBuys.length>2?'...':'')+'</div></div>';
-  h+='<div style="background:linear-gradient(135deg,#1a0000,#110000);border:1px solid #b91c1c;border-radius:10px;padding:14px"><div style="color:#f87171;font-size:11px;font-weight:700;margin-bottom:6px">❌ Avoid Models</div><div style="color:#ef4444;font-size:24px;font-weight:800">'+avoidList.length+' <span style="font-size:12px;color:#b91c1c">models</span></div><div style="color:#b91c1c;font-size:10px;margin-top:4px">'+avoidList.slice(0,2).map(function(d){return d.model.replace('HP ','');}).join(', ')+(avoidList.length>2?'...':'')+'</div></div>';
-  h+='<div style="background:linear-gradient(135deg,#001a1a,#001212);border:1px solid #0e7490;border-radius:10px;padding:14px"><div style="color:#22d3ee;font-size:11px;font-weight:700;margin-bottom:6px">⚡ Fastest Moving</div>'+(fastM?'<div style="color:#22d3ee;font-size:24px;font-weight:800">'+fastM.avgHold+'d <span style="font-size:12px;color:#0e7490">avg</span></div><div style="color:#0e7490;font-size:10px;margin-top:4px">'+fastM.model+'</div>':'<div style="color:#64748b">No data</div>')+'</div>';
-  h+='<div style="background:linear-gradient(135deg,#001500,#000f00);border:1px solid #15803d;border-radius:10px;padding:14px"><div style="color:#86efac;font-size:11px;font-weight:700;margin-bottom:6px">🏆 Best Performer</div>'+(bestM?'<div style="color:#4ade80;font-size:22px;font-weight:800">ROI '+(bestM.roi!=null?bestM.roi+'%':'—')+'</div><div style="color:#15803d;font-size:10px;margin-top:4px">'+bestM.model+' · '+bestM.totSold+' sold</div>':'<div style="color:#64748b">No data</div>')+'</div>';
-  h+='<div style="background:linear-gradient(135deg,#1a0000,#110000);border:1px solid #991b1b;border-radius:10px;padding:14px"><div style="color:#fca5a5;font-size:11px;font-weight:700;margin-bottom:6px">💥 Worst Performer</div>'+(worstM?'<div style="color:#ef4444;font-size:22px;font-weight:800">ROI '+(worstM.roi!=null?worstM.roi+'%':'—')+'</div><div style="color:#991b1b;font-size:10px;margin-top:4px">'+worstM.model+' · '+worstM.unsold+' unsold</div>':'<div style="color:#64748b">No data</div>')+'</div>';
+  h+='<div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:10px">';
+  h+='<div style="font-size:10px;font-weight:700;color:#ef4444;letter-spacing:.5px;margin-bottom:4px">&#10060; AVOID</div>';
+  h+='<div style="font-size:24px;font-weight:800;color:#ef4444;line-height:1">'+avoidL.length+'</div>';
+  h+='<div style="font-size:9px;color:#aaa;margin-top:5px">'+avoidL.length+' models &#8212; skip</div>';
   h+='</div>';
-
-  // ROW 3 — Decision + Filters + Sort
-  h+='<div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:10px;padding:14px;margin-bottom:10px">';
-  h+='<div style="margin-bottom:10px"><span style="color:#64748b;font-size:11px;letter-spacing:1px;margin-right:8px">BUYING DECISION SUMMARY</span>';
-  h+='<span style="background:#2d1f00;color:#fbbf24;border:1px solid #a16207;border-radius:12px;padding:2px 10px;font-size:11px;margin:2px">⭐ Star Buy '+dc.s+'</span>';
-  h+='<span style="background:#0a2318;color:#4ade80;border:1px solid #14532d;border-radius:12px;padding:2px 10px;font-size:11px;margin:2px">✅ Buy '+dc.b+'</span>';
-  h+='<span style="background:#1a1500;color:#facc15;border:1px solid #a16207;border-radius:12px;padding:2px 10px;font-size:11px;margin:2px">🟡 Small '+dc.sm+'</span>';
-  h+='<span style="background:#0f172a;color:#93c5fd;border:1px solid #1e3a5f;border-radius:12px;padding:2px 10px;font-size:11px;margin:2px">⏸️ Hold '+dc.h+'</span>';
-  h+='<span style="background:#1a0000;color:#f87171;border:1px solid #b91c1c;border-radius:12px;padding:2px 10px;font-size:11px;margin:2px">❌ Avoid '+dc.av+'</span>';
-  h+='<span style="background:#0f172a;color:#64748b;border:1px solid #334155;border-radius:12px;padding:2px 10px;font-size:11px;margin:2px">❓ No Data '+dc.nd+'</span></div>';
-  h+='<div style="background:#0c1520;border:1px solid #1c2d3d;border-radius:10px;padding:14px 16px;margin-bottom:14px;">';
-h+='<div style="display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-bottom:10px;">';
-h+='<span style="color:#4a5a6a;font-size:10px;font-weight:700;letter-spacing:1px;min-width:48px;text-transform:uppercase;">Filter</span>';
-h+=fBtn('all','All',flt==='all');
-h+=fBtn('rebuy','⭐ Rebuy',flt==='rebuy');
-h+=fBtn('smallqty','🟡 Small',flt==='smallqty');
-h+=fBtn('hold','⏸️ Hold',flt==='hold');
-h+=fBtn('avoid','❌ Avoid',flt==='avoid');
-h+=fBtn('lowroi','Low ROI',flt==='lowroi');
-h+=fBtn('caplock','🔒 Cap Lock',flt==='caplock');
-h+=fBtn('fast','⚡ Fast',flt==='fast');
-h+=fBtn('slow','🐢 Slow',flt==='slow');
-h+='</div>';
-h+='<div style="display:flex;flex-wrap:wrap;gap:7px;align-items:center;">';
-h+='<span style="color:#4a5a6a;font-size:10px;font-weight:700;letter-spacing:1px;min-width:48px;text-transform:uppercase;">Sort</span>';
-h+=sBtn('default','Decision',srt==='default');
-h+=sBtn('rd','ROI ↓',srt==='rd');
-h+=sBtn('ra','ROI ↑',srt==='ra');
-h+=sBtn('cr','Cap Risk',srt==='cr');
-h+=sBtn('sp','Fastest',srt==='sp');
-h+=sBtn('rp','Return %',srt==='rp');
-h+='<span style="color:#4a5a6a;font-size:11px;margin-left:auto;padding:4px 10px;background:#131d2b;border-radius:12px;">'+data.length+' models</span>';
-h+='</div>';
-h+='</div>';
+  h+='<div style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3);border-radius:10px;padding:10px">';
+  h+='<div style="font-size:10px;font-weight:700;color:#818cf8;letter-spacing:.5px;margin-bottom:4px">&#9889; FASTEST</div>';
+  h+='<div style="font-size:18px;font-weight:800;color:#818cf8;line-height:1.2">'+fastM.velocity.toFixed(1)+' pc/wk</div>';
+  h+='<div style="font-size:9px;color:#aaa;margin-top:5px">'+fastM.model.replace(/^HP |^Dell /i,'').substring(0,22)+'</div>';
   h+='</div>';
-
-  // ROW 4 — Table
-  var thr='padding:8px 6px;font-size:10px;color:#64748b;font-weight:700;letter-spacing:0.5px;text-align:right;white-space:nowrap;border-bottom:1px solid #1e293b';
-  var thl='padding:8px 6px;font-size:10px;color:#64748b;font-weight:700;letter-spacing:0.5px;text-align:left;white-space:nowrap;border-bottom:1px solid #1e293b';
-  h+='<div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:10px;overflow:hidden"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>';
-  ['MODEL','BATCH','BUY','SOLD','UNSOLD','AVG BUY ৳','AVG SELL ৳','PROFIT/PC','ROI%','HOLD','VEL/WK','RET%','৳ CAPITAL','৳ AT RISK','DECISION'].forEach(function(col,i){
-    h+='<th style="'+(i===0||i===14?thl:thr)+'">'+col+'</th>';
-  });
+  h+='<div style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:10px;padding:10px">';
+  h+='<div style="font-size:10px;font-weight:700;color:#10b981;letter-spacing:.5px;margin-bottom:4px">&#127942; BEST ROI</div>';
+  h+='<div style="font-size:24px;font-weight:800;color:#10b981;line-height:1">'+bestM.roi+'%</div>';
+  h+='<div style="font-size:9px;color:#aaa;margin-top:5px">'+bestM.model.replace(/^HP |^Dell /i,'').substring(0,22)+'</div>';
+  h+='</div>';
+  h+='<div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:10px;padding:10px">';
+  h+='<div style="font-size:10px;font-weight:700;color:#f87171;letter-spacing:.5px;margin-bottom:4px">&#9888; WORST</div>';
+  h+='<div style="font-size:24px;font-weight:800;color:#f87171;line-height:1">'+worstM.roi+'%</div>';
+  h+='<div style="font-size:9px;color:#aaa;margin-top:5px">'+worstM.model.replace(/^HP |^Dell /i,'').substring(0,22)+'</div>';
+  h+='</div>';
+  h+='</div>';
+  h+='<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:10px;padding:8px 0;border-top:1px solid #252525;border-bottom:1px solid #252525">';
+  h+='<span style="font-size:10px;font-weight:700;color:#555;letter-spacing:.7px;margin-right:4px">BUYING DECISION</span>';
+  h+='<span style="background:rgba(251,191,36,.15);color:var(--gold);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">&#11088; Star '+starL.length+'</span>';
+  h+='<span style="background:rgba(16,185,129,.12);color:#10b981;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">&#9989; Buy '+buyL.length+'</span>';
+  h+='<span style="background:rgba(245,158,11,.12);color:#f59e0b;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">&#129514; Small '+smallL.length+'</span>';
+  h+='<span style="background:rgba(96,165,250,.12);color:#60a5fa;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">&#9208; Hold '+holdL.length+'</span>';
+  h+='<span style="background:rgba(239,68,68,.12);color:#ef4444;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">&#10060; Avoid '+avoidL.length+'</span>';
+  h+='<span style="background:rgba(156,163,175,.1);color:#9ca3af;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">&#10067; No Data '+ndL.length+'</span>';
+  h+='</div>';
+  var fAct='background:#e8211a;color:#fff;border:1px solid #e8211a;';
+  var fIn='background:#252525;color:#888;border:1px solid #333;';
+  var sAct='background:rgba(79,195,247,.2);color:#4fc3f7;border:1px solid #4fc3f7;';
+  var sIn='background:#252525;color:#888;border:1px solid #333;';
+  h+='<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:6px">';
+  h+='<span style="font-size:10px;font-weight:700;color:#555;letter-spacing:.7px;min-width:44px">FILTER</span>';
+  [['all','All'],['star','&#11088; Rebuy'],['buy','&#9989; Buy'],['small','&#129514; Small'],['hold','&#9208; Hold'],['avoid','&#10060; Avoid'],['lowroi','Low ROI'],['cap','Cap Lock'],['fast','&#9889; Fast'],['slow','Slow']].forEach(function(f){h+='<span onclick="window.bhFilter=this.dataset.f;renderModelBuyHistory()" data-f="'+f[0]+'" style="cursor:pointer;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;'+(bhF===f[0]?fAct:fIn)+'">'+f[1]+'</span>';});
+  h+='</div>';
+  h+='<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:10px">';
+  h+='<span style="font-size:10px;font-weight:700;color:#555;letter-spacing:.7px;min-width:44px">SORT</span>';
+  [['dec','Decision'],['roid','ROI&#8595;'],['roiu','ROI&#8593;'],['cap','Cap Risk'],['fast','Fastest'],['ret','Return%']].forEach(function(s){h+='<span onclick="window.bhSort=this.dataset.s;renderModelBuyHistory()" data-s="'+s[0]+'" style="cursor:pointer;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;'+(bhS===s[0]?sAct:sIn)+'">'+s[1]+'</span>';});
+  h+='<span style="margin-left:auto;font-size:11px;color:#666">'+rows.length+'/'+data.length+' models</span>';
+  h+='</div>';
+  h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">';
+  h+='<thead><tr style="background:#181818;color:#666;font-size:10px;letter-spacing:.4px">';
+  ['MODEL','BATCH','BUY','SOLD','UNSOLD','AVG BUY','AVG SELL','PROFIT/PC','ROI%','HOLD','VEL/WK','RET%','CAPITAL','AT RISK','DECISION'].forEach(function(c,i){h+='<th style="'+(i===0?'text-align:left;padding:7px 6px':'text-align:right;padding:7px 4px')+';white-space:nowrap;border-bottom:1px solid #282828">'+c+'</th>';});
   h+='</tr></thead><tbody>';
-
-  var tdr='padding:7px 6px;text-align:right;border-bottom:1px solid #0f172a';
-  var tdl='padding:7px 6px;text-align:left;border-bottom:1px solid #0f172a';
-  filt.forEach(function(d){
-    var rb=d.dPri===5?'background:#1a1200;':d.dPri===4?'background:#001a0a;':'';
-    var pc=d.profitPc||0;
-    h+='<tr style="'+rb+'">';
-    h+='<td style="'+tdl+';border-left:3px solid '+d.dColor+'"><span style="color:#e2e8f0;font-weight:600">'+d.model+'</span></td>';
-    h+='<td style="'+tdr+';color:#64748b">'+d.buyCount+'x</td>';
-    h+='<td style="'+tdr+';color:#94a3b8">'+d.totBought+'</td>';
-    h+='<td style="'+tdr+';color:#4ade80">'+d.totSold+'</td>';
-    h+='<td style="'+tdr+';color:'+(d.unsold>0?'#ef4444':'#4ade80')+'">'+d.unsold+'</td>';
-    h+='<td style="'+tdr+';color:#94a3b8">৳'+Math.round(d.avgCost).toLocaleString('en-IN')+'</td>';
-    h+='<td style="'+tdr+';color:#94a3b8">৳'+Math.round(d.avgSellP||0).toLocaleString('en-IN')+'</td>';
-    h+='<td style="'+tdr+';color:'+(pc>0?'#4ade80':'#ef4444')+';font-weight:700">'+(pc>0?'+':'')+'৳'+Math.round(pc).toLocaleString('en-IN')+'</td>';
-    h+='<td style="'+tdr+'">'+roiBadge(d.roi)+'</td>';
-    h+='<td style="'+tdr+';color:#94a3b8">'+(d.avgHold>0?d.avgHold+'d':'—')+'</td>';
-    h+='<td style="'+tdr+';color:#64748b">'+(d.velocity>0?d.velocity:'—')+'</td>';
-    h+='<td style="'+tdr+';color:'+(d.retPct>5?'#ef4444':'#64748b')+'">'+d.retPct+'%</td>';
-    h+='<td style="'+tdr+';color:#64748b">৳'+Math.round(d.capitalDeployed||0).toLocaleString('en-IN')+'</td>';
-    h+='<td style="'+tdr+'">'+(d.capitalAtRisk>0?'<span style="color:#ef4444">৳'+d.capitalAtRisk.toLocaleString('en-IN')+'</span>':'<span style="color:#334155">—</span>')+'</td>';
-    h+='<td style="'+tdl+'"><span style="background:'+d.dBg+';color:'+d.dColor+';border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap">'+d.decision+'</span></td>';
+  rows.forEach(function(d){
+    var rC=d.roi>=20?'#10b981':d.roi>=10?'#f59e0b':d.roi>=0?'#bbb':'#ef4444';
+    h+='<tr style="background:'+d.dBg+';border-bottom:1px solid #1e1e1e">';
+    h+='<td style="padding:6px 6px;color:#ddd;font-weight:600;white-space:nowrap;max-width:175px;overflow:hidden;text-overflow:ellipsis" title="'+d.model+'">'+d.model+'</td>';
+    h+='<td style="text-align:right;padding:6px 4px;color:#777">'+d.buyCount+'</td>';
+    h+='<td style="text-align:right;padding:6px 4px;color:#777">'+d.totBought+'</td>';
+    h+='<td style="text-align:right;padding:6px 4px;color:#777">'+d.totSold+'</td>';
+    h+='<td style="text-align:right;padding:6px 4px;color:'+(d.unsold>10?'#f59e0b':'#777')+'">'+d.unsold+'</td>';
+    h+='<td style="text-align:right;padding:6px 4px;color:#777">'+fmtMoney(Math.round(d.avgCost))+'</td>';
+    h+='<td style="text-align:right;padding:6px 4px;color:#777">'+fmtMoney(Math.round(d.avgSellP))+'</td>';
+    h+='<td style="text-align:right;padding:6px 4px;color:'+(d.profitPc>=0?'#10b981':'#ef4444')+'">'+fmtMoney(Math.round(d.profitPc))+'</td>';
+    h+='<td style="text-align:right;padding:6px 4px;font-weight:700;color:'+rC+'">'+d.roi+'%</td>';
+    h+='<td style="text-align:right;padding:6px 4px;color:#777">'+(d.avgHold!=null?d.avgHold+'d':'&#8212;')+'</td>';
+    h+='<td style="text-align:right;padding:6px 4px;color:#777">'+d.velocity.toFixed(1)+'</td>';
+    h+='<td style="text-align:right;padding:6px 4px;color:'+(d.retPct>5?'#ef4444':d.retPct>2?'#f59e0b':'#777')+'">'+d.retPct+'%</td>';
+    h+='<td style="text-align:right;padding:6px 4px;color:#777">'+fmtMoney(Math.round(d.capitalDeployed))+'</td>';
+    h+='<td style="text-align:right;padding:6px 4px;color:'+(d.capitalAtRisk>300000?'#ef4444':d.capitalAtRisk>100000?'#f59e0b':'#777')+'">'+fmtMoney(Math.round(d.capitalAtRisk))+'</td>';
+    h+='<td style="text-align:right;padding:6px 4px"><span style="color:'+d.dColor+';border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;background:'+d.dBg+';white-space:nowrap">'+d.decision+'</span></td>';
     h+='</tr>';
   });
   h+='</tbody></table></div></div>';
-  el.innerHTML=renderTodayKPIBar()+h;
+  el.innerHTML=h;
 }
 
 function renderCapitalBlockers(){
