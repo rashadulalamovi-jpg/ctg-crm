@@ -3480,8 +3480,8 @@ function renderStockTable(){
     h+='<td><span style="font-family:var(--fm);font-size:12px;font-weight:700;color:'+(sold30>=5?'var(--green)':sold30>=2?'var(--cyan)':'var(--text3)')+'">'+sold30+'pcs</span></td>';
     var _retS=getModelReturnStats(b.model);
     var _retColor=_retS.retPct>5?'var(--red)':_retS.retPct>3?'var(--warn)':'var(--green)';
-    h+='<td style="font-family:var(--fm);font-size:11px;font-weight:700;text-align:center;color:'+(_retS.retQty>0?'var(--orange)':'var(--text3)')+"'>"+(_retS.retQty>0?_retS.retQty+'pcs':'—')+'</td>';
-    h+='<td style="font-family:var(--fm);font-size:10px;text-align:center;color:'+_retColor+"'>"+_retS.retPct+'%</td>';
+    h+='<td style="font-family:var(--fm);font-size:11px;font-weight:700;text-align:center;color:'+(_retS.retQty>0?'var(--orange)':'var(--text3)')+"'\">"+(_retS.retQty>0?_retS.retQty+'pcs':'—')+'</td>';
+    h+='<td style="font-family:var(--fm);font-size:10px;text-align:center;color:'+_retColor+"'\">"+_retS.retPct+'%</td>';
     // Sell-Out Days
     h+='<td>';
     if(avail<=0) h+='<span style="font-family:var(--fm);font-size:9px;color:var(--text3)">Sold</span>';
