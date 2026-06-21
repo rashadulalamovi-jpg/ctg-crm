@@ -7616,6 +7616,7 @@ window.genClearanceMsg=function(btn){
   navigator.clipboard.writeText(msg).then(function(){if(btn){btn.textContent='\u2705 Copied!';setTimeout(function(){if(btn)btn.innerHTML=origHTML;},2500);}}).catch(function(){var ta=document.createElement('textarea');ta.value=msg;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);if(btn){btn.textContent='\u2705 Copied!';setTimeout(function(){if(btn)btn.innerHTML=origHTML;},2500);}});
 };
 </script>
+<script>(function(){function s(){try{var d=JSON.parse(localStorage.getItem('ctgcrm_v18')||'{}')||{};if(!window.db)window.db={};window.db.customers=d.customers||[];}catch(e){}}s();setInterval(s,3000);})();</script>
 <script src="ctg_strategy_hub.js"></script>
 </body>
 </html>
