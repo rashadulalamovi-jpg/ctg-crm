@@ -26,7 +26,11 @@
 
   // ══ 1. SAFE DATA HELPERS ══════════════════════════════════════════════════
   function getCustomers() {
-    try { return (window.db && window.db.customers) || []; } catch (e) { return []; }
+    try {
+      if (window.db && window.db.customers && window.db.customers.length > 0) return window.db.customers;
+      var _d = JSON.parse(localStorage.getItem('ctgcrm_v18') || '{}');
+      return _d.customers || [];
+    } catch (e) { return []; }
   }
   function getStockBatches() {
     try {
