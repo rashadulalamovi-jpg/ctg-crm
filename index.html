@@ -7564,8 +7564,8 @@ function injectAvgProfitKpis() {
       +   '<div class="kpi-sub">net profit ÷ ' + kRealQty + ' pcs · target ৳3000+</div>'
       + '</div>'
       + '</div>';
-  var firstChild = wrap.firstElementChild;
-  if (firstChild) firstChild.insertAdjacentHTML('afterend', html);
+  var thirdChild = wrap.children[2];
+  if (thirdChild) thirdChild.insertAdjacentHTML('afterend', html);
   else wrap.insertAdjacentHTML('afterbegin', html);
 }
 
