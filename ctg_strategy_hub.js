@@ -1161,12 +1161,14 @@ function install() {
     window.goTo = function (id, b) {
       _orig.apply(this, arguments);
       if (id === 'strategiespage') setTimeout(shRefresh, 80);
+      else { var _sp=document.getElementById('strategiespage'); if(_sp) _sp.classList.remove('active'); }
     };
   }
 
   // 4. Build overview
   shRefresh();
   s1BuildSel();
+  (function(){var _sp0=document.getElementById('strategiespage');if(_sp0)_sp0.classList.remove('active');})();
   shNotify('\uD83D\uDD25 Strategy Hub v2.0 ready!');
 }
 
