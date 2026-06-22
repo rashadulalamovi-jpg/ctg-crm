@@ -3380,13 +3380,14 @@ function getModelReturnStats(modelName){
   return {retQty:retQty,retPct:retPct,totSold:totSold};
 }
 
+function getModelInvSold(m){var sold=0;(db||{customers:[]}).customers.forEach(function(c){(c.invoices||[]).forEach(function(inv){(inv.items||[]).forEach(function(it){if(it.model&&(it.model.toLowerCase().includes(m.toLowerCase())||m.toLowerCase().includes(it.model.toLowerCase())))sold+=it.qty;});});});return sold;}
 function renderStockTable(){
   const tbody = document.getElementById('stockTbody'); if(!tbody) return;
   const q = ((document.getElementById('stSearch')||{}).value||'').toLowerCase();
   const brandF = ((document.getElementById('stBrandFilter')||{}).value||'');
   const qtyF   = ((document.getElementById('stQtyFilter')||{}).value||'');
   let batches = stockDB.batches.filter(function(b){
-    var avail=Math.max(0,(b.qtyReceived||0)-(b.qtySold||0));
+    var avail=Math.max(0,(b.qtyReceived||0)-getModelInvSold(b.model));
     if(q && !b.model.toLowerCase().includes(q)) return false;
     var brand = b.brand || autoDetectBrandFromName(b.model);
     if(brandF && brand!==brandF) return false;
@@ -3404,7 +3405,7 @@ function renderStockTable(){
   batches.forEach(function(b){
     var age   = getAge(b.entryDate);
     var bk    = getAgeBucket(age);
-    var avail = Math.max(0,(b.qtyReceived||0)-(b.qtySold||0));
+    var avail = Math.max(0,(b.qtyReceived||0)-getModelInvSold(b.model));
     var cost  = b.costPerPc||0;
     var sellP = b.expectedSellPrice||0;
     var profit= sellP>0 ? sellP-cost : null;
@@ -3450,7 +3451,7 @@ function renderStockTable(){
     // Rcvd
     h+='<td style="font-family:var(--fm)">'+b.qtyReceived+'</td>';
     // Sold
-    h+='<td style="font-family:var(--fm);font-size:11px;font-weight:600;color:var(--cyan);text-align:center">'+(b.qtySold||0)+'</td>';
+    h+='<td style="font-family:var(--fm);font-size:11px;font-weight:600;color:var(--cyan);text-align:center">'+getModelInvSold(b.model)+'</td>';
     // Avail
     h+='<td style="font-family:var(--fm);font-weight:700;color:'+(avail>0?'var(--cyan)':'var(--text3)')+'">'+avail+'</td>';
     // Cost/pc
