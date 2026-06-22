@@ -27,9 +27,11 @@ function getCustomers() {
   try { var o = JSON.parse(localStorage.getItem('ctgcrm_v17') || '{}'); if (o.customers && o.customers.length) return o.customers; } catch(e) {}
   return [];
 }
+window.getCustomers = getCustomers;
 function getStockBatches() {
   try { var d = JSON.parse(localStorage.getItem('ctgstock_v2') || '{}'); return d.batches || d.stockBatches || (Array.isArray(d) ? d : []); } catch(e) { return []; }
 }
+window.getStockBatches = getStockBatches;
 function lsGet(k, def) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch(e) { return def; } }
 function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
 
@@ -1150,6 +1152,13 @@ if (document.readyState === 'loading') {
 
 /* ══ S2 Customer Bundle Advisor JS ══════════════════════════════════════ */
 (function() {
+
+// ── local getCustomers fallback (window.getCustomers set by main IIFE) ──
+var getCustomers = window.getCustomers || function() {
+  if (window.db && window.db.customers && window.db.customers.length > 0) return window.db.customers;
+  try { var r = localStorage.getItem('ctgcrm_v18'); if (r) { var p = JSON.parse(r); if (p && p.customers && p.customers.length > 0) return p.customers; } } catch(e) {}
+  return [];
+};
 
 // ── populate customer selector ──────────────────────────────────────────
 function s2popCust() {
