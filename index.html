@@ -412,6 +412,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
       <div style="display:grid;grid-template-columns:2fr 90px 80px 80px 90px 90px auto;gap:8px;align-items:end;margin-bottom:10px">
         <div><label class="lbl">Model Name</label><input id="sb_m" placeholder="HP EliteBook 845 G8" list="mlist" style="font-family:var(--fm)" oninput="autoDetectBrand()"></div>
         <div><label class="lbl">Brand</label><select id="sb_brand" style="font-size:11px"><option value="HP">HP</option><option value="Dell">Dell</option><option value="Lenovo">Lenovo</option><option value="Asus">Asus</option><option value="Acer">Acer</option><option value="Other">Other</option></select></div>
+        <div><label class="lbl">Config</label><input id="sb_desc" type="text" placeholder="Config e.g. 8/256" style="font-family:var(--fm);font-size:11px;width:105px;padding:4px 7px" maxlength="30"></div>
         <div><label class="lbl">Entry Date</label><input id="sb_d" type="date"></div>
         <div><label class="lbl">Qty</label><input id="sb_q" type="number" min="1" placeholder="0" style="text-align:center"></div>
         <div><label class="lbl">Cost/pc ৳</label><input id="sb_c" type="number" min="0" placeholder="0" style="text-align:right;border-color:rgba(249,115,22,.3)"></div>
@@ -3442,7 +3443,7 @@ function renderStockTable(){
     h+='<span style="font-family:var(--fm);font-size:8px;padding:1px 5px;border-radius:3px;background:rgba(255,255,255,.04);color:var(--text3)">'+bBrand+'</span>';
     if(isSmall) h+='<span style="font-family:var(--fm);font-size:8px;font-weight:700;padding:1px 6px;border-radius:3px;background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.3)">\u26A0\uFE0F 1-2pc</span>';
     h+='</div>';
-    if(b.note) h+='<div style="font-size:9px;color:var(--text3)">'+b.note+'</div>';
+    if(b.config) h+='<div style="font-family:var(--fm);font-size:9px;font-weight:700;color:#22d3ee;letter-spacing:.3px">'+b.config+'</div>'; if(b.note) h+='<div style="font-size:9px;color:var(--text3)">'+b.note+'</div>';
     h+='</td>';
     // Entry date
     h+='<td style="font-family:var(--fm);font-size:10px;color:var(--text3);white-space:nowrap">'+fmtDateShort(b.entryDate)+'</td>';
@@ -3553,20 +3554,20 @@ function addBatch(){
   const d = (document.getElementById('sb_d')||{}).value;
   const q = parseInt((document.getElementById('sb_q')||{}).value)||0;
   const cst = parseInt((document.getElementById('sb_c')||{}).value)||0;
-  const n = ((document.getElementById('sb_n')||{}).value||'').trim();
+  const n = ((document.getElementById('sb_n')||{}).value||'').trim(); const cfg = ((document.getElementById('sb_desc')||{}).value||'').trim();
   if(!m){ notify('Model \u09A6\u09BF\u09A8', true); return; }
   if(!d){ notify('Entry Date \u09A6\u09BF\u09A8', true); return; }
   if(q<1){ notify('Qty \u09A6\u09BF\u09A8', true); return; }
   if(cst<1){ notify('Cost/pc \u09A6\u09BF\u09A8', true); return; }
   var spEl=document.getElementById('sb_sp');
-  const batch = {id:Date.now(), model:m, brand:((document.getElementById('sb_brand')||{}).value||autoDetectBrandFromName(m)), entryDate:d, qtyReceived:q, qtySold:0, costPerPc:cst, expectedSellPrice:parseFloat(spEl&&spEl.value||0)||0, note:n, createdAt:TODAY};
+  const batch = {id:Date.now(), model:m, brand:((document.getElementById('sb_brand')||{}).value||autoDetectBrandFromName(m)), entryDate:d, qtyReceived:q, qtySold:0, costPerPc:cst, expectedSellPrice:parseFloat(spEl&&spEl.value||0)||0, note:n, config:cfg||undefined, createdAt:TODAY};
   stockDB.batches.unshift(batch);
   saveStock();
   if(window._fbReady && fsdb){
     const clean = sanitize(Object.assign({},batch));
     fsdb.collection('stockBatches').add(clean).then(function(ref){ batch._fbId=ref.id; saveStock(); }).catch(function(){});
   }
-  ['sb_m','sb_q','sb_c','sb_sp','sb_n'].forEach(function(id){ const el=document.getElementById(id); if(el) el.value=''; });
+  ['sb_m','sb_q','sb_c','sb_sp','sb_n','sb_desc'].forEach(function(id){ const el=document.getElementById(id); if(el) el.value=''; });
   const de=document.getElementById('sb_d'); if(de) de.value=TODAY;
   renderStockAll();
   notify('\u2705 Batch added \u2014 '+m);
