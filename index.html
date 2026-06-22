@@ -6883,6 +6883,7 @@ function renderSalesDashboard(){
   });
   if(filtered.length>50) h+='<div style="text-align:center;padding:12px;color:var(--text3);font-size:11px">\u2026 \u0986\u09B0\u0993 '+(filtered.length-50)+'\u099F\u09BF invoice \u2014 filter \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u0995\u09B0\u09C1\u09A8</div>';
   el.innerHTML=h;
+  (function(){var _avg=document.getElementById('avgProfitKpiRow');if(_avg){var _dw=document.getElementById('salesDashWrap');if(_dw&&_dw.children.length>3){_avg.remove();_dw.insertBefore(_avg,_dw.children[3]);}}})();
 }
 
 
