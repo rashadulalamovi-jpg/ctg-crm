@@ -563,6 +563,33 @@ function buildHTML() {
 // ══════════════════════════════════════════════════════════════════════════
 // S1 — Trusted Customer Sales Double
 // ══════════════════════════════════════════════════════════════════════════
+function addS1Totals() {
+  var tb = document.getElementById('s1tb'); if (!tb) return;
+  var old = document.getElementById('s1TotalRow'); if (old) old.remove();
+  var rows = Array.from(tb.querySelectorAll('tr')); if (!rows.length) return;
+  var sumM = 0, sumT = 0, nT = 0;
+  rows.forEach(function(row) {
+    var cells = row.querySelectorAll('td'); if (cells.length < 9) return;
+    sumM += parseInt(cells[5].textContent.trim()) || 0;
+    var inp = cells[7].querySelector('input');
+    var tv = inp ? parseInt(inp.value) : NaN;
+    if (!isNaN(tv) && tv > 0) { sumT += tv; nT++; }
+  });
+  var gap = sumT > 0 ? sumT - sumM : null;
+  var gc = gap !== null ? (gap > 0 ? '#f87171' : '#34d399') : 'var(--text4)';
+  var S = 'padding:9px 10px;font-size:11px;font-weight:700;font-family:monospace;';
+  var tr = document.createElement('tr'); tr.id = 's1TotalRow';
+  tr.style.cssText = 'border-top:2px solid rgba(251,191,36,.3);background:rgba(251,191,36,.04)';
+  tr.innerHTML = '<td style="' + S + 'color:#fbbd24;letter-spacing:.5px">TOTAL</td>'
+    + '<td style="' + S + 'color:rgba(251,191,36,.5);font-size:9px">' + nT + ' customers have targets</td>'
+    + '<td></td><td></td><td></td>'
+    + '<td style="' + S + 'color:#34d399;font-size:16px">' + sumM + '</td>'
+    + '<td></td>'
+    + '<td style="' + S + 'color:#fbbd24;font-size:16px">' + (sumT || '\u2014') + '</td>'
+    + '<td style="' + S + 'color:' + gc + ';font-size:16px">' + (gap !== null ? gap : '\u2014') + '</td>'
+    + '<td></td><td></td>';
+  tb.appendChild(tr);
+}
 function s1BuildSel() {
   var sel = document.getElementById('s1mon'); if (!sel || sel.options.length > 1) return;
   var now = new Date();
@@ -635,6 +662,7 @@ window.s1R = function () {
   var ins = document.getElementById('s1ins');
   if (ins) ins.innerHTML = below.length ? '\u26A0\uFE0F ' + below.map(function (r) { return '<b>' + r.c.name + '</b> (' + Math.round(r.curQ / r.tgt * 100) + '%, gap: ' + r.gap + ' pcs)'; }).join(', ') + ' \u2014 \u098f\u0996\u09a8\u0987 ping \u0995\u09b0\u09cb\u0964' : '\u2705 \u09b8\u09ac customer target-\u098f \u0986\u099b\u09c7\u0964';
   shRefresh();
+  addS1Totals();
 };
 window.s1st = function (id, v) { var t = lsGet('ctg_hub_s1_tgt', {}); var n = parseInt(v); if (!isNaN(n) && n > 0) t[String(id)] = n; else delete t[String(id)]; lsSet('ctg_hub_s1_tgt', t); setTimeout(window.s1R, 60); };
 
