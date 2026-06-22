@@ -6752,7 +6752,31 @@ function renderSalesDashboard(){
   var kTotQ=kRealQty, kTotA=kRealSales, kGP=kAdjGross, kRL=kFixCost, kNP=kNet;
   var kROI=kGrossROI;
 
+  // ── TODAY & THIS WEEK QUICK SUMMARY ──
+  function _sumInvs(arr){var qty=0,sales=0,profit=0,ret=0;arr.forEach(function(inv){(inv.items||[]).forEach(function(x){qty+=x.qty||0;sales+=x.qty*(x.price||0);profit+=x.qty*((x.price||0)-(x.purchasePrice||0));});(inv.returns||[]).forEach(function(r){ret+=r.qty||0;});});return{qty:qty,sales:sales,profit:profit,ret:ret};}
+  var _tdS=_sumInvs(todayInvs),_wkS=_sumInvs(weekInvs);
+  function _mkSumBar(lbl,s){
+    var cards=[
+      {t:'Sold ৳',v:fmtMoney(s.sales),c:'var(--green)'},
+      {t:'Qty (pc)',v:s.qty+'pc',c:'var(--cyan)'},
+      {t:'Profit ৳',v:fmtMoney(s.profit),c:s.profit>0?'var(--green)':s.profit<0?'var(--orange)':'var(--text3)'},
+      {t:'↩ Return',v:s.ret+'pc',c:s.ret>0?'var(--orange)':'var(--text3)'}
+    ];
+    var out='<div style="background:rgba(18,24,32,.7);border:1px solid var(--border);border-radius:var(--rl);padding:12px 14px;margin-bottom:10px">';
+    out+='<div style="font-family:var(--fd);font-size:8px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">'+lbl+'</div>';
+    out+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">';
+    cards.forEach(function(k){
+      out+='<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:10px 8px;text-align:center">';
+      out+='<div style="font-family:var(--fd);font-size:7px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:4px">'+k.t+'</div>';
+      out+='<div style="font-family:var(--fm);font-size:16px;font-weight:700;color:'+k.c+'">'+k.v+'</div>';
+      out+='</div>';
+    });
+    out+='</div></div>';
+    return out;
+  }
   let h='';
+  h+=_mkSumBar('📅 Today Summary',_tdS);
+  h+=_mkSumBar('📆 This Week  (Sat–Fri)',_wkS);
   // ── ROW 1: Qty (Gross / Return / Real) ─────────────────
   h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">';
   [{label:'\u{1F4E6} Gross Qty',  val:kGrossQty+'pcs', col:'var(--text2)', sub:'invoice total'},
