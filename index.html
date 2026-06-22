@@ -6754,7 +6754,7 @@ function renderSalesDashboard(){
 
   // ── TODAY & THIS WEEK QUICK SUMMARY ──
   function _sumInvs(arr){var qty=0,sales=0,profit=0,ret=0;arr.forEach(function(inv){(inv.items||[]).forEach(function(x){qty+=x.qty||0;sales+=x.qty*(x.price||0);profit+=x.qty*((x.price||0)-(x.purchasePrice||0));});(inv.returns||[]).forEach(function(r){ret+=r.qty||0;});});return{qty:qty,sales:sales,profit:profit,ret:ret};}
-  var _tdS=_sumInvs(todayInvs),_wkS=_sumInvs(weekInvs);
+  var _tdS=_sumInvs(todayInvs),_wkS=_sumInvs(weekInvs),_moS=_sumInvs(monthInvs);
   function _mkSumBar(lbl,s){
     var cards=[
       {t:'Sold ৳',v:fmtMoney(s.sales),c:'var(--green)'},
@@ -6777,6 +6777,7 @@ function renderSalesDashboard(){
   let h='';
   h+=_mkSumBar('📅 Today Summary',_tdS);
   h+=_mkSumBar('📆 This Week  (Sat–Fri)',_wkS);
+  h+=_mkSumBar('📆 This Month',_moS);
   // ── ROW 1: Qty (Gross / Return / Real) ─────────────────
   h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">';
   [{label:'\u{1F4E6} Gross Qty',  val:kGrossQty+'pcs', col:'var(--text2)', sub:'invoice total'},
