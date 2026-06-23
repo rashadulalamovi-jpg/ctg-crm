@@ -921,7 +921,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
       <div id="addInvSummary" style="display:none"></div>
       <div style="display:flex;justify-content:flex-end;gap:8px">
         <button class="btn btn-o" onclick="closeModal('addInvModal')" style="font-size:10px">&#x09AC;&#x09BE;&#x09A4;&#x09BF;&#x09B2;</button>
-        <button onclick="printChallanDraft()" style="font-size:10px;padding:6px 14px;background:rgba(34,197,94,.1);border:1.5px solid rgba(34,197,94,.4);color:#22c55e;border-radius:5px;cursor:pointer;font-family:var(--fd)">&#x1F5A8; Print</button><button class="btn btn-r" onclick="saveAddInvoice()" style="font-size:10px">&#x2713; Save Invoice</button>
+        <button class="btn btn-r" onclick="saveAddInvoice()" style="font-size:10px">&#x2713; Save Invoice</button>
       </div>
     </div>
   </div>
@@ -2275,7 +2275,6 @@ function updateInvSummary(){
   });
   h+='</div>';
   h+='<button onclick="copyInvSummaryWA()" style="width:100%;margin-top:8px;padding:9px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.3);color:#25d366;border-radius:7px;cursor:pointer;font-family:var(--fd);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">\u{1F4F1} WhatsApp-\u098F Invoice Summary Copy</button>';
-  h+='<button onclick="printInvoiceChallan(\''+c.id+'\',\''+inv.id+'\')" style="width:100%;margin-top:6px;padding:8px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.3);color:#22c55e;border-radius:7px;cursor:pointer;font-family:var(--fd);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">&#x1F5A8; Print Challan / Cash Memo</button>';
   su.innerHTML=h;
 }
 
@@ -7651,101 +7650,5 @@ window.genClearanceMsg=function(btn){
 </script>
 <script>(function(){function s(){try{var d=JSON.parse(localStorage.getItem('ctgcrm_v18')||'{}')||{};if(!window.db)window.db={};window.db.customers=d.customers||[];}catch(e){}}s();setInterval(s,3000);})();</script>
 <script src="ctg_strategy_hub.js?v=4"></script>
-
-<script>
-function printChallanDraft(){
-  if(typeof addInvTargetId==='undefined'||!addInvTargetId||typeof addInvItems==='undefined'||!addInvItems||!addInvItems.length){notify('Customer ও Model যোগ করুন',true);return;}
-  var cu=db.customers.find(function(c){return c.id===addInvTargetId;});
-  if(!cu){notify('Customer not found',true);return;}
-  var invNo=((document.getElementById('addInvNo')||{}).value||'—').trim();
-  var invDate=(document.getElementById('addInvDate')||{}).value||TODAY;
-  var status=(document.getElementById('addInvStat')||{}).value||'transit';
-  var subTotal=addInvItems.reduce(function(a,x){return a+x.qty*(x.price||0);},0);
-  var tA=(cu.invoices||[]).reduce(function(a,i){return a+(i.items||[]).reduce(function(b,x){return b+x.qty*(x.price||0);},0);},0);
-  var tP=(cu.invoices||[]).reduce(function(a,i){return a+(i.payments||[]).reduce(function(b,p){return b+(p.amount||0);},0);},0);
-  var prevDue=Math.max(0,tA-tP);
-  _openChallan({cust:cu,items:addInvItems,invNo:invNo,invDate:invDate,subTotal:subTotal,prevDue:prevDue,total:subTotal+prevDue,amtPaid:0,status:status,courierSlip:''});
-}
-function printInvoiceChallan(custId,invId){
-  var cu=db.customers.find(function(c){return c.id===custId;});
-  if(!cu)return;
-  var inv=(cu.invoices||[]).find(function(i){return i.id===invId;});
-  if(!inv)return;
-  var subTotal=(inv.items||[]).reduce(function(a,x){return a+x.qty*(x.price||0);},0);
-  var paid=(inv.payments||[]).reduce(function(a,p){return a+(p.amount||0);},0);
-  var invIdx=(cu.invoices||[]).findIndex(function(i){return i.id===invId;});
-  var prevInvs=(cu.invoices||[]).slice(0,Math.max(0,invIdx));
-  var prevTotal=prevInvs.reduce(function(a,i){return a+(i.items||[]).reduce(function(b,x){return b+x.qty*(x.price||0);},0);},0);
-  var prevPaid=prevInvs.reduce(function(a,i){return a+(i.payments||[]).reduce(function(b,p){return b+(p.amount||0);},0);},0);
-  var prevDue=Math.max(0,prevTotal-prevPaid);
-  _openChallan({cust:cu,items:inv.items||[],invNo:inv.no,invDate:inv.date,subTotal:subTotal,prevDue:prevDue,total:subTotal+prevDue,amtPaid:paid,status:inv.status,courierSlip:inv.courierSlip||''});
-}
-function _openChallan(d){
-  var fmt=function(n){return '৳'+Number(n||0).toLocaleString('en-IN');};
-  function n2w(n){
-    if(!n)return 'Zero Taka Only';
-    var o=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
-    var t=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
-    function cv(x){
-      if(x<20)return o[x];
-      if(x<100)return t[Math.floor(x/10)]+(x%10?' '+o[x%10]:'');
-      if(x<1000)return o[Math.floor(x/100)]+' Hundred'+(x%100?' '+cv(x%100):'');
-      if(x<100000)return cv(Math.floor(x/1000))+' Thousand'+(x%1000?' '+cv(x%1000):'');
-      if(x<10000000)return cv(Math.floor(x/100000))+' Lakh'+(x%100000?' '+cv(x%100000):'');
-      return cv(Math.floor(x/10000000))+' Crore'+(x%10000000?' '+cv(x%10000000):'');
-    }
-    return cv(Math.round(n))+' Taka Only';
-  }
-  var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  var dd=new Date(d.invDate||'');
-  var dateStr=isNaN(dd.getTime())?d.invDate:(dd.getDate()+' '+mo[dd.getMonth()]+' '+dd.getFullYear());
-  var balance=Math.max(0,(d.total||0)-(d.amtPaid||0));
-  var stL={transit:'🚚 In Transit',due:'💳 Due',completed:'✅ Completed'}[d.status]||d.status||'';
-  var rows=(d.items||[]).map(function(it,i){
-    return '<tr style="border-bottom:0.5px solid #eee"><td style="padding:5px 8px;text-align:center;color:#888;font-size:11px">'+(i+1)+'</td><td style="padding:5px 8px;font-weight:700;font-size:11px">'+(it.model||'')+'</td><td style="padding:5px 8px;color:#555;font-size:11px">'+(it.desc||'')+'</td><td style="padding:5px 8px;text-align:center;font-size:11px">'+(it.qty||1)+' pcs</td><td style="padding:5px 8px;text-align:right;font-size:11px">'+fmt(it.price)+'</td><td style="padding:5px 8px;text-align:right;font-weight:700;font-size:11px">'+fmt((it.price||0)*(it.qty||1))+'</td></tr>';
-  }).join('');
-  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Challan #'+d.invNo+'</title>'
-  +'<style>@media print{.np{display:none}@page{margin:10mm}}body{font-family:Arial,sans-serif;color:#1a1a1a;background:#fff;margin:0;padding:16px}table{border-collapse:collapse;width:100%}</style></head><body>'
-  +'<button class="np" onclick="window.print()" style="background:#1a3a6e;color:#fff;border:none;padding:8px 20px;border-radius:5px;cursor:pointer;font-size:13px;margin-bottom:14px;display:block">🖸 Print / Save PDF</button>'
-  +'<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1a3a6e;padding-bottom:10px;margin-bottom:10px">'
-  +'<div style="display:flex;align-items:center;gap:10px"><div style="width:56px;height:56px;border-radius:50%;background:#1a3a6e;border:2px solid #cc1111;display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font-size:8px;font-weight:900;color:#fff">CTG</span><span style="font-size:5px;font-weight:700;color:#fff;background:#cc1111;padding:1px 3px;margin-top:1px">Click Shop</span></div>'
-  +'<div><div style="font-size:18px;font-weight:800;color:#1a3a6e">CTG Click Shop</div><div style="font-size:9px;color:#666;font-style:italic">Quality is a Choice, Choose to Make it Better</div></div></div>'
-  +'<div style="text-align:right;font-size:10px;color:#444;line-height:1.8">Idris Building (Level-5), Amir Ali Market<br>Khatungonj, Kotwali, Chattogram<br>☎️ 01885-202205 &nbsp;|&nbsp; ctgclickshop@gmail.com</div></div>'
-  +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
-  +'<div style="font-size:13px;font-weight:800;color:#1a3a6e;text-transform:uppercase;border-left:3px solid #cc1111;padding-left:8px;letter-spacing:1px">Cash Memo / Challan</div>'
-  +'<div style="display:flex;gap:16px;font-size:10px"><div style="text-align:right"><div style="color:#888">Memo No</div><div style="font-size:13px;font-weight:700;color:#1a3a6e">#'+d.invNo+'</div></div>'
-  +'<div style="text-align:right"><div style="color:#888">Date</div><div style="font-weight:700">'+dateStr+'</div></div>'
-  +'<div><div style="color:#888">Status</div><div style="background:#fff3cd;color:#856404;font-size:9px;padding:2px 7px;border-radius:10px;font-weight:700;border:0.5px solid #ffc107">'+stL+'</div></div></div></div>'
-  +'<div style="background:#f0f4ff;border:0.5px solid #c0cce8;border-radius:5px;padding:8px 12px;margin-bottom:10px;font-size:11px;display:grid;grid-template-columns:1fr 1fr;gap:4px">'
-  +'<div><span style="color:#888">Name:</span> <strong>'+(d.cust.name||'')+'</strong></div>'
-  +'<div><span style="color:#888">Mobile:</span> <strong>'+(d.cust.phone||'')+'</strong></div>'
-  +'<div><span style="color:#888">Address:</span> <strong>'+(d.cust.addr||d.cust.fullAddr||d.cust.city||'')+'</strong></div>'
-  +'<div><span style="color:#888">Cust ID:</span> <strong>'+(d.cust.id||'').toString().slice(-6)+'</strong></div></div>'
-  +'<table style="margin-bottom:10px"><thead><tr style="background:#1a3a6e;color:#fff">'
-  +'<th style="padding:6px 8px;text-align:center;font-size:11px;width:28px">#</th>'
-  +'<th style="padding:6px 8px;text-align:left;font-size:11px">Model Name</th>'
-  +'<th style="padding:6px 8px;text-align:left;font-size:11px">Description</th>'
-  +'<th style="padding:6px 8px;text-align:center;font-size:11px;width:50px">Qty</th>'
-  +'<th style="padding:6px 8px;text-align:right;font-size:11px;width:80px">Rate</th>'
-  +'<th style="padding:6px 8px;text-align:right;font-size:11px;width:88px">Amount</th>'
-  +'</tr></thead><tbody>'+rows+'</tbody></table>'
-  +'<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><table style="width:240px;border-collapse:collapse;font-size:11px">'
-  +'<tr style="border-bottom:0.5px solid #eee"><td style="padding:5px 8px;color:#555">Sub-Total</td><td style="padding:5px 8px;text-align:right">'+fmt(d.subTotal)+'</td></tr>'
-  +(d.prevDue?'<tr style="background:#fff3cd"><td style="padding:5px 8px;font-weight:700;color:#856404">Previous Due</td><td style="padding:5px 8px;text-align:right;font-weight:700;color:#cc5500">'+fmt(d.prevDue)+'</td></tr>':'')
-  +'<tr style="background:#1a3a6e"><td style="padding:6px 8px;color:#fff;font-weight:700">Total Payable</td><td style="padding:6px 8px;text-align:right;color:#fff;font-weight:700;font-size:13px">'+fmt(d.total)+'</td></tr>'
-  +'<tr style="border-bottom:0.5px solid #eee"><td style="padding:5px 8px;color:#555">Amount Paid</td><td style="padding:5px 8px;text-align:right;color:#1a7a3e">'+fmt(d.amtPaid)+'</td></tr>'
-  +'<tr style="background:#fff0f0"><td style="padding:6px 8px;color:#cc1111;font-weight:700">Balance Due</td><td style="padding:6px 8px;text-align:right;color:#cc1111;font-weight:700;font-size:13px">'+fmt(balance)+'</td></tr>'
-  +'</table></div>'
-  +'<div style="font-size:10px;color:#444;border-top:0.5px solid #e0e0e0;padding-top:8px;margin-bottom:10px"><strong>In Words:</strong> <em style="color:#1a3a6e">'+n2w(balance)+'</em></div>'
-  +(d.courierSlip?'<div style="font-size:10px;margin-bottom:12px"><strong>Courier Tracking No:</strong> <span style="color:#1a3a6e;font-weight:700;font-size:12px"> '+d.courierSlip+'</span></div>':'')
-  +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;border-top:1px dashed #ccc;padding-top:12px;margin-top:16px;font-size:10px;color:#555">'
-  +'<div><div style="border-top:1px solid #333;padding-top:4px;margin-top:28px;font-weight:700;color:#333">Customer's Signature</div><div style="color:#888;margin-top:2px">Name: ___________________</div></div>'
-  +'<div style="text-align:right"><div style="border-top:1px solid #333;padding-top:4px;margin-top:28px;font-weight:700;color:#333">Authorized Signature</div><div style="color:#888;font-style:italic">For: CTG Click Shop</div></div></div>'
-  +'<div style="margin-top:14px;background:#1a3a6e;color:#fff;text-align:center;padding:5px;font-size:9px;border-radius:3px">Thank you for your business! &nbsp;|&nbsp; ctgclickshop@gmail.com &nbsp;|&nbsp; 01885-202205</div>'
-  +'</body></html>';
-  var w=window.open('','_blank','width=820,height=950');
-  if(w){w.document.write(html);w.document.close();}else{notify('Popup blocked. Allow popups for this site.',true);}
-}
-</script>
 </body>
 </html>
