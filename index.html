@@ -970,7 +970,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
 <script>
 // ════════════════════════════════════════════════════════
 // CTG CLICK SHOP — INTELLIGENT ROYAL CRM v2
-// Core: Config Â· Utils Â· DB Â· Firebase
+// Core: Config · Utils · DB · Firebase
 // ════════════════════════════════════════════════════════
 const LS_KEY    = 'ctgcrm_v18';
 const STOCK_KEY = 'ctgstock_v2';
@@ -1618,7 +1618,7 @@ function renderPipeline(){
       html += '<div class="ccard'+(sg.id===7?' royal-glow':'')+'\" onclick="openDetail('+c.id+')">';
       html += '<div class="cc-score" style="background:'+sc+'22;color:'+sc+';border-color:'+sc+'">'+ix.total+'</div>';
       html += '<div class="cc-name">'+(c.org&&c.org!==c.name?c.org:c.name)+'</div>';
-      html += '<div class="cc-meta" style="font-size:8px;color:var(--text3)">'+(c.org&&c.org!==c.name?c.name+' Â· ':'')+''+(c.city||'\u2014')+' \u00B7 '+ix.ord.totQty+'pcs</div>';
+      html += '<div class="cc-meta" style="font-size:8px;color:var(--text3)">'+(c.org&&c.org!==c.name?c.name+' · ':'')+''+(c.city||'\u2014')+' \u00B7 '+ix.ord.totQty+'pcs</div>';
 
       // Active business status row
       if(trList.length>0||duList.length>0){
@@ -2527,7 +2527,7 @@ function renderInvoiceCard(c, inv, showCustInfo){
   if(iDueNet>0){
     h+='<button onclick="sendWAReminder('+c.id+','+inv.id+')" ';
     h+='style="width:100%;margin:7px 0 5px;padding:9px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--warn);border-radius:6px;cursor:pointer;font-family:var(--fd);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">';
-    h+='⏰ WA Due Reminder পাঠান — '+_tk.overdueDays+'d overdue Â· Due: ৳'+fmtNum(iDue);
+    h+='⏰ WA Due Reminder পাঠান — '+_tk.overdueDays+'d overdue · Due: ৳'+fmtNum(iDue);
     h+='</button>';
   }
   // Add payment
@@ -2564,7 +2564,7 @@ function renderInvoiceCard(c, inv, showCustInfo){
   h+='<span style="font-family:var(--fm);font-size:9px;font-weight:700;color:'+_wColor+'">\u{1F6E1}\uFE0F Warranty: '+_wRemainLabel+' (ends '+fmtDate_en(_wEnd)+')</span>';
   h+='</div>';
 
-  // Row 1: Booking Â· Reached Â· Received
+  // Row 1: Booking · Reached · Received
   h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:8px">';
   h+='<div><label class="lbl" style="font-size:7px">\u{1F4E6} Courier Booking Date (Auto)</label>';
   h+='<input id="cf_cb_'+c.id+'_'+inv.id+'" type="date" value="'+_cbDate+'" onchange="saveCourierField('+c.id+','+inv.id+',\'_cb\')" style="padding:5px 7px;font-size:10px;font-weight:700;border-color:rgba(77,163,255,.3)"></div>';
@@ -2574,7 +2574,7 @@ function renderInvoiceCard(c, inv, showCustInfo){
   h+='<input id="cf_rc_'+c.id+'_'+inv.id+'" type="date" value="'+(_rcDate||'')+'" onchange="saveCourierField('+c.id+','+inv.id+',\'_rc\')" style="padding:5px 7px;font-size:10px"></div>';
   h+='</div>';
 
-  // Row 2: Courier Company Â· Slip Â· Warranty Days
+  // Row 2: Courier Company · Slip · Warranty Days
   h+='<div style="display:grid;grid-template-columns:1fr 1fr 100px;gap:7px;margin-bottom:8px">';
   h+='<div><label class="lbl" style="font-size:7px">Courier Company</label>';
   h+='<input id="cf_cc_'+c.id+'_'+inv.id+'" placeholder="Sundarban, SA..." value="'+esc(inv.courierCompany||'')+'" onchange="saveCourierField('+c.id+','+inv.id+',\'_cc\')" style="padding:5px 7px;font-size:10px"></div>';
@@ -3974,8 +3974,8 @@ return '<button onclick="window._bhSort=\x27'+v+'\x27;renderModelBuyHistory()" s
   h+='<div style="background:linear-gradient(135deg,#2d1f00,#1a1200);border:1px solid #a16207;border-radius:10px;padding:14px"><div style="color:#a16207;font-size:11px;font-weight:700;margin-bottom:6px">⭐ Star Buy Models</div><div style="color:#fbbf24;font-size:24px;font-weight:800">'+starBuys.length+' <span style="font-size:12px;color:#a16207">models</span></div><div style="color:#a16207;font-size:10px;margin-top:4px">'+starBuys.slice(0,2).map(function(d){return d.model.replace('HP ','');}).join(', ')+(starBuys.length>2?'...':'')+'</div></div>';
   h+='<div style="background:linear-gradient(135deg,#1a0000,#110000);border:1px solid #b91c1c;border-radius:10px;padding:14px"><div style="color:#f87171;font-size:11px;font-weight:700;margin-bottom:6px">❌ Avoid Models</div><div style="color:#ef4444;font-size:24px;font-weight:800">'+avoidList.length+' <span style="font-size:12px;color:#b91c1c">models</span></div><div style="color:#b91c1c;font-size:10px;margin-top:4px">'+avoidList.slice(0,2).map(function(d){return d.model.replace('HP ','');}).join(', ')+(avoidList.length>2?'...':'')+'</div></div>';
   h+='<div style="background:linear-gradient(135deg,#001a1a,#001212);border:1px solid #0e7490;border-radius:10px;padding:14px"><div style="color:#22d3ee;font-size:11px;font-weight:700;margin-bottom:6px">⚡ Fastest Moving</div>'+(fastM?'<div style="color:#22d3ee;font-size:24px;font-weight:800">'+fastM.avgHold+'d <span style="font-size:12px;color:#0e7490">avg</span></div><div style="color:#0e7490;font-size:10px;margin-top:4px">'+fastM.model+'</div>':'<div style="color:#64748b">No data</div>')+'</div>';
-  h+='<div style="background:linear-gradient(135deg,#001500,#000f00);border:1px solid #15803d;border-radius:10px;padding:14px"><div style="color:#86efac;font-size:11px;font-weight:700;margin-bottom:6px">🏆 Best Performer</div>'+(bestM?'<div style="color:#4ade80;font-size:22px;font-weight:800">ROI '+(bestM.roi!=null?bestM.roi+'%':'—')+'</div><div style="color:#15803d;font-size:10px;margin-top:4px">'+bestM.model+' Â· '+bestM.totSold+' sold</div>':'<div style="color:#64748b">No data</div>')+'</div>';
-  h+='<div style="background:linear-gradient(135deg,#1a0000,#110000);border:1px solid #991b1b;border-radius:10px;padding:14px"><div style="color:#fca5a5;font-size:11px;font-weight:700;margin-bottom:6px">💥 Worst Performer</div>'+(worstM?'<div style="color:#ef4444;font-size:22px;font-weight:800">ROI '+(worstM.roi!=null?worstM.roi+'%':'—')+'</div><div style="color:#991b1b;font-size:10px;margin-top:4px">'+worstM.model+' Â· '+worstM.unsold+' unsold</div>':'<div style="color:#64748b">No data</div>')+'</div>';
+  h+='<div style="background:linear-gradient(135deg,#001500,#000f00);border:1px solid #15803d;border-radius:10px;padding:14px"><div style="color:#86efac;font-size:11px;font-weight:700;margin-bottom:6px">🏆 Best Performer</div>'+(bestM?'<div style="color:#4ade80;font-size:22px;font-weight:800">ROI '+(bestM.roi!=null?bestM.roi+'%':'—')+'</div><div style="color:#15803d;font-size:10px;margin-top:4px">'+bestM.model+' · '+bestM.totSold+' sold</div>':'<div style="color:#64748b">No data</div>')+'</div>';
+  h+='<div style="background:linear-gradient(135deg,#1a0000,#110000);border:1px solid #991b1b;border-radius:10px;padding:14px"><div style="color:#fca5a5;font-size:11px;font-weight:700;margin-bottom:6px">💥 Worst Performer</div>'+(worstM?'<div style="color:#ef4444;font-size:22px;font-weight:800">ROI '+(worstM.roi!=null?worstM.roi+'%':'—')+'</div><div style="color:#991b1b;font-size:10px;margin-top:4px">'+worstM.model+' · '+worstM.unsold+' unsold</div>':'<div style="color:#64748b">No data</div>')+'</div>';
   h+='</div>';
 
   // ROW 3 — Decision + Filters + Sort
@@ -6001,7 +6001,7 @@ function renderModelDemand(){
 
 
 // ════════════════════════════════════════════════════════
-// CUSTOMERS — Add/Edit form Â· Nav Â· renderAll Â· Init
+// CUSTOMERS — Add/Edit form · Nav · renderAll · Init
 // ════════════════════════════════════════════════════════
 
 // ── Add / Edit Customer form ────────────────────────────
@@ -6987,7 +6987,7 @@ function updateTargetBar(){
     var _mw=getMonthWeeks(); var _wt=_mw.length>0?Math.ceil(monthTarget/_mw.length):0;
     mStats.innerHTML=mPct+'% \u00B7 Actual: <b>'+monthSales.qty+'pcs</b>'
       +(monthTarget>0?' \u00B7 Remaining: <span style="color:'+(rem>0?'var(--orange)':'var(--green)')+'">'+rem+'pcs</span>':'')
-      +' \u00B7 Weekly target: <span style="color:var(--cyan)">'+_wt+'pcs</span> Â· '+_mw.length+' weeks';
+      +' \u00B7 Weekly target: <span style="color:var(--cyan)">'+_wt+'pcs</span> · '+_mw.length+' weeks';
   }
   var mQ=document.getElementById('monthActualQty'); if(mQ) mQ.textContent=monthSales.qty+' pcs';
   var mA=document.getElementById('monthActualAmt'); if(mA) mA.innerHTML='\u09F3'+fmtNum(Math.round(monthSales.amt));
@@ -6996,7 +6996,7 @@ function updateTargetBar(){
   var grid=document.getElementById('weekMiniGrid'); if(!grid) return;
   var wh='';
   var monthWeeks=getMonthWeeks();
-  // weekTarget per week (month total Ã· number of weeks)
+  // weekTarget per week (month total ÷ number of weeks)
   var weekTarget=monthTarget>0?Math.ceil(monthTarget/monthWeeks.length):0;
   for(var w=0;w<monthWeeks.length;w++){
     var wb=monthWeeks[w];
