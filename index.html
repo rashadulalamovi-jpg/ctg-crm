@@ -921,7 +921,7 @@ tr:hover td{background:rgba(232,33,26,.025)}
       <div id="addInvSummary" style="display:none"></div>
       <div style="display:flex;justify-content:flex-end;gap:8px">
         <button class="btn btn-o" onclick="closeModal('addInvModal')" style="font-size:10px">&#x09AC;&#x09BE;&#x09A4;&#x09BF;&#x09B2;</button>
-        <button class="btn btn-r" onclick="saveAddInvoice()" style="font-size:10px">&#x2713; Save Invoice</button>
+        <button onclick="printChallanDraft()" style="font-size:10px;padding:6px 14px;background:rgba(34,197,94,.1);border:1.5px solid rgba(34,197,94,.4);color:#22c55e;border-radius:5px;cursor:pointer;font-family:var(--fd)">&#x1F5A8; Print</button><button class="btn btn-r" onclick="saveAddInvoice()" style="font-size:10px">&#x2713; Save Invoice</button>
       </div>
     </div>
   </div>
@@ -2275,6 +2275,7 @@ function updateInvSummary(){
   });
   h+='</div>';
   h+='<button onclick="copyInvSummaryWA()" style="width:100%;margin-top:8px;padding:9px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.3);color:#25d366;border-radius:7px;cursor:pointer;font-family:var(--fd);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">\u{1F4F1} WhatsApp-\u098F Invoice Summary Copy</button>';
+  h+='<button onclick="printInvoiceChallan('+c.id+','+inv.id+')" style="width:100%;margin-top:6px;padding:8px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.3);color:#22c55e;border-radius:7px;cursor:pointer;font-family:var(--fd);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">&#x1F5A8; Print Challan / Cash Memo</button>';
   su.innerHTML=h;
 }
 
@@ -7650,5 +7651,107 @@ window.genClearanceMsg=function(btn){
 </script>
 <script>(function(){function s(){try{var d=JSON.parse(localStorage.getItem('ctgcrm_v18')||'{}')||{};if(!window.db)window.db={};window.db.customers=d.customers||[];}catch(e){}}s();setInterval(s,3000);})();</script>
 <script src="ctg_strategy_hub.js?v=4"></script>
+
+<script>
+function printChallanDraft(){
+  var cId=typeof addInvTargetId!=="undefined"?addInvTargetId:null;
+  if(!cId){return;}
+  var c=(db.customers||[]).find(function(x){return x.id===cId;});
+  if(!c){return;}
+  var its=typeof addInvItems!=="undefined"?addInvItems:[];
+  var tA=(c.invoices||[]).reduce(function(a,x){return a+Number(x.amt||0);},0);
+  var tP=(c.invoices||[]).reduce(function(a,x){return a+(x.payments||[]).reduce(function(b,p){return b+Number(p.amount||0);},0);},0);
+  var prevDue=Math.max(0,tA-tP);
+  var invNo=document.getElementById("addInvNo")?document.getElementById("addInvNo").value:"DRAFT";
+  var invDate=document.getElementById("addInvDate")?document.getElementById("addInvDate").value:"";
+  _openChallan({invNo:invNo,invDate:invDate,items:its,prevDue:prevDue,amtPaid:0,custName:c.name||"",custPhone:c.phone||"",custAddr:c.addr||c.fullAddr||""});
+}
+
+function printInvoiceChallan(custId,invId){
+  var c=(db.customers||[]).find(function(x){return x.id==custId;});
+  if(!c){return;}
+  var inv=(c.invoices||[]).find(function(x){return x.id==invId;});
+  if(!inv){return;}
+  var amtPaid=(inv.payments||[]).reduce(function(a,p){return a+Number(p.amount||0);},0);
+  var prevDue=0;
+  for(var i=0;i<(c.invoices||[]).length;i++){
+    var oi=c.invoices[i]; if(oi.id==invId)break;
+    var oA=(oi.items||[]).reduce(function(a,x){return a+(x.qty||1)*(x.price||0);},0);
+    var oP=(oi.payments||[]).reduce(function(a,p){return a+Number(p.amount||0);},0);
+    prevDue+=Math.max(0,oA-oP);
+  }
+  _openChallan({invNo:inv.no||inv.id,invDate:inv.date||"",items:inv.items||[],prevDue:prevDue,amtPaid:amtPaid,custName:c.name||"",custPhone:c.phone||"",custAddr:c.addr||c.fullAddr||c.city||"",courierSlip:inv.courierSlip||""});
+}
+
+function _numToWords(n){
+  if(!n)return "Zero Taka Only";
+  var o=["","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"];
+  var t=["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"];
+  function cv(x){if(x<20)return o[x];if(x<100)return t[Math.floor(x/10)]+(x%10?" "+o[x%10]:"");if(x<1000)return o[Math.floor(x/100)]+" Hundred"+(x%100?" "+cv(x%100):"");if(x<100000)return cv(Math.floor(x/1000))+" Thousand"+(x%1000?" "+cv(x%1000):"");if(x<10000000)return cv(Math.floor(x/100000))+" Lakh"+(x%100000?" "+cv(x%100000):"");return cv(Math.floor(x/10000000))+" Crore"+(x%10000000?" "+cv(x%10000000):"");}
+  return cv(Math.round(n))+" Taka Only";
+}
+
+function _openChallan(d){
+  var T="৳";
+  function fm(n){return T+Number(n||0).toLocaleString("en-IN");}
+  var mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var dd=new Date(d.invDate||"");
+  var ds=isNaN(dd.getTime())?(d.invDate||""):(dd.getDate()+" "+mo[dd.getMonth()]+" "+dd.getFullYear());
+  var sub=0,rows="";
+  (d.items||[]).forEach(function(it,i){
+    var amt=(it.qty||1)*(it.price||0);sub+=amt;
+    rows+="<tr>"+
+      "<td style='padding:5px 8px;text-align:center;color:#888;border-bottom:1px solid #eee'>"+(i+1)+"</td>"+
+      "<td style='padding:5px 8px;font-weight:700;border-bottom:1px solid #eee'>"+(it.model||"")+"</td>"+
+      "<td style='padding:5px 8px;font-size:10px;color:#555;border-bottom:1px solid #eee'>"+(it.desc||"")+"</td>"+
+      "<td style='padding:5px 8px;text-align:center;border-bottom:1px solid #eee'>"+(it.qty||1)+" pcs</td>"+
+      "<td style='padding:5px 8px;text-align:right;border-bottom:1px solid #eee'>"+fm(it.price||0)+"</td>"+
+      "<td style='padding:5px 8px;text-align:right;font-weight:700;border-bottom:1px solid #eee'>"+fm(amt)+"</td>"+
+      "</tr>";
+  });
+  var pd=d.prevDue||0,ap=d.amtPaid||0;
+  var tot=sub+pd,bal=Math.max(0,tot-ap);
+  var inW=_numToWords(bal);
+  var html="<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Challan #"+d.invNo+"</title>"+
+    "<style>@media print{.np{display:none}@page{margin:8mm}}body{font-family:Arial,sans-serif;background:#fff;margin:0;padding:14px;color:#1a1a1a}table{border-collapse:collapse;width:100%}</style>"+
+    "</head><body>"+
+    "<div class='np' style='margin-bottom:12px'><button onclick='window.print()' style='background:#1a3a6e;color:#fff;border:none;padding:8px 24px;border-radius:5px;cursor:pointer;font-size:14px;font-weight:700'>Print / Save PDF</button></div>"+
+    "<div style='border:2px solid #1a3a6e;border-radius:4px;padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between'>"+
+      "<div><div style='font-size:20px;font-weight:900;color:#1a3a6e;letter-spacing:1px'>CTG CLICK SHOP</div>"+
+      "<div style='font-size:10px;color:#555;margin-top:2px'>Wholesale Reconditioned Laptop | Chattogram, BD</div></div>"+
+      "<div style='text-align:right'><div style='font-size:22px;font-weight:900;color:#1a3a6e'>CHALLAN</div>"+
+      "<div style='font-size:11px;margin-top:3px'><b>No:</b> "+d.invNo+" &nbsp; <b>Date:</b> "+ds+"</div></div>"+
+    "</div>"+
+    "<div style='border:1px solid #ccc;border-radius:4px;padding:8px 14px;margin-bottom:10px;background:#f9f9f9;font-size:11px'>"+
+      "<b>Customer:</b> "+(d.custName||"")+" &nbsp;|&nbsp; <b>Phone:</b> "+(d.custPhone||"")+" &nbsp;|&nbsp; <b>Addr:</b> "+(d.custAddr||"")+
+    "</div>"+
+    "<table style='margin-bottom:10px;border:1px solid #ddd'>"+
+      "<thead><tr style='background:#1a3a6e;color:#fff;font-size:11px'>"+
+        "<th style='padding:7px 8px;text-align:center'>SL</th>"+
+        "<th style='padding:7px 8px;text-align:left'>Model</th>"+
+        "<th style='padding:7px 8px;text-align:left'>Description</th>"+
+        "<th style='padding:7px 8px;text-align:center'>Qty</th>"+
+        "<th style='padding:7px 8px;text-align:right'>Rate</th>"+
+        "<th style='padding:7px 8px;text-align:right'>Amount</th>"+
+      "</tr></thead><tbody>"+rows+"</tbody></table>"+
+    "<div style='display:flex;justify-content:flex-end;margin-bottom:10px'>"+
+      "<table style='width:260px;border:1px solid #ccc;font-size:11px'>"+
+        "<tr><td style='padding:5px 12px'>Sub Total</td><td style='padding:5px 12px;text-align:right;font-weight:700'>"+fm(sub)+"</td></tr>"+
+        "<tr style='background:#fff3cd'><td style='padding:5px 12px;color:#856404'>Previous Due</td><td style='padding:5px 12px;text-align:right;font-weight:700;color:#856404'>"+fm(pd)+"</td></tr>"+
+        "<tr style='background:#1a3a6e;color:#fff'><td style='padding:6px 12px;font-weight:700'>TOTAL</td><td style='padding:6px 12px;text-align:right;font-weight:900'>"+fm(tot)+"</td></tr>"+
+        "<tr><td style='padding:5px 12px;color:#166534'>Amount Paid</td><td style='padding:5px 12px;text-align:right;font-weight:700;color:#166534'>"+fm(ap)+"</td></tr>"+
+        "<tr style='background:#fee2e2'><td style='padding:5px 12px;font-weight:700;color:#991b1b'>Balance Due</td><td style='padding:5px 12px;text-align:right;font-weight:900;color:#991b1b'>"+fm(bal)+"</td></tr>"+
+      "</table></div>"+
+    "<div style='border:1px solid #ddd;padding:8px 14px;margin-bottom:10px;font-size:11px'><b>In Words:</b> <i>"+inW+"</i></div>"+
+    (d.courierSlip?"<div style='border:1px solid #ddd;padding:8px 14px;margin-bottom:10px;font-size:11px'><b>Courier:</b> "+d.courierSlip+"</div>":"")+
+    "<div style='display:flex;justify-content:space-between;margin-top:40px;font-size:11px'>"+
+      "<div style='text-align:center;width:200px'><div style='border-top:1px solid #333;padding-top:4px;font-weight:700'>Customer Signature</div></div>"+
+      "<div style='text-align:center;width:200px'><div style='border-top:1px solid #333;padding-top:4px;font-weight:700'>Authorized Signature</div></div>"+
+    "</div>"+
+    "</body></html>";
+  var w=window.open("","_blank","width=820,height=950");
+  if(w){w.document.write(html);w.document.close();}else{alert("Popup blocked. Allow popups.");}
+}
+</script>
 </body>
 </html>
