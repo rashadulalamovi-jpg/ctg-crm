@@ -3260,10 +3260,11 @@ function renderStockBuckets(){
     {label:'Dead Risk', emoji:'\u26AB', days:'90+', color:'#9ca3af', f:a=>a>90},
   ];
   let h = '';
+  const _fifoSold = computeBatchFifoSold();
   defs.forEach(function(bk){
     const m = stockDB.batches.filter(b=>bk.f(getAge(b.entryDate)));
-    const pcs = m.reduce((a,b)=>a+Math.max(0,(b.qtyReceived||0)-(b.qtySold||0)),0);
-    const cap = m.reduce((a,b)=>a+Math.max(0,(b.qtyReceived||0)-(b.qtySold||0))*(b.costPerPc||0),0);
+    const pcs = m.reduce((a,b)=>a+Math.max(0,(b.qtyReceived||0)-(_fifoSold[b.id]||0)),0);
+    const cap = m.reduce((a,b)=>a+Math.max(0,(b.qtyReceived||0)-(_fifoSold[b.id]||0))*(b.costPerPc||0),0);
     h += '<div class="sbucket" style="border-top:2px solid '+bk.color+'">';
     h += '<div style="font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:'+bk.color+'">'+bk.emoji+' '+bk.label+'</div>';
     h += '<div style="font-family:var(--fm);font-size:9px;color:var(--text3)">'+bk.days+' \u09A6\u09BF\u09A8</div>';
