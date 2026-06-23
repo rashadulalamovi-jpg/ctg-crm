@@ -2319,7 +2319,7 @@ function saveAddInvoice(){
   const qty=addInvItems.reduce(function(a,x){return a+x.qty;},0);
   const amt=addInvItems.reduce(function(a,x){return a+x.qty*x.price;},0);
   var autoDue=new Date(date); autoDue.setDate(autoDue.getDate()+7);
-  c.invoices.unshift(migrateInvoice({id:Date.now(),date:date,no:no,items:addInvItems.slice(),status:status,stage:c.stage,qty:qty,amt:amt,payments:[],returns:[],dueDate:autoDue.toISOString().split('T')[0],courierBookingDate:status==='transit'?date:null}));
+  c.invoices.unshift(migrateInvoice({id:Date.now(),date:date,no:no,items:addInvItems.slice(),status:status,stage:c.stage,qty:qty,amt:amt,payments:[],returns:[],dueDate:autoDue.toLocaleDateString('en-CA',{timeZone:'Asia/Dhaka'}),courierBookingDate:status==='transit'?date:null}));
   // Auto-adjust all pending return credits to this new invoice
   if(addInvPendingRets && addInvPendingRets.length){
     addInvPendingRets.forEach(function(pr){
@@ -6568,7 +6568,7 @@ function renderSalesDashboard(){
     // Days since last Saturday
     var diff = (day >= 6) ? 0 : day + 1;
     d.setDate(d.getDate() - diff);
-    return d.toISOString().split('T')[0];
+    return d.toLocaleDateString('en-CA',{timeZone:'Asia/Dhaka'});
   }
   function monthStart(){ return TODAY.slice(0,7)+'-01'; }
   function invQ(arr){ return arr.reduce(function(a,i){return a+(i.items||[]).reduce(function(b,x){return b+x.qty;},0);},0); }
@@ -7544,7 +7544,7 @@ function injectAvgProfitKpis() {
     });
 
     // ── Count invoices (rows with a YYYY-MM-DD date) ──────────────────────
-    var kInvCount = Array.from(wrap.querySelectorAll('tr')).filter(function(r) {
+    var kInvCount = Array.from(wrap.querySelectorAll('.invoice-row, [data-inv-id], tr')).filter(function(r) {
       return /\d{4}-\d{2}-\d{2}/.test(r.textContent);
     }).length;
 
@@ -7560,12 +7560,12 @@ function injectAvgProfitKpis() {
       + '<div class="kpi-card">'
       +   '<div class="kpi-label">💰 AVG PROFIT / INVOICE</div>'
       +   '<div class="kpi-val" style="color:' + invCol + ';">' + (kInvCount > 0 ? fmtMoney(kAvgInvProfit) : '—') + '</div>'
-      +   '<div class="kpi-sub">total profit Ã· ' + kInvCount + ' invoices</div>'
+      +   '<div class="kpi-sub">total profit ÷ ' + kInvCount + ' invoices</div>'
       + '</div>'
       + '<div class="kpi-card">'
       +   '<div class="kpi-label">📊 AVG PROFIT / PC</div>'
       +   '<div class="kpi-val" style="color:' + pcCol + ';">' + (kRealQty > 0 ? fmtMoney(kAvgPcProfit) : '—') + '</div>'
-      +   '<div class="kpi-sub">net profit Ã· ' + kRealQty + ' pcs Â· target ৳3000+</div>'
+      +   '<div class="kpi-sub">net profit ÷ ' + kRealQty + ' pcs · target ৳3000+</div>'
       + '</div>'
       + '</div>';
   var thirdChild = wrap.children[2];
