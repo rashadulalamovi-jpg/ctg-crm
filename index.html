@@ -6547,6 +6547,8 @@ function deletePayment(cid, invId, payId){
 }
 
 // ── Sales Dashboard ───────────────────────────────
+function getTodayDhakaDate(){return new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Dhaka'});}
+function normalizeDate(d){if(!d)return'';if(typeof d==='number')return new Date(d).toLocaleDateString('en-CA',{timeZone:'Asia/Dhaka'});return String(d).slice(0,10);}
 function renderSalesDashboard(){
   const el=document.getElementById('salesDashWrap'); if(!el) return;
   updateWeekTarget();
@@ -7544,9 +7546,7 @@ function injectAvgProfitKpis() {
     });
 
     // ── Count invoices (rows with a YYYY-MM-DD date) ──────────────────────
-    var kInvCount = Array.from(wrap.querySelectorAll('.invoice-row, [data-inv-id], tr')).filter(function(r) {
-      return /\d{4}-\d{2}-\d{2}/.test(r.textContent);
-    }).length;
+    var kInvCount=(window.db&&window.db.customers||[]).reduce(function(n,c){return n+(c.invoices||[]).length;},0)
 
     var kAvgInvProfit = kInvCount > 0 ? Math.round(kNetProfit / kInvCount) : 0;
     var kAvgPcProfit  = kRealQty  > 0 ? Math.round(kNetProfit / kRealQty)  : 0;
