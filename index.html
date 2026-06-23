@@ -3641,7 +3641,7 @@ function switchStab(tab){
 }
 
 function renderTodayKPIBar(){
-  var t=new Date();
+  var t=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Dhaka'}));
   function fmt(d){return d.getFullYear()+'-'+(d.getMonth()+1<10?'0':'')+(d.getMonth()+1)+'-'+(d.getDate()<10?'0':'')+d.getDate();}
   var td=fmt(t);
   var ws=new Date(t); var dw=t.getDay(); ws.setDate(t.getDate()-(dw===0?6:dw-1)); var wd=fmt(ws);
@@ -3671,7 +3671,7 @@ async function renderStockKPIBar(){
   var el=document.getElementById('stockKpiBar'); if(!el) return;
   var raw2=localStorage.getItem('ctgstock_v2'); if(!raw2){el.innerHTML='';return;}
   var d=JSON.parse(raw2); var batches=d.batches||[];
-  var today=new Date(); today.setHours(0,0,0,0);
+  var today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Dhaka'})); today.setHours(0,0,0,0);
   var todayStr=today.toISOString().substring(0,10);
   var dow=today.getDay(); var monOff=dow===0?6:dow-1;
   var weekStart=new Date(today); weekStart.setDate(today.getDate()-monOff);
