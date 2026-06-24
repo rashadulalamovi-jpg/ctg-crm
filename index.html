@@ -3672,10 +3672,10 @@ async function renderStockKPIBar(){
   var raw2=localStorage.getItem('ctgstock_v2'); if(!raw2){el.innerHTML='';return;}
   var d=JSON.parse(raw2); var batches=d.batches||[];
   var today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Dhaka'})); today.setHours(0,0,0,0);
-  var todayStr=today.toISOString().substring(0,10);
+  var todayStr=today.toLocaleDateString('en-CA',{timeZone:'Asia/Dhaka'});
   var dow=today.getDay(); var monOff=dow===0?6:dow-1;
   var weekStart=new Date(today); weekStart.setDate(today.getDate()-monOff);
-  var weekStartStr=weekStart.toISOString().substring(0,10);
+  var weekStartStr=weekStart.toLocaleDateString('en-CA',{timeZone:'Asia/Dhaka'});
   var mm=today.getMonth()+1; var mmStr=(mm<10?'0':'')+mm;
   var monthStartStr=today.getFullYear()+'-'+mmStr+'-01';
   var todayBuy=0;
