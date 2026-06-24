@@ -3673,7 +3673,7 @@ async function renderStockKPIBar(){
   var d=JSON.parse(raw2); var batches=d.batches||[];
   var today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Dhaka'})); today.setHours(0,0,0,0);
   var todayStr=today.toLocaleDateString('en-CA',{timeZone:'Asia/Dhaka'});
-  var dow=today.getDay(); var monOff=dow===0?6:dow-1;
+  var dow=today.getDay(); var monOff=(dow+1)%7;
   var weekStart=new Date(today); weekStart.setDate(today.getDate()-monOff);
   var weekStartStr=weekStart.toLocaleDateString('en-CA',{timeZone:'Asia/Dhaka'});
   var mm=today.getMonth()+1; var mmStr=(mm<10?'0':'')+mm;
