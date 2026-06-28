@@ -2745,11 +2745,13 @@ function addPaymentV2(cid, invId){
   saveDB(); syncToFirebase();
   renderSalesDashboard();
   renderPipeline();
+  if(typeof _detailId!=='undefined'&&_detailId) showModalTab('invoice',_detailId);
   const due=Math.max(0,iA-iPd);
   notify(due>0?'\u2705 \u09F3'+fmtNum(amt)+' added \u00B7 Due: \u09F3'+fmtNum(due):'\u{1F389} Fully paid!');
 }
 
-function deletePaymentById(cid, invId, payId){ deletePayment(cid, invId, payId); renderSalesDashboard(); }
+function deletePaymentById(cid, invId, payId){ deletePayment(cid, invId, payId); renderSalesDashboard(); if(typeof _detailId!=='undefined'&&_detailId) showModalTab('invoice',_detailId);
+  }
 
 function markWarranty(cid, invId, status){
   const c=db.customers.find(function(x){return x.id===cid;}); if(!c) return;
@@ -2758,6 +2760,7 @@ function markWarranty(cid, invId, status){
   if(status==='active'&&!inv.warrantyStart) inv.warrantyStart=TODAY;
   if(status==='closed'&&!inv.warrantyEnd) inv.warrantyEnd=TODAY;
   saveDB(); syncToFirebase(); renderSalesDashboard();
+  if(typeof _detailId!=='undefined'&&_detailId) showModalTab('invoice',_detailId);
   notify(status==='active'?'\u{1F6E1}\uFE0F Warranty activated':'\u2705 Warranty closed');
 }
 
@@ -2892,6 +2895,7 @@ function toggleBlockOrder(cid, invId){
   const inv=(c.invoices||[]).find(function(i){return i.id===invId;}); if(!inv) return;
   inv.blockedNextOrder=!inv.blockedNextOrder;
   saveDB(); syncToFirebase(); renderSalesDashboard();
+  if(typeof _detailId!=='undefined'&&_detailId) showModalTab('invoice',_detailId);
   notify(inv.blockedNextOrder?'\u{1F6D1} Next order blocked':'\u2705 Block removed');
 }
 
