@@ -3068,12 +3068,40 @@ function renderTabInvoice(c){
   h+='<span>'+pct+'% paid</span>';
   h+='<span style="font-weight:700;color:'+nextOrd.color+'">Next Order: '+nextOrd.decision+'</span>';
   h+='</div></div>';
-  // Invoice cards
+  // Invoice filter bar
+  h+='<div style="display:flex;align-items:center;gap:10px;margin:0 0 10px">'
+     +'<span style="color:var(--text3);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap">STATUS</span>'
+     +'<select id="custInvFilter" onchange="filterCustInvTab(this.value)" '
+     +'style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:var(--r);padding:5px 10px;font-size:12px;cursor:pointer;flex:1">'
+     +'<option value="">All Status</option>'
+     +'<option value="transit">🟠 In Transit</option>'
+     +'<option value="due">🟡 Payment Due</option>'
+     +'<option value="completed">✅ Completed</option>'
+     +'</select></div>';
+  h+='<div id="custInvCards">';
   invs.forEach(function(inv){ h+=renderInvoiceCard(c, inv, false); });
   if(!invs.length) h+='<div style="text-align:center;padding:30px;color:var(--text3)">\u0995\u09CB\u09A8\u09CB invoice \u09A8\u09C7\u0987 \u2014 Sales Dashboard \u09A5\u09C7\u0995\u09C7 \u09AF\u09CB\u0997 \u0995\u09B0\u09C1\u09A8</div>';
+  h+='</div>';
   el.innerHTML=h;
 }
 
+
+function filterCustInvTab(status){
+  var cid=typeof _detailId!=='undefined'?_detailId:null;
+  var c=cid&&window.db&&window.db.customers?window.db.customers.find(function(x){return x.id===cid;}):null;
+  if(!c) return;
+  var el2=document.getElementById('custInvCards');
+  if(!el2) return;
+  var all=(c.invoices||[]).slice().sort(function(a,b){
+    var d=new Date(b.date)-new Date(a.date);if(d!==0)return d;
+    return(parseInt((b.no||'0').replace(/\D/g,''))||0)-(parseInt((a.no||'0').replace(/\D/g,''))||0);
+  });
+  var filtered=status?all.filter(function(inv){return inv.status===status;}):all;
+  var h2='';
+  filtered.forEach(function(inv){h2+=renderInvoiceCard(c,inv,false);});
+  if(!filtered.length) h2='<div style="text-align:center;padding:30px;color:var(--text3)">No invoices match this filter.</div>';
+  el2.innerHTML=h2;
+}
 // Keep old loadInv working (invoice section now is sales dashboard)
 
 // ════════════════════════════════════════════════════════
