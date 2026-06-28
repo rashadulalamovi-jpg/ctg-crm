@@ -3042,7 +3042,7 @@ function renderTabInvoice(c){
   // CORRECT: net profit = adjusted gross - fix cost
   var _tSalesD=invs.reduce(function(a,i){return a+(i.returns||[]).reduce(function(b,r){return b+(r.salesDeducted||r.refundAmt||0);},0);},0);
   var _tCostA=invs.reduce(function(a,i){return a+(i.returns||[]).reduce(function(b,r){return b+(r.costAdjusted||0);},0);},0);
-  var _adjTabSales=totSales-_tSalesD;
+  var _adjTabSales=totA-_tSalesD;
   var _adjTabCost=Math.max(0,totC-_tCostA);
   var _adjTabGross=totC>0?_adjTabSales-_adjTabCost:0;
   const netProfit=_adjTabGross-retLoss;
@@ -3053,7 +3053,8 @@ function renderTabInvoice(c){
   // Summary
   h+='<div style="background:rgba(18,24,32,.95);border:1px solid var(--border);border-radius:var(--r);padding:13px;margin-bottom:12px">';
   h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">';
-  [{label:'Invoices',val:invs.length,col:'var(--text2)'},{label:'Qty',val:totQ+'pcs',col:'var(--cyan)'},{label:'Sales',val:fmtMoney(totA),col:'var(--red)'},{label:'Due',val:due>0?fmtMoney(due):'\u2705',col:due>0?'var(--red)':'var(--green)'},
+  [{label:'Invoices',val:invs.length,col:'var(--text2)'},{label:'Qty',val:totQ+'pcs',col:'var(--cyan)'},{label:'Sales',val:fmtMoney(totA),col:'var(--red)'},{label:'Paid',val:totPd>0?fmtMoney(totPd):'\u2014',col:'var(--green)'},
+  {label:'Due',val:due>0?fmtMoney(due):'\u2705',col:due>0?'var(--red)':'var(--green)'},
    {label:'Gross Profit',val:totGross>0?fmtMoney(totGross):'\u2014',col:'var(--green)'},{label:'Fix Cost (Real Loss)',val:retLoss>0?fmtMoney(retLoss):'\u2014',col:'var(--orange)'},{label:'Net Profit',val:netProfit>0?fmtMoney(netProfit):'\u2014',col:'var(--gold)'},
    {label:'ROI',val:totC>0?Math.round(totGross/totC*100)+'%':'\u2014',col:totC>0&&totGross/totC>=0.15?'var(--green)':'var(--warn)'}].forEach(function(k){
     h+='<div style="text-align:center;background:rgba(23,32,48,.4);border:1px solid rgba(255,255,255,.04);border-radius:6px;padding:7px 4px">';
