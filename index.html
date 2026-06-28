@@ -3036,6 +3036,8 @@ function renderTabInvoice(c){
   const totA=invs.reduce(function(a,i){return a+(i.items||[]).reduce(function(b,x){return b+x.qty*(x.price||0);},0);},0);
   const totPd=invs.reduce(function(a,i){return a+(i.payments||[]).reduce(function(b,p){return b+p.amount;},0);},0);
   const totQ=invs.reduce(function(a,i){return a+(i.items||[]).reduce(function(b,x){return b+x.qty;},0);},0);
+  var _mn=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Dhaka'}).slice(0,7);
+  var mthQ=invs.filter(function(i){return(i.date||'').slice(0,7)===_mn;}).reduce(function(a,i){return a+(i.items||[]).reduce(function(b,x){return b+x.qty;},0);},0);
   const totC=invs.reduce(function(a,i){return a+(i.items||[]).reduce(function(b,x){return b+(x.purchasePrice?x.qty*x.purchasePrice:0);},0);},0);
   const totGross=totC>0?totA-totC:0;
   const retLoss=invs.reduce(function(a,i){return a+(i.returns||[]).reduce(function(b,r){return b+(r.fixCost||0)*r.qty;},0);},0);
@@ -3053,7 +3055,7 @@ function renderTabInvoice(c){
   // Summary
   h+='<div style="background:rgba(18,24,32,.95);border:1px solid var(--border);border-radius:var(--r);padding:13px;margin-bottom:12px">';
   h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">';
-  [{label:'Invoices',val:invs.length,col:'var(--text2)'},{label:'Qty',val:totQ+'pcs',col:'var(--cyan)'},{label:'Sales',val:fmtMoney(totA),col:'var(--red)'},{label:'Paid',val:totPd>0?fmtMoney(totPd):'\u2014',col:'var(--green)'},
+  [{label:'Invoices',val:invs.length,col:'var(--text2)'},{label:'Qty',val:totQ+'pcs',col:'var(--cyan)'},{label:'This Month',val:mthQ+'pcs',col:'var(--cyan)'},{label:'Sales',val:fmtMoney(totA),col:'var(--red)'},{label:'Paid',val:totPd>0?fmtMoney(totPd):'\u2014',col:'var(--green)'},
   {label:'Due',val:due>0?fmtMoney(due):'\u2705',col:due>0?'var(--red)':'var(--green)'},
    {label:'Gross Profit',val:totGross>0?fmtMoney(totGross):'\u2014',col:'var(--green)'},{label:'Fix Cost (Real Loss)',val:retLoss>0?fmtMoney(retLoss):'\u2014',col:'var(--orange)'},{label:'Net Profit',val:netProfit>0?fmtMoney(netProfit):'\u2014',col:'var(--gold)'},
    {label:'ROI',val:totC>0?Math.round(totGross/totC*100)+'%':'\u2014',col:totC>0&&totGross/totC>=0.15?'var(--green)':'var(--warn)'}].forEach(function(k){
