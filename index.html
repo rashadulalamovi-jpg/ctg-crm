@@ -2974,6 +2974,7 @@ function saveDueDate(cid, invId, val){
   var inv=(c.invoices||[]).find(function(i){return i.id===invId;}); if(!inv) return;
   inv.dueDate = val;
   saveDB(); syncToFirebase();
+  if(typeof _detailId!=='undefined'&&_detailId) showModalTab('invoice',_detailId);
   notify('\u2705 Due Date saved: '+fmtDate_en(val));
 }
 
@@ -2986,6 +2987,7 @@ function savePromiseDate(cid, invId, val){
   if(!c.actLog) c.actLog=[];
   c.actLog.unshift({id:Date.now(), date:TODAY, action:'Promise Date set: '+fmtDate_en(val)+' \u2014 Invoice '+inv.no, type:'note', color:'var(--cyan)'});
   saveDB(); syncToFirebase();
+  if(typeof _detailId!=='undefined'&&_detailId) showModalTab('invoice',_detailId);
   notify('\u2705 Promise Date set: '+fmtDate_en(val));
 }
 
@@ -3024,6 +3026,7 @@ function sendWAReminder(cid, invId){
     'Payment clear \u09B9\u09B2\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 account update \u0995\u09B0\u09C7 next order process smoothly \u0995\u09B0\u09BE \u09AF\u09BE\u09AC\u09C7 \u0987\u09A8\u09B6\u09BE\u0986\u09B2\u09CD\u09B2\u09BE\u09B9\u0964\n\n'+
     '\u09A7\u09A8\u09CD\u09AF\u09AC\u09BE\u09A6 \u09AD\u09BE\u0987\u0964\n\nCTG Click Shop';
   saveDB(); syncToFirebase();
+  if(typeof _detailId!=='undefined'&&_detailId) showModalTab('invoice',_detailId);
   navigator.clipboard.writeText(msg)
     .then(function(){notify('\u23F0 Reminder #'+inv.reminderCount+' copied!');})
     .catch(function(){notify('Copy failed',true);});
