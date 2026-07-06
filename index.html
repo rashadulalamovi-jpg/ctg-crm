@@ -383,9 +383,13 @@ tr:hover td{background:rgba(232,33,26,.025)}
     <button class="stab"        id="st_slow"    onclick="switchStab('slow')">&#x26A0;&#xFE0F; Slow 45d+</button>
     <button class="stab"        id="st_dead"    onclick="switchStab('dead')">&#x1F480; Dead 90d+</button>
     <button class="stab"        id="st_history" onclick="switchStab('history')">📊 Buy History</button>
+    <button class="stab" id="st_buylist" onclick="switchStab('buylist')">📥 Buy List</button>
+    <button class="stab" id="st_returnin" onclick="switchStab('returnin')">↩️ Return In</button>
   </div>
   <div id="capitalBlockers" style="margin-bottom:8px"></div>
   <div class="stab-c" id="sc_history"></div>
+  <div class="stab-c" id="sc_buylist"></div>
+  <div class="stab-c" id="sc_returnin"></div>
   <div class="stab-c active" id="sc_all">
     <div class="card">
       <div class="flex-between mb-14">
@@ -3666,7 +3670,7 @@ function copySlowList(){
 }
 
 function switchStab(tab){
-  ['all','add','slow','dead','history'].forEach(function(t){
+  ['all','add','slow','dead','history','buylist','returnin'].forEach(function(t){
     var b=document.getElementById('st_'+t), c=document.getElementById('sc_'+t);
     if(b) b.classList.toggle('active', t===tab);
     if(c) c.classList.toggle('active', t===tab);
@@ -3675,7 +3679,314 @@ function switchStab(tab){
   if(capEl) capEl.style.display=(tab==='all')?'':'none';
   if(tab==='add'){ var d=document.getElementById('sb_d'); if(d&&!d.value) d.value=TODAY; }
   if(tab==='history'){ renderModelBuyHistory(); return; }
+  if(tab==='buylist'){ renderBuyList(); return; }
+  if(tab==='returnin'){ renderReturnIn(); return; }
   renderStockAll();
+}
+
+function renderBuyList(){
+  var el=document.getElementById('sc_buylist'); if(!el) return;
+  var stockRaw=localStorage.getItem('ctgstock_v2');
+  var batches=(stockRaw?JSON.parse(stockRaw).batches:null)||[];
+  // Sort newest first
+  batches=batches.slice().sort(function(a,b){
+    var da=a.entryDate||a.createdAt||'';
+    var db2=b.entryDate||b.createdAt||'';
+    return da<db2?1:-1;
+  });
+  // Filter
+  var filterEl=el.querySelector('.bl-filter-active');
+  var activeFilter=filterEl?filterEl.dataset.f:'all';
+  var searchEl=el.querySelector('.bl-search');
+  var searchVal=searchEl?searchEl.value.toLowerCase():'';
+  var TODAY2=new Date().toISOString().slice(0,10);
+  var now=new Date();
+  var weekAgo=new Date(now.getTime()-7*86400000).toISOString().slice(0,10);
+  var monthStart=new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10);
+  function passFilter(b){
+    var d=b.entryDate||b.createdAt||'';
+    if(activeFilter==='today') return d===TODAY2;
+    if(activeFilter==='week') return d>=weekAgo;
+    if(activeFilter==='month') return d>=monthStart;
+    return true;
+  }
+  var filtered=batches.filter(function(b){
+    if(!passFilter(b)) return false;
+    if(searchVal && (b.model||'').toLowerCase().indexOf(searchVal)<0 && (b.brand||'').toLowerCase().indexOf(searchVal)<0) return false;
+    return true;
+  });
+  // KPIs
+  var todayBuys=batches.filter(function(b){return (b.entryDate||b.createdAt||'')===TODAY2;});
+  var todayQty=todayBuys.reduce(function(s,b){return s+(b.qtyReceived||0);},0);
+  var weekBuys=batches.filter(function(b){return (b.entryDate||b.createdAt||'')>=weekAgo;});
+  var weekQty=weekBuys.reduce(function(s,b){return s+(b.qtyReceived||0);},0);
+  var monthBuys=batches.filter(function(b){return (b.entryDate||b.createdAt||'')>=monthStart;});
+  var monthQty=monthBuys.reduce(function(s,b){return s+(b.qtyReceived||0);},0);
+  var totalVal=filtered.reduce(function(s,b){return s+(b.costPerPc||0)*(b.qtyReceived||0);},0);
+  var modelSet={}; filtered.forEach(function(b){if(b.model) modelSet[b.model]=(modelSet[b.model]||0)+(b.qtyReceived||0);});
+  var totalModels=Object.keys(modelSet).length;
+  var topModel=Object.keys(modelSet).sort(function(a,b){return modelSet[b]-modelSet[a];})[0]||'—';
+  function fmtBDT(n){return '৳'+n.toLocaleString('en-BD');}
+  function fmtDate(d){
+    if(!d) return '—';
+    var dt=new Date(d);
+    return isNaN(dt)?d:dt.toLocaleDateString('en-BD',{day:'2-digit',month:'short',year:'numeric'});
+  }
+  // Group by date
+  var byDate={};
+  filtered.forEach(function(b){
+    var d=b.entryDate||b.createdAt||'unknown';
+    if(!byDate[d]) byDate[d]=[];
+    byDate[d].push(b);
+  });
+  var dateKeys=Object.keys(byDate).sort(function(a,b){return a<b?1:-1;});
+  // Render
+  var h='<div style="padding:10px">';
+  // Filter bar
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center">';
+  ['all','today','week','month'].forEach(function(f){
+    var lbl={all:'সব',today:'আজকে',week:'এই সপ্তাহ',month:'এই মাস'}[f];
+    var isActive=activeFilter===f;
+    h+='<button class="bl-filter-btn'+(isActive?' bl-filter-active':'')+'" data-f="'+f+'" onclick="blFilter(''+f+'')" style="padding:4px 10px;border-radius:12px;border:1px solid '+(isActive?'var(--blue)':'var(--border)')+';background:'+(isActive?'var(--blue)':'transparent')+';color:'+(isActive?'#fff':'var(--txt)')+';font-size:11px;cursor:pointer">'+lbl+'</button>';
+  });
+  h+='<input class="bl-search" type="text" placeholder="Model search..." value="'+searchVal.replace(/"/g,'&quot;')+'" oninput="blSearch(this.value)" style="padding:4px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--txt);font-size:11px;min-width:120px">';
+  h+='</div>';
+  // KPI cards
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px">';
+  var kpis=[
+    {label:'আজকের Purchase',val:todayQty+' pcs',color:'var(--blue)'},
+    {label:'এই সপ্তাহ',val:weekQty+' pcs',color:'var(--green)'},
+    {label:'এই মাস',val:monthQty+' pcs',color:'var(--green2)'},
+    {label:'Total Value',val:totalVal>0?fmtBDT(totalVal):'—',color:'var(--orange)'},
+    {label:'Total Models',val:totalModels,color:'var(--purple)'},
+    {label:'Top Model',val:topModel,color:'var(--blue)'}
+  ];
+  kpis.forEach(function(k){
+    h+='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;border-left:3px solid '+k.color+'">';
+    h+='<div style="font-size:10px;color:var(--txt2);margin-bottom:3px">'+k.label+'</div>';
+    h+='<div style="font-size:14px;font-weight:700;color:'+k.color+'">'+k.val+'</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+  // Groups
+  if(dateKeys.length===0){
+    h+='<div style="text-align:center;padding:30px;color:var(--txt2)">কোনো purchase data পাওয়া যায়নি।</div>';
+  } else {
+    dateKeys.forEach(function(date){
+      var rows=byDate[date];
+      var dayQty=rows.reduce(function(s,b){return s+(b.qtyReceived||0);},0);
+      var dayVal=rows.reduce(function(s,b){return s+(b.costPerPc||0)*(b.qtyReceived||0);},0);
+      h+='<div style="margin-bottom:14px">';
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:rgba(59,130,246,.12);border-radius:6px;margin-bottom:6px">';
+      h+='<span style="font-weight:700;font-size:12px;color:var(--blue)">'+fmtDate(date)+'</span>';
+      h+='<span style="font-size:11px;color:var(--txt2)">'+dayQty+' pcs'+(dayVal>0?' · '+fmtBDT(dayVal):'')+'</span>';
+      h+='</div>';
+      rows.forEach(function(b){
+        var qty=b.qtyReceived||0;
+        var sold=b.qtySold||0;
+        var avail=qty-sold;
+        var cost=b.costPerPc||0;
+        h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;margin-bottom:4px">';
+        h+='<div style="flex:1;min-width:0">';
+        h+='<div style="font-size:12px;font-weight:600;color:var(--txt)">'+((b.brand||'')?b.brand+' ':'')+b.model+'</div>';
+        h+='<div style="font-size:10px;color:var(--txt2);margin-top:2px">';
+        h+='<span style="color:var(--green)">📦 '+qty+' pcs received</span>';
+        if(sold>0) h+=' · <span style="color:var(--txt2)">'+sold+' sold</span>';
+        if(avail>0) h+=' · <span style="color:var(--blue)">'+avail+' in stock</span>';
+        if(b.note) h+=' · '+b.note;
+        h+='</div>';
+        h+='</div>';
+        h+='<div style="text-align:right;white-space:nowrap;padding-left:8px">';
+        if(cost>0){
+          h+='<div style="font-size:12px;font-weight:700;color:var(--green)">'+fmtBDT(cost)+'/pc</div>';
+          h+='<div style="font-size:10px;color:var(--txt2)">Total: '+fmtBDT(cost*qty)+'</div>';
+        }
+        h+='</div>';
+        h+='</div>';
+      });
+      h+='</div>';
+    });
+  }
+  h+='</div>';
+  el.innerHTML=h;
+}
+function blFilter(f){
+  var el=document.getElementById('sc_buylist');
+  if(!el) return;
+  // Update active state
+  el.querySelectorAll('.bl-filter-btn').forEach(function(btn){
+    var isActive=btn.dataset.f===f;
+    btn.classList.toggle('bl-filter-active',isActive);
+    btn.style.background=isActive?'var(--blue)':'transparent';
+    btn.style.borderColor=isActive?'var(--blue)':'var(--border)';
+    btn.style.color=isActive?'#fff':'var(--txt)';
+  });
+  renderBuyList();
+}
+function blSearch(val){
+  renderBuyList();
+}
+function renderReturnIn(){
+  var el=document.getElementById('sc_returnin'); if(!el) return;
+  // Collect all returns from customers
+  var allRets=[];
+  var _db=window.db||window._db;
+  (_db.customers||[]).forEach(function(c){
+    (c.invoices||[]).forEach(function(inv){
+      (inv.returns||[]).forEach(function(ret){
+        allRets.push({
+          customer: c.name,
+          custId: c.id,
+          invNo: inv.no,
+          date: ret.date||'',
+          model: ret.model||'',
+          qty: ret.qty||1,
+          reason: ret.reason||'',
+          reasonDetail: ret.reasonDetail||'',
+          returnStatus: ret.returnStatus||'',
+          buyPrice: ret.buyPrice||0,
+          sellPrice: ret.sellPrice||0,
+          refundAmt: ret.refundAmt||0,
+          note: ret.note||'',
+          id: ret.id
+        });
+      });
+    });
+  });
+  // Sort newest first
+  allRets.sort(function(a,b){return a.date<b.date?1:-1;});
+  // Filter
+  var filterEl=el.querySelector('.ri-filter-active');
+  var activeFilter=filterEl?filterEl.dataset.f:'all';
+  var searchCustEl=el.querySelector('.ri-search-cust');
+  var searchModEl=el.querySelector('.ri-search-mod');
+  var searchCust=(searchCustEl?searchCustEl.value:'').toLowerCase();
+  var searchMod=(searchModEl?searchModEl.value:'').toLowerCase();
+  var TODAY2=new Date().toISOString().slice(0,10);
+  var now=new Date();
+  var weekAgo=new Date(now.getTime()-7*86400000).toISOString().slice(0,10);
+  var monthStart=new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10);
+  function passFilter(r){
+    if(activeFilter==='today') return r.date===TODAY2;
+    if(activeFilter==='week') return r.date>=weekAgo;
+    if(activeFilter==='month') return r.date>=monthStart;
+    return true;
+  }
+  var filtered=allRets.filter(function(r){
+    if(!passFilter(r)) return false;
+    if(searchCust && r.customer.toLowerCase().indexOf(searchCust)<0) return false;
+    if(searchMod && r.model.toLowerCase().indexOf(searchMod)<0) return false;
+    return true;
+  });
+  // KPIs
+  var todayRets=allRets.filter(function(r){return r.date===TODAY2;});
+  var todayQty=todayRets.reduce(function(s,r){return s+r.qty;},0);
+  var weekRets=allRets.filter(function(r){return r.date>=weekAgo;});
+  var weekQty=weekRets.reduce(function(s,r){return s+r.qty;},0);
+  var monthRets=allRets.filter(function(r){return r.date>=monthStart;});
+  var monthQty=monthRets.reduce(function(s,r){return s+r.qty;},0);
+  var totalQty=allRets.reduce(function(s,r){return s+r.qty;},0);
+  var modelSet={}; filtered.forEach(function(r){if(r.model) modelSet[r.model]=(modelSet[r.model]||0)+r.qty;});
+  var topModel=Object.keys(modelSet).sort(function(a,b){return modelSet[b]-modelSet[a];})[0]||'—';
+  var reasonLabels={cust_change:'Customer Change',display:'Display Issue',keyboard:'Keyboard Issue',
+    battery:'Battery Issue',hinge:'Hinge Issue',overheat:'Overheating',
+    performance:'Performance Issue',other:'Other'};
+  function fmtDate(d){
+    if(!d) return '—';
+    var dt=new Date(d);
+    return isNaN(dt)?d:dt.toLocaleDateString('en-BD',{day:'2-digit',month:'short',year:'numeric'});
+  }
+  function fmtBDT(n){return '৳'+n.toLocaleString('en-BD');}
+  // Group by date
+  var byDate={};
+  filtered.forEach(function(r){
+    var d=r.date||'unknown';
+    if(!byDate[d]) byDate[d]=[];
+    byDate[d].push(r);
+  });
+  var dateKeys=Object.keys(byDate).sort(function(a,b){return a<b?1:-1;});
+  // Render
+  var h='<div style="padding:10px">';
+  // Filter bar
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center">';
+  ['all','today','week','month'].forEach(function(f){
+    var lbl={all:'সব',today:'আজকে',week:'এই সপ্তাহ',month:'এই মাস'}[f];
+    var isActive=activeFilter===f;
+    h+='<button class="ri-filter-btn'+(isActive?' ri-filter-active':'')+'" data-f="'+f+'" onclick="riFilter(''+f+'')" style="padding:4px 10px;border-radius:12px;border:1px solid '+(isActive?'var(--orange)':'var(--border)')+';background:'+(isActive?'var(--orange)':'transparent')+';color:'+(isActive?'#fff':'var(--txt)')+';font-size:11px;cursor:pointer">'+lbl+'</button>';
+  });
+  h+='<input class="ri-search-cust" type="text" placeholder="Customer..." value="'+searchCust.replace(/"/g,'&quot;')+'" oninput="riSearch()" style="padding:4px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--txt);font-size:11px;min-width:100px">';
+  h+='<input class="ri-search-mod" type="text" placeholder="Model..." value="'+searchMod.replace(/"/g,'&quot;')+'" oninput="riSearch()" style="padding:4px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--txt);font-size:11px;min-width:100px">';
+  h+='</div>';
+  // KPI cards
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px">';
+  var kpis=[
+    {label:'আজকের Return',val:todayQty+' pcs',color:'var(--orange)'},
+    {label:'এই সপ্তাহ',val:weekQty+' pcs',color:'var(--orange)'},
+    {label:'এই মাস',val:monthQty+' pcs',color:'var(--red)'},
+    {label:'মোট Return',val:totalQty+' pcs',color:'var(--red)'},
+    {label:'Top Model',val:topModel,color:'var(--purple)'},
+    {label:'Total Records',val:allRets.length,color:'var(--txt2)'}
+  ];
+  kpis.forEach(function(k){
+    h+='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;border-left:3px solid '+k.color+'">';
+    h+='<div style="font-size:10px;color:var(--txt2);margin-bottom:3px">'+k.label+'</div>';
+    h+='<div style="font-size:14px;font-weight:700;color:'+k.color+'">'+k.val+'</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+  // Groups
+  if(dateKeys.length===0){
+    h+='<div style="text-align:center;padding:30px;color:var(--txt2)">কোনো return stock পাওয়া যায়নি।</div>';
+  } else {
+    dateKeys.forEach(function(date){
+      var rows=byDate[date];
+      var dayQty=rows.reduce(function(s,r){return s+r.qty;},0);
+      h+='<div style="margin-bottom:14px">';
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:rgba(249,115,22,.12);border-radius:6px;margin-bottom:6px">';
+      h+='<span style="font-weight:700;font-size:12px;color:var(--orange)">'+fmtDate(date)+'</span>';
+      h+='<span style="font-size:11px;color:var(--txt2)">'+dayQty+' pcs returned</span>';
+      h+='</div>';
+      rows.forEach(function(r){
+        var statusColor={'ready':'var(--green)','pending':'var(--orange)','fixed':'var(--blue)','damaged':'var(--red)'}[r.returnStatus]||'var(--txt2)';
+        var statusLabel={'ready':'Stock Ready','pending':'Pending','fixed':'Fixed','damaged':'Damaged'}[r.returnStatus]||r.returnStatus;
+        var reasonText=reasonLabels[r.reason]||r.reason||'—';
+        h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;margin-bottom:4px;gap:8px">';
+        h+='<div style="flex:1;min-width:0">';
+        h+='<div style="font-size:12px;font-weight:600;color:var(--txt)">'+r.model+'</div>';
+        h+='<div style="font-size:10px;color:var(--orange);margin-top:2px">'+r.customer+' · Inv #'+r.invNo+'</div>';
+        if(r.reasonDetail||r.reason){
+          h+='<div style="font-size:10px;color:var(--txt2);margin-top:2px">💬 '+reasonText;
+          if(r.reasonDetail) h+=': '+r.reasonDetail;
+          h+='</div>';
+        }
+        h+='</div>';
+        h+='<div style="text-align:right;white-space:nowrap;flex-shrink:0">';
+        h+='<div style="font-size:13px;font-weight:700;color:var(--red)">'+r.qty+' pc'+(r.qty>1?'s':'')+'</div>';
+        h+='<div style="font-size:10px;font-weight:600;color:'+statusColor+';margin-top:2px">'+statusLabel+'</div>';
+        if(r.buyPrice>0) h+='<div style="font-size:10px;color:var(--txt2)">Buy: '+fmtBDT(r.buyPrice)+'</div>';
+        h+='</div>';
+        h+='</div>';
+      });
+      h+='</div>';
+    });
+  }
+  h+='</div>';
+  el.innerHTML=h;
+}
+function riFilter(f){
+  var el=document.getElementById('sc_returnin');
+  if(!el) return;
+  el.querySelectorAll('.ri-filter-btn').forEach(function(btn){
+    var isActive=btn.dataset.f===f;
+    btn.classList.toggle('ri-filter-active',isActive);
+    btn.style.background=isActive?'var(--orange)':'transparent';
+    btn.style.borderColor=isActive?'var(--orange)':'var(--border)';
+    btn.style.color=isActive?'#fff':'var(--txt)';
+  });
+  renderReturnIn();
+}
+function riSearch(){
+  renderReturnIn();
 }
 
 function renderTodayKPIBar(){
