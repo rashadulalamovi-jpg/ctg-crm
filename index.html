@@ -3825,7 +3825,7 @@ crClr=capRisk>3000000?'#ef4444':capRisk>500000?'#f97316':'#10b981';
   el.innerHTML=h;
 
 
-function renderStockKPIBar(){
+async function renderStockKPIBar(){
   var el=document.getElementById('stockKpiBar'); if(!el) return;
   var raw2=localStorage.getItem('ctgstock_v2'); if(!raw2){el.innerHTML='';return;}
   var d=JSON.parse(raw2); var batches=d.batches||[];
