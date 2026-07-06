@@ -3825,6 +3825,33 @@ crClr=capRisk>3000000?'#ef4444':capRisk>500000?'#f97316':'#10b981';
   el.innerHTML=h;
 
 
+function renderTodayKPIBar(){
+  var t=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Dhaka'}));
+  function fmt(d){return d.getFullYear()+'-'+(d.getMonth()+1<10?'0':'')+(d.getMonth()+1)+'-'+(d.getDate()<10?'0':'')+d.getDate();}
+  var td=fmt(t);
+  var ws=new Date(t); var dw=t.getDay(); ws.setDate(t.getDate()-(dw===0?6:dw-1)); var wd=fmt(ws);
+  var mn=t.getFullYear()+'-'+(t.getMonth()+1<10?'0':'')+(t.getMonth()+1)+'-01';
+  var sd={}; try{sd=JSON.parse(localStorage.getItem('ctgstock_v2')||'{}');}catch(e){}
+  var tB=(sd.batches||[]).reduce(function(s,b){return s+((b.entryDate||'').slice(0,10)===td?(b.qtyReceived||0):0);},0);
+  var cd={}; try{cd=JSON.parse(localStorage.getItem('ctgcrm_v18')||'{}');}catch(e){}
+  var ai=[]; (cd.customers||[]).forEach(function(c){(c.invoices||[]).forEach(function(i){ai.push(i);});});
+  function rs(l){return l.reduce(function(s,v){var r=(v.returns||[]).reduce(function(x,t){return x+(t.qty||t.returnQty||1);},0);return s+((v.qty||0)-r);},0);}
+  function fi(f){return ai.filter(function(v){var d=(v.date||'').slice(0,10);return d>=f&&d<=td;});}
+  var tS=rs(fi(td)),wS=rs(fi(wd)),mS=rs(fi(mn));
+  function kc(ic,lb,vl,cl,br){
+    return '<div style="background:#0c1520;border:1px solid '+br+';border-top:3px solid '+cl+';border-radius:8px;padding:14px 10px;text-align:center;flex:1;">'
+      +'<div style="font-size:15px;margin-bottom:4px;">'+ic+'</div>'
+      +'<div style="color:#6b7a8d;font-size:10px;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">'+lb+'</div>'
+      +'<div style="color:'+cl+';font-size:24px;font-weight:700;line-height:1;">'+vl+'</div>'
+      +'</div>';
+  }
+  return '<div style="display:flex;gap:10px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #1a2a3a;">'
+    +kc('📦','Today Buy',tB+' pcs','#4fc3f7','#1a3a4a')
+    +kc('✅','Today Sold',tS+' pcs','#4caf50','#1a3a1a')
+    +kc('📊','This Week Sold',wS+' pcs','#ff9800','#3a2a0a')
+    +kc('📈','This Month Sold',mS+' pcs','#ce93d8','#2a1a3a')
+    +'</div>';
+}
 async function renderStockKPIBar(){
   var el=document.getElementById('stockKpiBar'); if(!el) return;
   var raw2=localStorage.getItem('ctgstock_v2'); if(!raw2){el.innerHTML='';return;}
