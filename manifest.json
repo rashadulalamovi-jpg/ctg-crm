@@ -1,0 +1,31 @@
+{
+    "name": "CTG Click Shop CRM",
+    "short_name": "CTG CRM",
+    "description": "BD Dubai Wholesale Laptop Business — Intelligent CRM",
+    "start_url": "/ctg-crm/",
+    "scope": "/ctg-crm/",
+    "display": "standalone",
+    "orientation": "portrait-primary",
+    "background_color": "#080a0d",
+    "theme_color": "#e8211a",
+    "icons": [
+          {
+                  "src": "/ctg-crm/icon.svg",
+                  "sizes": "any",
+                  "type": "image/svg+xml",
+                  "purpose": "any"
+          },
+          {
+                  "src": "/ctg-crm/icon-maskable.svg",
+                  "sizes": "any",
+                  "type": "image/svg+xml",
+                  "purpose": "maskable"
+          }
+    ],
+    "shortcuts": [
+          { "name": "Pipeline", "url": "/ctg-crm/" },
+          { "name": "Sales", "url": "/ctg-crm/?s=invoice" },
+          { "name": "Stock Age", "url": "/ctg-crm/?s=stockage" },
+          { "name": "Dashboard", "url": "/ctg-crm/?s=dashboard" }
+    ]
+}
