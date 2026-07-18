@@ -6696,6 +6696,8 @@ function nwRenderAll() {
     console.error('[NW] renderAll error:', e);
   }
 }
+// Alias: goTo() calls renderAssetsDashboard — map to nwInit
+window.renderAssetsDashboard = nwInit;
 // NW-MODULE-JS-END
 
 // CUSTOMERS — Add/Edit form · Nav · renderAll · Init
