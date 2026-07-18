@@ -681,27 +681,28 @@ body{max-width:100vw;overflow-x:hidden!important}
 
 <!-- ═══ NET WORTH & GROWTH TRACKER ══════════════════════════ -->
 <!-- ═══ NET WORTH & GROWTH TRACKER ════════════════════════════════ -->
+<!-- NW-MODULE-START ════════════════════════════════════════════════ -->
 <div id="assetspage" class="sec">
   <div class="flex-between mb-14">
     <div>
       <div style="font-family:var(--fd);font-size:22px;font-weight:800">📈 Net Worth &amp; Growth Tracker</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:3px">Live Assets · Liabilities · Net Worth · Growth</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:3px">Live Assets · Liabilities · Net Worth</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <div id="nwSync" style="font-family:var(--fm);font-size:9px;color:var(--text3);white-space:nowrap"></div>
-      <button class="btn btn-o" onclick="nwOpenManualHub()" style="font-size:9px">✏️ Edit Manual Data</button>
-      <button class="btn btn-r" onclick="nwOpenSnapshotModal()" style="font-size:9px">📸 Save Snapshot</button>
+      <div id="nwManualTs" style="font-family:var(--fm);font-size:9px;color:var(--text3);white-space:nowrap"></div>
+      <button class="btn btn-r" onclick="nwOpenSnapshotModal()" style="font-size:9px">📸 Snapshot</button>
+      <button class="btn btn-o" onclick="nwOpenManualHub()" style="font-size:9px">✏️ Edit</button>
     </div>
   </div>
-  <div id="nwRateWarn" style="margin-bottom:10px"></div>
-  <div id="nwKpi1" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:10px"></div>
-  <div id="nwKpi2" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px"></div>
-  <div id="nwComplete" style="margin-bottom:14px"></div>
-  <div id="nwStatement" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px"></div>
-  <div id="nwBridge" style="margin-bottom:18px"></div>
-  <div id="nwCredit" style="margin-bottom:18px"></div>
-  <div id="nwCharts" style="margin-bottom:18px"></div>
-  <div id="nwHistory"></div>
+  <div id="nwKpiRow" style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+    <div id="nwAssetsCol" class="card" style="padding:14px"></div>
+    <div id="nwLiabCol" class="card" style="padding:14px"></div>
+  </div>
+  <div id="nwBridge" style="margin-bottom:14px"></div>
+  <div id="nwCredit" style="margin-bottom:14px"></div>
+  <div id="nwGrowth"></div>
 </div>
 
 <!-- NW: Manual Hub Modal -->
@@ -752,9 +753,8 @@ body{max-width:100vw;overflow-x:hidden!important}
     </div>
   </div>
 </div>
+<!-- NW-MODULE-END -->
 
-
-</div><!-- /main -->
 </div><!-- /app -->
 
 <!-- ═══ CUSTOMER DETAIL MODAL ════════════════════ -->
@@ -5509,10 +5509,7 @@ function updateExpType(){
   else if(cat==='return_fix') typ.value='return_fix';
   else typ.value='office';
 }
-
-
-// ═══════════════════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════════════════
+// NW-MODULE-JS-START ═══════════════════════════════════════════════
 // NET WORTH & GROWTH TRACKER — CTG Click Shop
 // Auto: stockBatches, customers, Dubai collections (read-only)
 // Manual: meta/netWorthConfig (read+write)
@@ -5535,7 +5532,6 @@ var _nwActiveEditor = null;
 function nwGetAedRate() {
   var r = parseFloat(localStorage.getItem('rate'));
   if (r && r > 0 && isFinite(r)) return r;
-  // derive from latest payment
   var pays = (_nwDubS.payments || []).filter(function(p) { return p.aed && p.bdt; });
   if (pays.length) {
     pays.sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
@@ -5795,7 +5791,6 @@ async function nwLoadConfig() {
 
 async function nwSaveConfig() {
   if (!_nwConfig) return;
-  // Collect form values from active editor
   var area = document.getElementById('nwEditorArea');
   if (area && _nwActiveEditor) {
     nwCollectEditorValues(area);
@@ -5928,7 +5923,6 @@ function nwCollectEditorValues(area) {
 // ── Snapshots ──────────────────────────────────────────────────────
 async function nwLoadSnapshots() {
   _nwSnaps = [];
-  // Migrate legacy localStorage
   try {
     var old = JSON.parse(localStorage.getItem('ctgassets_v1') || 'null');
     if (old && old.snapshots && old.snapshots.length) {
@@ -5941,7 +5935,7 @@ async function nwLoadSnapshots() {
   try {
     var snap = await fsdb.collection('meta')
       .where(firebase.firestore.FieldPath.documentId(), '>=', 'netWorthSnapshot_')
-      .where(firebase.firestore.FieldPath.documentId(), '<=', 'netWorthSnapshot_')
+      .where(firebase.firestore.FieldPath.documentId(), '<', 'netWorthSnapshot_z')
       .get();
     if (snap.docs.length) {
       _nwSnaps = snap.docs.map(function(d) { return d.data(); });
@@ -5972,8 +5966,8 @@ function nwUpdateSnapPreview() {
     + '<div>💵 Dubai Cash: <b>৳' + nwF(c.dubaiCashBDT) + '</b></div>'
     + '<div>🏦 Assets (Banker): <b style="color:var(--cyan)">৳' + nwF(c.assetsBanker) + '</b></div>'
     + '<div>📉 Liabilities: <b style="color:var(--red)">৳' + nwF(c.totalLiab) + '</b></div>'
-    + '<div>✅ NW Banker: <b style="color:' + (c.nwBanker >= 0 ? 'var(--green)' : 'var(--red)') + '">৳' + nwF(c.nwBanker) + '</b></div>'
-    + '<div>💡 NW Rich Dad: <b style="color:' + (c.nwRichDad >= 0 ? 'var(--green)' : 'var(--red)') + '">৳' + nwF(c.nwRichDad) + '</b></div>'
+    + '<div>✅ NW Banker: <b style="color:' + (c.nwBanker >= 0 ? 'var(--green,#10b981)' : 'var(--red)') + '">৳' + nwF(c.nwBanker) + '</b></div>'
+    + '<div>💡 NW Rich Dad: <b style="color:' + (c.nwRichDad >= 0 ? 'var(--green,#10b981)' : 'var(--red)') + '">৳' + nwF(c.nwRichDad) + '</b></div>'
     + '<div style="grid-column:1/-1;border-top:1px solid var(--border);padding-top:6px;margin-top:4px;color:var(--text3)">AED Rate: <b>' + c.rate + '</b></div>'
     + '</div>';
 }
@@ -6001,7 +5995,7 @@ async function nwConfirmSnapshot() {
       dubaiAvailCashAED: dcs.aed, dubaiAvailCashBDT: dcs.bdt,
       bankCash: c.bankCash, cashInHand: c.cashInHand,
       sipMarketValue: c.sipVal, shareMarketValue: c.shareVal, personalAssetsValue: c.personalVal,
-      totalProductiveAssets: c.assetsRichDad, totalAssetsBanker: c.assetsBanker,
+      totalProductiveAssets: c.productive, totalAssetsBanker: c.assetsBanker,
       totalAssetsRichDad: c.assetsRichDad, manualStLiab: c.manualStLiab,
       nejamDue: nej.amount, cityCardOutstanding: c.cityCard, eblCardOutstanding: c.eblCard,
       bracLoanOutstanding: c.bracLoan,
@@ -6013,7 +6007,7 @@ async function nwConfirmSnapshot() {
     closeModal('nwSnapModal');
     notify('✅ Snapshot saved: ' + month);
     await nwLoadSnapshots();
-    nwRenderHistory();
+    nwRenderGrowth();
   } catch (e) {
     console.error('[NW] snapshot', e);
     notify('⚠️ Save error: ' + e.message);
@@ -6030,7 +6024,6 @@ function nwComputeAll() {
   var dcs  = nwCalcDubaiCash();
   var nej  = nwCalcNejamDue();
 
-  // Bank cash
   var bankCash = 0;
   (cfg.banks || []).forEach(function(b) {
     if (b.balance === null || b.balance === undefined) return;
@@ -6039,7 +6032,6 @@ function nwComputeAll() {
     bankCash += v;
   });
 
-  // Cash in hand
   var cashInHand = 0;
   (cfg.cashInHand || []).forEach(function(c) {
     if (c.id === 'duboff' && !cfg.dubaiCashSeparate) return;
@@ -6053,8 +6045,8 @@ function nwComputeAll() {
   var shareVal   = parseFloat((cfg.share || {}).marketValue) || 0;
   var personalVal = (cfg.personalAssets || []).reduce(function(s, a) { return s + (parseFloat(a.resaleValue) || 0); }, 0);
 
-  var productive   = inv.value + rec.amount + pip.bdt + dcs.bdt + bankCash + cashInHand + sipVal + shareVal;
-  var assetsBanker = productive + personalVal;
+  var productive    = inv.value + rec.amount + pip.bdt + dcs.bdt + bankCash + cashInHand + sipVal + shareVal;
+  var assetsBanker  = productive + personalVal;
   var assetsRichDad = productive;
 
   var manualStLiab = (cfg.stLiabilities || []).reduce(function(s, l) { return s + (parseFloat(l.amount) || 0); }, 0);
@@ -6066,9 +6058,9 @@ function nwComputeAll() {
   var stLiab    = manualStLiab + nej.amount + cityCard + eblCard;
   var fixedLiab = bracLoan + otherFixed;
   var totalLiab = stLiab + fixedLiab;
-  var nwBanker   = assetsBanker - totalLiab;
-  var nwRichDad  = assetsRichDad - totalLiab;
-  var liabRatio  = assetsBanker > 0 ? Math.round(totalLiab / assetsBanker * 100) : 0;
+  var nwBanker  = assetsBanker - totalLiab;
+  var nwRichDad = assetsRichDad - totalLiab;
+  var liabRatio = assetsBanker > 0 ? Math.round(totalLiab / assetsBanker * 100) : 0;
 
   return {
     ctgQty: inv.qty, ctgValue: inv.value, ctgStatus: inv.status,
@@ -6099,11 +6091,11 @@ function nwFBDT(n) {
 }
 function nwBadge(status) {
   var map = {
-    'AUTO':        '<span style="background:rgba(16,185,129,.12);color:#10b981;border:1px solid rgba(16,185,129,.35);font-family:var(--fm);font-size:7px;font-weight:700;padding:1px 5px;border-radius:3px">AUTO</span>',
-    'MANUAL':      '<span style="background:rgba(34,211,238,.1);color:var(--cyan);border:1px solid rgba(34,211,238,.35);font-family:var(--fm);font-size:7px;font-weight:700;padding:1px 5px;border-radius:3px">MANUAL</span>',
-    'NOT_UPDATED': '<span style="background:rgba(245,158,11,.1);color:#f59e0b;border:1px solid rgba(245,158,11,.35);font-family:var(--fm);font-size:7px;font-weight:700;padding:1px 5px;border-radius:3px">NOT UPDATED</span>',
-    'SYNC_ERROR':  '<span style="background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.35);font-family:var(--fm);font-size:7px;font-weight:700;padding:1px 5px;border-radius:3px">SYNC ERROR</span>',
-    'LOADING':     '<span style="background:rgba(15,23,42,.05);color:var(--text3);border:1px solid var(--border);font-family:var(--fm);font-size:7px;font-weight:700;padding:1px 5px;border-radius:3px">LOADING</span>'
+    'AUTO':        '<span style="background:rgba(16,185,129,.12);color:#10b981;border:1px solid rgba(16,185,129,.35);font-family:var(--fm);font-size:7px;font-weight:700;padding:1px 5px;border-radius:3px;white-space:nowrap">AUTO</span>',
+    'MANUAL':      '<span style="background:rgba(34,211,238,.1);color:var(--cyan);border:1px solid rgba(34,211,238,.35);font-family:var(--fm);font-size:7px;font-weight:700;padding:1px 5px;border-radius:3px;white-space:nowrap">MANUAL</span>',
+    'NOT_UPDATED': '<span style="background:rgba(245,158,11,.1);color:#f59e0b;border:1px solid rgba(245,158,11,.35);font-family:var(--fm);font-size:7px;font-weight:700;padding:1px 5px;border-radius:3px;white-space:nowrap">NOT UPDATED</span>',
+    'SYNC_ERROR':  '<span style="background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.35);font-family:var(--fm);font-size:7px;font-weight:700;padding:1px 5px;border-radius:3px;white-space:nowrap">SYNC ERROR</span>',
+    'LOADING':     '<span style="background:rgba(15,23,42,.05);color:var(--text3);border:1px solid var(--border);font-family:var(--fm);font-size:7px;font-weight:700;padding:1px 5px;border-radius:3px;white-space:nowrap">LOADING</span>'
   };
   return map[status] || map['MANUAL'];
 }
@@ -6114,360 +6106,350 @@ function nwSetSync(msg) {
   if (el) el.textContent = msg;
 }
 
-// ── Rate warning ───────────────────────────────────────────────────
-function nwRenderRateWarn(c) {
-  var el = document.getElementById('nwRateWarn'); if (!el) return;
-  if (nwRateIsDefault()) {
-    el.innerHTML = '<div style="background:rgba(245,158,11,.08);border:1px solid #f59e0b;border-radius:8px;padding:8px 14px;font-size:11px;color:#f59e0b">⚠️ AED Rate not found — using default <b>34.20</b>. Dubai Finance Hub-এ rate confirm করুন।</div>';
-  } else {
-    el.innerHTML = '';
-  }
-}
+// ── RENDER: KPI Row (6 cards + completeness) ───────────────────────
+function nwRenderKpiRow(c) {
+  var el = document.getElementById('nwKpiRow');
+  if (!el) return;
+  var cfg = _nwConfig || {};
 
-// ── KPI Row 1 ──────────────────────────────────────────────────────
-function nwRenderKpi1(c) {
-  var el = document.getElementById('nwKpi1'); if (!el) return;
+  var checks = [
+    (cfg.banks || []).some(function(b) { return b.balance !== null; }),
+    (cfg.cashInHand || []).some(function(x) { return x.amount !== null; }),
+    !!(cfg.sip && cfg.sip.marketValue !== null),
+    !!(cfg.share && cfg.share.marketValue !== null),
+    !!(cfg.cityCard && cfg.cityCard.updatedAt !== null),
+    !!(cfg.eblCard && cfg.eblCard.updatedAt !== null),
+    !!(cfg.bracLoan && cfg.bracLoan.updatedAt !== null)
+  ];
+  var done = 0;
+  checks.forEach(function(x) { if (x) done++; });
+  var pct = Math.round(done / checks.length * 100);
+  var barFilled = Math.round(pct / 10);
+  var barColor = pct >= 80 ? '#10b981' : pct >= 50 ? '#f59e0b' : 'var(--red)';
+  var barHtml = '';
+  for (var bi = 0; bi < 10; bi++) {
+    barHtml += '<div style="flex:1;height:5px;border-radius:2px;background:' + (bi < barFilled ? barColor : 'rgba(15,23,42,.15)') + '"></div>';
+  }
+
+  var rateWarn = nwRateIsDefault()
+    ? '<div style="font-family:var(--fm);font-size:8px;color:#f59e0b;margin-top:2px">⚠️ Default rate 34.20</div>'
+    : '';
+
   var prev = _nwSnaps.length ? _nwSnaps[_nwSnaps.length - 1] : null;
-  function delta(cur, prevVal) {
-    if (!prev || prevVal === undefined || prevVal === null) return '';
-    var d = cur - prevVal;
-    var pct = prevVal !== 0 ? Math.round(d / Math.abs(prevVal) * 100) : 0;
-    var col = d >= 0 ? '#10b981' : 'var(--red)';
-    return '<div style="font-family:var(--fm);font-size:9px;color:' + col + ';margin-top:2px">' + (d >= 0 ? '▲' : '▼') + ' ৳' + nwF(Math.abs(d)) + ' (' + pct + '%) vs last snap</div>';
+  function dlt(cur, pv) {
+    if (!prev || pv == null) return '';
+    var d = cur - pv;
+    if (d === 0) return '';
+    var col = d > 0 ? '#10b981' : 'var(--red)';
+    return '<div style="font-family:var(--fm);font-size:8px;color:' + col + ';margin-top:1px">' + (d > 0 ? '▲' : '▼') + ' ৳' + nwF(Math.abs(d)) + '</div>';
   }
-  var cards = [
-    { label: 'Total Assets (Banker)', val: nwFBDT(c.assetsBanker), color: 'var(--cyan)', d: delta(c.assetsBanker, prev && prev.totalAssetsBanker) },
-    { label: 'Total Liabilities',     val: nwFBDT(c.totalLiab),    color: 'var(--red)',  d: delta(c.totalLiab, prev && prev.totalLiabilities) },
-    { label: 'Net Worth (Banker)',     val: nwFBDT(c.nwBanker),     color: c.nwBanker  >= 0 ? '#10b981' : 'var(--red)', d: delta(c.nwBanker, prev && prev.netWorthBanker) },
-    { label: 'Net Worth (Rich Dad)',   val: nwFBDT(c.nwRichDad),    color: c.nwRichDad >= 0 ? '#10b981' : 'var(--red)', d: delta(c.nwRichDad, prev && prev.netWorthRichDad) }
-  ];
-  el.innerHTML = cards.map(function(card) {
-    return '<div class="kpi-card"><div class="kpi-label">' + card.label + '</div>'
-      + '<div style="font-family:var(--fm);font-size:20px;font-weight:800;color:' + card.color + '">' + card.val + '</div>'
-      + (card.d || '') + '</div>';
-  }).join('');
-}
 
-// ── KPI Row 2 ──────────────────────────────────────────────────────
-function nwRenderKpi2(c) {
-  var el = document.getElementById('nwKpi2'); if (!el) return;
-  var ratioColor = c.liabRatio < 40 ? '#10b981' : c.liabRatio < 70 ? '#f59e0b' : 'var(--red)';
-  var cards = [
-    { label: 'Productive Assets',   val: '৳' + nwF(c.productive),   color: 'var(--blue)' },
-    { label: 'Bank Cash',           val: '৳' + nwF(c.bankCash),     color: 'var(--text)' },
-    { label: 'Dubai Pipeline',      val: '৳' + nwF(c.dubaiPipBDT),  color: 'var(--purple, #a855f7)' },
-    { label: 'A/C Receivable',      val: '৳' + nwF(c.receivable),   color: 'var(--orange, #f97316)' },
-    { label: 'Liab/Asset Ratio',    val: c.liabRatio + '%',          color: ratioColor }
+  var kpis = [
+    {
+      label: 'Banker Assets', val: nwFBDT(c.assetsBanker), color: 'var(--cyan)',
+      sub: dlt(c.assetsBanker, prev && prev.totalAssetsBanker) + rateWarn
+    },
+    {
+      label: 'Liabilities', val: nwFBDT(c.totalLiab), color: 'var(--red)',
+      sub: dlt(c.totalLiab, prev && prev.totalLiabilities)
+    },
+    {
+      label: 'NW (Banker)', val: nwFBDT(c.nwBanker), color: c.nwBanker >= 0 ? '#10b981' : 'var(--red)',
+      sub: dlt(c.nwBanker, prev && prev.netWorthBanker)
+    },
+    {
+      label: 'NW (Rich Dad)', val: nwFBDT(c.nwRichDad), color: c.nwRichDad >= 0 ? '#10b981' : 'var(--red)',
+      sub: dlt(c.nwRichDad, prev && prev.netWorthRichDad)
+    },
+    {
+      label: 'Productive', val: '৳' + nwF(c.productive), color: 'var(--blue)',
+      sub: '<div style="font-family:var(--fm);font-size:8px;color:var(--text3);margin-top:1px">Liab/Asset: ' + c.liabRatio + '%</div>'
+    },
+    {
+      label: 'Completeness', val: pct + '%', color: barColor,
+      sub: '<div style="display:flex;gap:2px;margin-top:5px">' + barHtml + '</div>'
+         + '<div style="font-family:var(--fm);font-size:8px;color:var(--text3);margin-top:2px">' + done + '/7 updated · <a onclick="nwOpenManualHub()" style="color:var(--cyan);cursor:pointer">Edit →</a></div>'
+    }
   ];
-  el.innerHTML = cards.map(function(card) {
-    return '<div class="kpi-card"><div class="kpi-label">' + card.label + '</div>'
-      + '<div style="font-family:var(--fm);font-size:15px;font-weight:700;color:' + card.color + '">' + card.val + '</div>'
+
+  el.innerHTML = kpis.map(function(k) {
+    return '<div class="kpi-card">'
+      + '<div class="kpi-label">' + k.label + '</div>'
+      + '<div style="font-family:var(--fm);font-size:16px;font-weight:800;color:' + k.color + ';margin-top:3px">' + k.val + '</div>'
+      + (k.sub || '')
       + '</div>';
   }).join('');
 }
 
-// ── Completeness warning ───────────────────────────────────────────
-function nwRenderComplete(c) {
-  var el = document.getElementById('nwComplete'); if (!el) return;
-  var cfg = _nwConfig || {};
-  var checks = [
-    { label: 'Bank Balances', ok: (cfg.banks || []).some(function(b) { return b.balance !== null; }) },
-    { label: 'Cash in Hand',  ok: (cfg.cashInHand || []).some(function(x) { return x.amount !== null; }) },
-    { label: 'SIP',           ok: cfg.sip && cfg.sip.marketValue !== null },
-    { label: 'Shares',        ok: cfg.share && cfg.share.marketValue !== null },
-    { label: 'City Card',     ok: cfg.cityCard && cfg.cityCard.updatedAt !== null },
-    { label: 'EBL Card',      ok: cfg.eblCard && cfg.eblCard.updatedAt !== null },
-    { label: 'BRAC Loan',     ok: cfg.bracLoan && cfg.bracLoan.updatedAt !== null }
-  ];
-  var missing = checks.filter(function(x) { return !x.ok; });
-  if (!missing.length) { el.innerHTML = ''; return; }
-  el.innerHTML = '<div style="background:rgba(245,158,11,.08);border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;font-size:11px;color:#f59e0b">'
-    + '<b>⚠️ Net Worth Incomplete</b> — '
-    + missing.map(function(m) { return m.label; }).join(', ')
-    + ' update করা হয়নি। '
-    + '<a onclick="nwOpenManualHub()" style="color:var(--cyan);cursor:pointer;text-decoration:underline">Edit করুন →</a></div>';
-}
-
-// ── Financial Statement ───────────────────────────────────────────
-function nwRenderStatement(c) {
-  var el = document.getElementById('nwStatement'); if (!el) return;
+// ── RENDER: Two-column Statement ───────────────────────────────────
+function nwRenderStatement2(c) {
+  var aEl = document.getElementById('nwAssetsCol');
+  var lEl = document.getElementById('nwLiabCol');
+  if (!aEl || !lEl) return;
   var cfg = _nwConfig || {};
   var rate = c.rate;
 
-  function secTitle(t) {
-    return '<div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);padding:10px 0 4px;border-bottom:2px solid var(--border)">' + t + '</div>';
+  function sh(t) {
+    return '<div style="font-size:8px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text3);padding:5px 0 4px;border-bottom:1px solid var(--border);margin:8px 0 5px">' + t + '</div>';
   }
-  function row(emoji, label, badge, valueHtml, sub, editFn) {
-    return '<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(15,23,42,.05)">'
-      + '<div style="flex:1;min-width:0">'
-      + '<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">'
+  function ir(emoji, label, badge, val, sub) {
+    return '<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(15,23,42,.04)">'
+      + '<div style="flex:1;min-width:0;margin-right:6px">'
+      + '<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
       + '<span>' + emoji + '</span><span style="font-size:11px;font-weight:600">' + label + '</span>' + nwBadge(badge)
       + '</div>'
-      + (sub ? '<div style="font-family:var(--fm);font-size:9px;color:var(--text3);margin-top:1px">' + sub + '</div>' : '')
+      + (sub ? '<div style="font-family:var(--fm);font-size:9px;color:var(--text3)">' + sub + '</div>' : '')
       + '</div>'
-      + '<div style="display:flex;align-items:center;gap:5px;flex-shrink:0;margin-left:8px">'
-      + '<span style="font-family:var(--fm);font-size:12px;font-weight:700">' + valueHtml + '</span>'
-      + (editFn ? '<button onclick="' + editFn + '" style="width:20px;height:20px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);border-radius:3px;cursor:pointer;color:var(--blue);font-size:9px;padding:0;flex-shrink:0">✏</button>' : '')
-      + '</div></div>';
+      + '<span style="font-family:var(--fm);font-size:11px;font-weight:700;flex-shrink:0">' + val + '</span>'
+      + '</div>';
   }
-  function subtotal(label, val, color) {
-    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:rgba(15,23,42,.03);border-radius:5px;margin-top:4px">'
-      + '<span style="font-family:var(--fd);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">' + label + '</span>'
-      + '<span style="font-family:var(--fm);font-size:13px;font-weight:800;color:' + color + '">৳' + nwF(val) + '</span></div>';
+  function stRow(label, val, color, big) {
+    var fs = big ? '13px' : '11px';
+    var fw = big ? '800' : '700';
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:rgba(15,23,42,.04);border-radius:4px;margin-top:4px' + (big ? ';border-top:2px solid var(--border)' : '') + '">'
+      + '<span style="font-size:' + (big ? '11px' : '10px') + ';font-weight:' + fw + '">' + label + '</span>'
+      + '<span style="font-family:var(--fm);font-size:' + fs + ';font-weight:' + fw + ';color:' + color + '">' + val + '</span>'
+      + '</div>';
   }
 
-  // ASSETS
-  var A = '<div class="card">';
-  A += '<div style="font-family:var(--fd);font-size:11px;font-weight:800;color:#10b981;margin-bottom:12px">📊 ASSETS <small style="font-size:9px;color:var(--text3);font-weight:400">All values BDT</small></div>';
+  // ── ASSETS ─────────────────────────────────────────────────────
+  var A = '<div style="font-size:11px;font-weight:800;color:#10b981;margin-bottom:8px">📊 ASSETS <small style="font-size:9px;font-weight:400;color:var(--text3)">All BDT</small></div>';
 
-  A += secTitle('Auto — Operating Assets');
-  A += row('📦', 'CTG Stock (FIFO)', c.ctgStatus, '৳' + nwF(c.ctgValue), c.ctgQty + ' pcs available', '');
-  A += row('💳', 'A/C Receivable', c.recStatus, '৳' + nwF(c.receivable), c.recCount + ' due invoices', '');
-  A += row('🎯', 'Dubai Pipeline', c.pipStatus, '৳' + nwF(c.dubaiPipBDT), c.dubaiPipPcs + ' pcs · AED ' + nwF(c.dubaiPipAED), '');
-  A += row('💵', 'Dubai Available Cash', c.cashStatus, '৳' + nwF(c.dubaiCashBDT), 'AED ' + nwF(c.dubaiCashAED) + ' × ' + rate, '');
+  A += sh('Auto — Business');
+  A += ir('📦', 'CTG Inventory', c.ctgStatus, '৳' + nwF(c.ctgValue), c.ctgQty + ' pcs · FIFO');
+  A += ir('💳', 'A/C Receivable', c.recStatus, '৳' + nwF(c.receivable), c.recCount + ' invoices due');
+  A += ir('🎯', 'Dubai Pipeline', c.pipStatus, '৳' + nwF(c.dubaiPipBDT), c.dubaiPipPcs + ' pcs · AED ' + nwF(c.dubaiPipAED));
+  A += ir('💵', 'Dubai Cash', c.cashStatus, '৳' + nwF(c.dubaiCashBDT), 'AED ' + nwF(c.dubaiCashAED) + ' @ ' + rate);
 
-  A += secTitle('Manual — Bank Cash');
-  var hasBankVal = false;
+  A += sh('Manual — Bank Cash');
+  var bankUpdated = (cfg.banks || []).some(function(b) { return b.balance !== null; });
+  var shownBanks = 0;
   (cfg.banks || []).forEach(function(b) {
-    var dispVal, bStatus;
-    if (b.balance === null) {
-      dispVal = '<span style="color:#f59e0b">Not Updated</span>';
-      bStatus = 'NOT_UPDATED';
-    } else {
-      hasBankVal = true;
-      var v = parseFloat(b.balance) || 0;
-      if (b.currency === 'AED') {
-        dispVal = 'AED ' + nwF(v) + ' <small style="color:var(--text3)">≈ ৳' + nwF(Math.round(v * rate)) + '</small>';
-      } else {
-        dispVal = '৳' + nwF(v);
-      }
-      bStatus = 'MANUAL';
-    }
-    A += row('🏦', b.name, bStatus, dispVal, b.updatedAt ? new Date(b.updatedAt).toLocaleDateString('en-BD', { month: 'short', day: 'numeric' }) : '', 'nwOpenEditor("bank")');
+    if (b.balance === null) return;
+    shownBanks++;
+    var v = parseFloat(b.balance) || 0;
+    var valStr = b.currency === 'AED' ? '≈৳' + nwF(Math.round(v * rate)) : '৳' + nwF(v);
+    A += ir('🏦', b.name, 'MANUAL', valStr, b.currency === 'AED' ? 'AED ' + nwF(v) : (b.updatedAt ? new Date(b.updatedAt).toLocaleDateString('en-BD', {month:'short',day:'numeric'}) : ''));
   });
-  if (!hasBankVal) A += '<div style="padding:6px;color:var(--text3);font-size:10px">কোনো bank balance enter করা হয়নি।</div>';
-  A += subtotal('Total Bank Cash', c.bankCash, 'var(--text)');
+  if (!bankUpdated) A += '<div style="font-size:10px;color:#f59e0b;padding:3px 0">Not updated · <a onclick="nwOpenEditor(\'bank\')" style="color:var(--cyan);cursor:pointer">Add →</a></div>';
+  A += stRow('Bank Cash', '৳' + nwF(c.bankCash), 'var(--text)', false);
 
-  A += secTitle('Manual — Cash in Hand');
-  (cfg.cashInHand || []).forEach(function(ci) {
-    if (ci.id === 'duboff' && !cfg.dubaiCashSeparate) return;
-    var dispVal, ciStatus;
-    if (ci.amount === null) {
-      dispVal = '<span style="color:#f59e0b">Not Updated</span>';
-      ciStatus = 'NOT_UPDATED';
-    } else {
-      var v = parseFloat(ci.amount) || 0;
-      dispVal = ci.currency === 'AED' ? 'AED ' + nwF(v) + ' <small>≈ ৳' + nwF(Math.round(v * rate)) + '</small>' : '৳' + nwF(v);
-      ciStatus = 'MANUAL';
-    }
-    A += row('💰', ci.label, ciStatus, dispVal, '', 'nwOpenEditor("cash")');
+  A += sh('Manual — Cash in Hand');
+  var cashUpdated = false;
+  (cfg.cashInHand || []).forEach(function(ch) {
+    if (ch.id === 'duboff' && !cfg.dubaiCashSeparate) return;
+    if (ch.amount === null) return;
+    cashUpdated = true;
+    var v = parseFloat(ch.amount) || 0;
+    var valStr = ch.currency === 'AED' ? '≈৳' + nwF(Math.round(v * rate)) : '৳' + nwF(v);
+    A += ir('💰', ch.label, 'MANUAL', valStr, '');
   });
-  A += subtotal('Total Cash in Hand', c.cashInHand, 'var(--text)');
+  if (!cashUpdated) A += '<div style="font-size:10px;color:#f59e0b;padding:3px 0">Not updated · <a onclick="nwOpenEditor(\'cash\')" style="color:var(--cyan);cursor:pointer">Add →</a></div>';
+  A += stRow('Cash in Hand', '৳' + nwF(c.cashInHand), 'var(--text)', false);
 
-  A += secTitle('Manual — Investments');
-  A += row('📊', 'SIP (Mutual Fund)',
-    cfg.sip && cfg.sip.marketValue !== null ? 'MANUAL' : 'NOT_UPDATED',
-    cfg.sip && cfg.sip.marketValue !== null ? '৳' + nwF(cfg.sip.marketValue) : '<span style="color:#f59e0b">Not Updated</span>',
-    cfg.sip && cfg.sip.invested ? 'Invested: ৳' + nwF(cfg.sip.invested) : '', 'nwOpenEditor("invest")');
-  A += row('📈', 'Shares',
-    cfg.share && cfg.share.marketValue !== null ? 'MANUAL' : 'NOT_UPDATED',
-    cfg.share && cfg.share.marketValue !== null ? '৳' + nwF(cfg.share.marketValue) : '<span style="color:#f59e0b">Not Updated</span>',
-    cfg.share && cfg.share.cost ? 'Cost: ৳' + nwF(cfg.share.cost) : '', 'nwOpenEditor("invest")');
+  A += sh('Manual — Investments');
+  A += ir('📊', 'SIP', cfg.sip && cfg.sip.marketValue !== null ? 'MANUAL' : 'NOT_UPDATED',
+    cfg.sip && cfg.sip.marketValue !== null ? '৳' + nwF(cfg.sip.marketValue) : '—',
+    cfg.sip && cfg.sip.invested ? 'Cost ৳' + nwF(cfg.sip.invested) : '');
+  A += ir('📈', 'Shares', cfg.share && cfg.share.marketValue !== null ? 'MANUAL' : 'NOT_UPDATED',
+    cfg.share && cfg.share.marketValue !== null ? '৳' + nwF(cfg.share.marketValue) : '—',
+    cfg.share && cfg.share.cost ? 'Cost ৳' + nwF(cfg.share.cost) : '');
 
-  A += secTitle('Manual — Personal / Doodads (Banker only)');
-  if (!cfg.personalAssets || !cfg.personalAssets.length) {
-    A += '<div style="padding:6px;color:var(--text3);font-size:10px">কোনো personal asset নেই। <a onclick="nwOpenEditor(\'personal\')" style="color:var(--cyan);cursor:pointer">Add করুন →</a></div>';
-  } else {
-    (cfg.personalAssets || []).forEach(function(a) {
-      A += row('💻', a.name, 'MANUAL', '৳' + nwF(a.resaleValue), a.note || 'Resale value', 'nwOpenEditor("personal")');
+  A += sh('Manual — Personal / Doodads');
+  if (cfg.personalAssets && cfg.personalAssets.length) {
+    cfg.personalAssets.forEach(function(a) {
+      A += ir('💻', a.name, 'MANUAL', '৳' + nwF(a.resaleValue), a.note || 'Resale · Banker only');
     });
-  }
-  A += subtotal('Total Personal Assets', c.personalVal, 'var(--text)');
-
-  A += '<div style="margin-top:10px"></div>';
-  A += subtotal('TOTAL ASSETS (BANKER)', c.assetsBanker, 'var(--cyan)');
-  A += '<div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:5px;padding:6px 10px;margin-top:5px;font-family:var(--fm);font-size:10px">'
-    + '<span style="color:var(--text3)">Total Assets (Rich Dad):</span> <span style="font-weight:700;color:var(--blue)">৳' + nwF(c.assetsRichDad) + '</span>'
-    + ' <span style="color:var(--text3);font-size:9px">(Personal assets excluded)</span></div>';
-  A += '</div>';
-
-  // LIABILITIES
-  var L = '<div class="card">';
-  L += '<div style="font-family:var(--fd);font-size:11px;font-weight:800;color:var(--red);margin-bottom:12px">📉 LIABILITIES</div>';
-
-  L += secTitle('Short-Term Liabilities');
-  L += row('👨', 'Nejam Commission Due', c.nejStatus, '৳' + nwF(c.nejamDue), 'Opening + earned − paid', '');
-  if (!cfg.stLiabilities || !cfg.stLiabilities.length) {
-    L += '<div style="padding:6px;color:var(--text3);font-size:10px">কোনো other liability নেই। <a onclick="nwOpenEditor(\'stliab\')" style="color:var(--cyan);cursor:pointer">Add করুন →</a></div>';
   } else {
-    (cfg.stLiabilities || []).forEach(function(l) {
-      L += row('📋', l.name, 'MANUAL', '৳' + nwF(l.amount), l.person || '', 'nwOpenEditor("stliab")');
-    });
+    A += '<div style="font-size:10px;color:var(--text3);padding:3px 0">None · <a onclick="nwOpenEditor(\'personal\')" style="color:var(--cyan);cursor:pointer">Add →</a></div>';
   }
-  L += subtotal('Short-Term Subtotal', c.stLiab - c.cityCard - c.eblCard, 'var(--text)');
+  A += stRow('Personal Assets', '৳' + nwF(c.personalVal), 'var(--text)', false);
 
-  L += secTitle('Credit Card Outstanding');
-  L += '<div style="font-size:9px;color:#f59e0b;padding:4px 0 6px">⚠️ Card limit assets-এ count হয় না। শুধু outstanding amount liability।</div>';
-  L += row('💳', 'City Bank Credit Card', cfg.cityCard && cfg.cityCard.updatedAt ? 'MANUAL' : 'NOT_UPDATED',
-    cfg.cityCard && cfg.cityCard.updatedAt ? '৳' + nwF(c.cityCard) : '<span style="color:#f59e0b">Not Updated</span>',
-    'Limit ৳3,50,000' + (cfg.cityCard && cfg.cityCard.dueDate ? ' · Due: ' + cfg.cityCard.dueDate : ''), 'nwOpenEditor("card")');
-  L += row('💳', 'EBL Credit Card', cfg.eblCard && cfg.eblCard.updatedAt ? 'MANUAL' : 'NOT_UPDATED',
-    cfg.eblCard && cfg.eblCard.updatedAt ? '৳' + nwF(c.eblCard) : '<span style="color:#f59e0b">Not Updated</span>',
-    'Limit ৳3,00,000' + (cfg.eblCard && cfg.eblCard.dueDate ? ' · Due: ' + cfg.eblCard.dueDate : ''), 'nwOpenEditor("card")');
-  L += subtotal('Total Card Outstanding', c.cityCard + c.eblCard, 'var(--red)');
+  A += '<div style="margin-top:8px"></div>';
+  A += stRow('Total Assets (Rich Dad)', '৳' + nwF(c.assetsRichDad), 'var(--blue)', true);
+  A += stRow('Total Assets (Banker)', '৳' + nwF(c.assetsBanker), 'var(--cyan)', true);
 
-  L += secTitle('Fixed Liabilities');
-  L += row('🏛', 'BRAC Bank SME Loan', cfg.bracLoan && cfg.bracLoan.updatedAt ? 'MANUAL' : 'NOT_UPDATED',
-    cfg.bracLoan && cfg.bracLoan.updatedAt ? '৳' + nwF(c.bracLoan) : '<span style="color:#f59e0b">Not Updated</span>',
-    cfg.bracLoan && cfg.bracLoan.monthlyEmi ? 'EMI: ৳' + nwF(cfg.bracLoan.monthlyEmi) + ' × ' + (cfg.bracLoan.remainingMonths || '?') + 'mo' : '', 'nwOpenEditor("loan")');
+  // ── LIABILITIES ────────────────────────────────────────────────
+  var L = '<div style="font-size:11px;font-weight:800;color:var(--red);margin-bottom:8px">📉 LIABILITIES</div>';
+
+  L += sh('Short-Term');
+  if (cfg.stLiabilities && cfg.stLiabilities.length) {
+    cfg.stLiabilities.forEach(function(l) {
+      L += ir('📋', l.name, 'MANUAL', '৳' + nwF(l.amount), l.person || '');
+    });
+  } else {
+    L += '<div style="font-size:10px;color:var(--text3);padding:3px 0">None · <a onclick="nwOpenEditor(\'stliab\')" style="color:var(--cyan);cursor:pointer">Add →</a></div>';
+  }
+  L += ir('👤', 'Nejam Due', c.nejStatus, '৳' + nwF(c.nejamDue), 'Commission outstanding');
+  L += ir('💳', 'City Card', cfg.cityCard && cfg.cityCard.updatedAt ? 'MANUAL' : 'NOT_UPDATED',
+    cfg.cityCard && cfg.cityCard.updatedAt ? '৳' + nwF(c.cityCard) : '—',
+    'Limit ৳3,50,000' + (cfg.cityCard && cfg.cityCard.dueDate ? ' · Due ' + cfg.cityCard.dueDate : ''));
+  L += ir('💳', 'EBL Card', cfg.eblCard && cfg.eblCard.updatedAt ? 'MANUAL' : 'NOT_UPDATED',
+    cfg.eblCard && cfg.eblCard.updatedAt ? '৳' + nwF(c.eblCard) : '—',
+    'Limit ৳3,00,000' + (cfg.eblCard && cfg.eblCard.dueDate ? ' · Due ' + cfg.eblCard.dueDate : ''));
+  L += stRow('Short-Term Total', '৳' + nwF(c.stLiab), '#f59e0b', false);
+
+  L += sh('Fixed Liabilities');
+  L += ir('🏛', 'BRAC Loan', cfg.bracLoan && cfg.bracLoan.updatedAt ? 'MANUAL' : 'NOT_UPDATED',
+    cfg.bracLoan && cfg.bracLoan.updatedAt ? '৳' + nwF(c.bracLoan) : '—',
+    cfg.bracLoan && cfg.bracLoan.monthlyEmi ? 'EMI ৳' + nwF(cfg.bracLoan.monthlyEmi) + ' × ' + (cfg.bracLoan.remainingMonths || '?') + 'mo' : '');
   (cfg.otherFixedLiab || []).forEach(function(l) {
-    L += row('📄', l.name, 'MANUAL', '৳' + nwF(l.amount), '', 'nwOpenEditor("loan")');
+    L += ir('📄', l.name, 'MANUAL', '৳' + nwF(l.amount), '');
   });
-  L += subtotal('Total Fixed Liabilities', c.fixedLiab, 'var(--red)');
+  L += stRow('Fixed Total', '৳' + nwF(c.fixedLiab), '#f97316', false);
 
-  L += '<div style="margin-top:10px"></div>';
-  L += subtotal('TOTAL LIABILITIES', c.totalLiab, 'var(--red)');
-  L += '</div>';
+  L += '<div style="margin-top:8px"></div>';
+  L += stRow('TOTAL LIABILITIES', '৳' + nwF(c.totalLiab), 'var(--red)', true);
 
-  el.innerHTML = A + L;
+  aEl.innerHTML = A;
+  lEl.innerHTML = L;
 }
 
-// ── Net Worth Bridge ───────────────────────────────────────────────
+// ── RENDER: Net Worth Bridge ───────────────────────────────────────
 function nwRenderBridge(c) {
-  var el = document.getElementById('nwBridge'); if (!el) return;
+  var el = document.getElementById('nwBridge');
+  if (!el) return;
   var bCol = c.nwBanker  >= 0 ? '#10b981' : 'var(--red)';
   var rCol = c.nwRichDad >= 0 ? '#10b981' : 'var(--red)';
-  el.innerHTML = '<div class="card"><div style="font-family:var(--fd);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--text3);margin-bottom:14px">📐 Net Worth Calculation Bridge</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">'
-    + '<div><div style="font-family:var(--fd);font-size:9px;font-weight:700;color:var(--cyan);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Per Banker (Full Assets)</div>'
-    + '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span style="font-size:11px;color:var(--text2)">Total Assets (Banker)</span><span style="font-family:var(--fm);font-weight:700;color:var(--cyan)">৳' + nwF(c.assetsBanker) + '</span></div>'
-    + '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span style="font-size:11px;color:var(--text2)">− Total Liabilities</span><span style="font-family:var(--fm);font-weight:700;color:var(--red)">৳' + nwF(c.totalLiab) + '</span></div>'
-    + '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.2);border-radius:7px;margin-top:6px">'
-    + '<span style="font-family:var(--fd);font-size:10px;font-weight:800">= Net Worth (Banker)</span>'
-    + '<span style="font-family:var(--fm);font-size:17px;font-weight:800;color:' + bCol + '">' + nwFBDT(c.nwBanker) + '</span></div></div>'
-    + '<div><div style="font-family:var(--fd);font-size:9px;font-weight:700;color:var(--blue);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Per Rich Dad (Productive Only)</div>'
-    + '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span style="font-size:11px;color:var(--text2)">Productive Assets</span><span style="font-family:var(--fm);font-weight:700;color:var(--blue)">৳' + nwF(c.assetsRichDad) + '</span></div>'
-    + '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span style="font-size:11px;color:var(--text2)">− Total Liabilities</span><span style="font-family:var(--fm);font-weight:700;color:var(--red)">৳' + nwF(c.totalLiab) + '</span></div>'
-    + '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.2);border-radius:7px;margin-top:6px">'
-    + '<span style="font-family:var(--fd);font-size:10px;font-weight:800">= Net Worth (Rich Dad)</span>'
-    + '<span style="font-family:var(--fm);font-size:17px;font-weight:800;color:' + rCol + '">' + nwFBDT(c.nwRichDad) + '</span></div></div>'
-    + '</div></div>';
+  el.innerHTML = '<div class="card">'
+    + '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">📐 NET WORTH BRIDGE</div>'
+    + '<div style="font-family:var(--fm);font-size:13px;line-height:2.3">'
+    + 'Assets <b style="color:var(--cyan)">' + nwFBDT(c.assetsBanker) + '</b>'
+    + ' &nbsp;−&nbsp; Liabilities <b style="color:var(--red)">' + nwFBDT(c.totalLiab) + '</b>'
+    + '<br><span style="color:var(--text3);font-size:10px">= Net Worth (Banker)</span>'
+    + ' &nbsp;<b style="color:' + bCol + ';font-size:22px">' + nwFBDT(c.nwBanker) + '</b>'
+    + '<br><span style="color:var(--text3);font-size:10px">= Net Worth (Rich Dad)</span>'
+    + ' &nbsp;<b style="color:' + rCol + ';font-size:22px">' + nwFBDT(c.nwRichDad) + '</b>'
+    + '</div>'
+    + '<div style="margin-top:8px;font-family:var(--fm);font-size:9px;color:var(--text3)">'
+    + 'AED Rate: <b>' + c.rate + '</b> &nbsp;·&nbsp; Liab/Asset: <b>' + c.liabRatio + '%</b>'
+    + (nwRateIsDefault() ? ' &nbsp;<span style="color:#f59e0b">⚠️ default rate — Dubai Finance Hub-এ confirm করুন</span>' : '')
+    + '</div>'
+    + '</div>';
 }
 
-// ── Credit Facility Panel ──────────────────────────────────────────
+// ── RENDER: Credit Facility ────────────────────────────────────────
 function nwRenderCredit() {
-  var el = document.getElementById('nwCredit'); if (!el) return;
+  var el = document.getElementById('nwCredit');
+  if (!el) return;
   var cfg = _nwConfig || {};
   var cityLimit = 350000, eblLimit = 300000;
   var cityUsed = (parseFloat((cfg.cityCard || {}).statementBalance) || 0) + (parseFloat((cfg.cityCard || {}).unbilledAmount) || 0);
   var eblUsed  = (parseFloat((cfg.eblCard  || {}).statementBalance) || 0) + (parseFloat((cfg.eblCard  || {}).unbilledAmount) || 0);
   function cardBar(name, limit, used) {
-    var avail = limit - used;
     var pct = Math.min(100, Math.round(used / limit * 100)) || 0;
-    var barCol = pct < 60 ? '#10b981' : pct < 85 ? '#f59e0b' : 'var(--red)';
-    return '<div style="margin-bottom:10px">'
-      + '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><b>' + name + '</b><span style="font-family:var(--fm)">Used: <b style="color:var(--red)">৳' + nwF(used) + '</b> / ৳' + nwF(limit) + '</span></div>'
-      + '<div style="height:5px;background:rgba(15,23,42,.07);border-radius:3px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:' + barCol + ';border-radius:3px;transition:width .3s"></div></div>'
-      + '<div style="font-family:var(--fm);font-size:9px;color:#10b981;margin-top:2px">Available: ৳' + nwF(avail) + '</div></div>';
+    var col = pct < 60 ? '#10b981' : pct < 85 ? '#f59e0b' : 'var(--red)';
+    return '<div>'
+      + '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">'
+      + '<b>' + name + '</b>'
+      + '<span style="font-family:var(--fm)">৳' + nwF(limit) + ' limit</span>'
+      + '</div>'
+      + '<div style="height:5px;background:rgba(15,23,42,.08);border-radius:3px;overflow:hidden;margin-bottom:3px">'
+      + '<div style="height:100%;width:' + pct + '%;background:' + col + ';border-radius:3px"></div></div>'
+      + '<div style="display:flex;justify-content:space-between;font-family:var(--fm);font-size:9px">'
+      + '<span>Used: <b style="color:var(--red)">৳' + nwF(used) + '</b></span>'
+      + '<span>Available: <b style="color:#10b981">৳' + nwF(Math.max(0, limit - used)) + '</b></span>'
+      + '</div></div>';
   }
   el.innerHTML = '<div class="card">'
     + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
-    + '<div style="font-family:var(--fd);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--text3)">💳 Credit Facility</div>'
-    + '<span style="background:rgba(245,158,11,.1);color:#f59e0b;border:1px solid rgba(245,158,11,.35);font-family:var(--fm);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px">NOT IN ASSETS</span>'
+    + '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3)">💳 CREDIT FACILITY</div>'
+    + '<span style="background:rgba(245,158,11,.1);color:#f59e0b;border:1px solid rgba(245,158,11,.3);font-family:var(--fm);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px">NOT IN ASSETS</span>'
     + '</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px">'
     + cardBar('City Bank Card', cityLimit, cityUsed)
-    + cardBar('EBL Card', eblLimit, eblUsed)
+    + cardBar('EBL Credit Card', eblLimit, eblUsed)
     + '</div>'
-    + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">'
-    + '<div class="kpi-card" style="padding:8px"><div class="kpi-label">Total Facility</div><div style="font-family:var(--fm);font-size:13px;font-weight:700">৳' + nwF(cityLimit + eblLimit) + '</div></div>'
-    + '<div class="kpi-card" style="padding:8px"><div class="kpi-label">Total Used</div><div style="font-family:var(--fm);font-size:13px;font-weight:700;color:var(--red)">৳' + nwF(cityUsed + eblUsed) + '</div></div>'
-    + '<div class="kpi-card" style="padding:8px"><div class="kpi-label">Available Credit</div><div style="font-family:var(--fm);font-size:13px;font-weight:700;color:#10b981">৳' + nwF((cityLimit + eblLimit) - (cityUsed + eblUsed)) + '</div></div>'
+    + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding-top:10px;border-top:1px solid var(--border)">'
+    + '<div class="kpi-card" style="padding:8px"><div class="kpi-label">Total Facility</div><div style="font-family:var(--fm);font-size:12px;font-weight:700">৳' + nwF(cityLimit + eblLimit) + '</div></div>'
+    + '<div class="kpi-card" style="padding:8px"><div class="kpi-label">Total Used</div><div style="font-family:var(--fm);font-size:12px;font-weight:700;color:var(--red)">৳' + nwF(cityUsed + eblUsed) + '</div></div>'
+    + '<div class="kpi-card" style="padding:8px"><div class="kpi-label">Available</div><div style="font-family:var(--fm);font-size:12px;font-weight:700;color:#10b981">৳' + nwF(Math.max(0, cityLimit + eblLimit - cityUsed - eblUsed)) + '</div></div>'
     + '</div></div>';
 }
 
-// ── Growth Charts ──────────────────────────────────────────────────
-function nwRenderCharts() {
-  var el = document.getElementById('nwCharts'); if (!el) return;
-  if (!_nwSnaps.length) {
-    el.innerHTML = '<div class="card" style="text-align:center;padding:32px;color:var(--text3);font-size:12px">📸 Monthly snapshot save করলে growth charts দেখা যাবে।<br><small>Minimum 2 snapshots needed for charts.</small></div>';
-    return;
-  }
-  if (_nwSnaps.length < 2) {
-    el.innerHTML = '<div class="card" style="text-align:center;padding:24px;color:var(--text3);font-size:12px">📸 1 snapshot saved. ২টার পর chart দেখা যাবে।</div>';
-    return;
-  }
-  var W = 500, H = 120, pad = 36;
-  function spark(vals, colors, labels) {
-    if (!vals.length || !vals[0].length) return '';
-    var allVals = [].concat.apply([], vals);
-    var mn = Math.min.apply(null, allVals), mx = Math.max.apply(null, allVals);
-    var range = mx - mn || 1;
-    var step = (W - pad * 2) / (vals[0].length - 1 || 1);
-    var svg = '';
-    vals.forEach(function(series, si) {
-      var pts = series.map(function(v, i) {
-        return (pad + i * step).toFixed(1) + ',' + (pad + (H - pad * 2) * (1 - (v - mn) / range)).toFixed(1);
-      }).join(' ');
-      svg += '<polyline points="' + pts + '" fill="none" stroke="' + colors[si] + '" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
-      series.forEach(function(v, i) {
-        var x = (pad + i * step).toFixed(1), y = (pad + (H - pad * 2) * (1 - (v - mn) / range)).toFixed(1);
-        svg += '<circle cx="' + x + '" cy="' + y + '" r="3.5" fill="' + colors[si] + '"/>';
-      });
-    });
-    // x-axis labels (first + last month)
-    var months = _nwSnaps.map(function(s) { return (s.month || '').slice(5); });
-    if (months.length > 1) {
-      svg += '<text x="' + pad + '" y="' + (H - 4) + '" font-size="8" fill="var(--text3)" text-anchor="middle">' + months[0] + '</text>';
-      svg += '<text x="' + (pad + (vals[0].length - 1) * step) + '" y="' + (H - 4) + '" font-size="8" fill="var(--text3)" text-anchor="middle">' + months[months.length - 1] + '</text>';
-    }
-    return svg;
-  }
-  function chart(title, seriesKeys, colors, labels) {
-    var series = seriesKeys.map(function(k) { return _nwSnaps.map(function(s) { return s[k] || 0; }); });
-    return '<div class="card" style="overflow:hidden"><div class="ctit" style="margin-bottom:8px">' + title + '</div>'
-      + '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:' + H + 'px">' + spark(series, colors, labels) + '</svg>'
-      + '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">'
-      + labels.map(function(l, i) { return '<span style="font-family:var(--fm);font-size:9px;color:' + colors[i] + '">■ ' + l + '</span>'; }).join('')
-      + '</div></div>';
-  }
-  el.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">'
-    + chart('📈 Net Worth Growth', ['netWorthBanker', 'netWorthRichDad'], ['#10b981', 'var(--blue)'], ['NW Banker', 'NW Rich Dad'])
-    + chart('📊 Assets vs Liabilities', ['totalAssetsBanker', 'totalLiabilities'], ['var(--cyan)', 'var(--red)'], ['Total Assets', 'Total Liabilities'])
-    + chart('💼 Productive Assets', ['totalProductiveAssets'], ['var(--blue)'], ['Productive Assets'])
-    + chart('📉 Liability Breakdown', ['totalShortTermLiab', 'totalFixedLiab'], ['#f97316', 'var(--red)'], ['Short-Term', 'Fixed'])
-    + '</div>';
-}
+// ── RENDER: Growth Tracker (charts + history) ──────────────────────
+function nwRenderGrowth() {
+  var el = document.getElementById('nwGrowth');
+  if (!el) return;
 
-// ── Snapshot History ───────────────────────────────────────────────
-function nwRenderHistory() {
-  var el = document.getElementById('nwHistory'); if (!el) return;
-  if (!_nwSnaps.length) {
-    el.innerHTML = '<div class="card" style="text-align:center;padding:24px;color:var(--text3)">📸 কোনো snapshot নেই। "Save Snapshot" দিয়ে প্রথম snapshot নিন।</div>';
-    return;
+  var chartsHtml = '';
+  if (_nwSnaps.length < 2) {
+    chartsHtml = '<div style="text-align:center;padding:24px;color:var(--text3);font-size:12px">'
+      + '📸 Monthly snapshot ২টার পর charts দেখা যাবে।<br><small>Save Snapshot button দিয়ে প্রথম snapshot নিন।</small></div>';
+  } else {
+    var W = 460, H = 100, pad = 28;
+    function sparkLine(series, colors) {
+      var allV = [];
+      series.forEach(function(s) { s.forEach(function(v) { allV.push(v); }); });
+      var mn = Math.min.apply(null, allV), mx = Math.max.apply(null, allV);
+      var rng = mx - mn || 1;
+      var step = series[0].length > 1 ? (W - pad * 2) / (series[0].length - 1) : 1;
+      var svg = '';
+      series.forEach(function(s, si) {
+        var pts = s.map(function(v, i) {
+          return (pad + i * step).toFixed(1) + ',' + (pad + (H - pad * 2) * (1 - (v - mn) / rng)).toFixed(1);
+        }).join(' ');
+        svg += '<polyline points="' + pts + '" fill="none" stroke="' + colors[si] + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+        s.forEach(function(v, i) {
+          var x = (pad + i * step).toFixed(1), y = (pad + (H - pad * 2) * (1 - (v - mn) / rng)).toFixed(1);
+          svg += '<circle cx="' + x + '" cy="' + y + '" r="3" fill="' + colors[si] + '"/>';
+        });
+      });
+      var months = _nwSnaps.map(function(s) { return (s.month || '').slice(5); });
+      if (months.length > 1) {
+        svg += '<text x="' + pad + '" y="' + (H - 5) + '" font-size="8" fill="var(--text3)" text-anchor="middle">' + months[0] + '</text>';
+        svg += '<text x="' + (pad + (months.length - 1) * step).toFixed(1) + '" y="' + (H - 5) + '" font-size="8" fill="var(--text3)" text-anchor="middle">' + months[months.length - 1] + '</text>';
+      }
+      return svg;
+    }
+    function chart(title, keys, colors, labels) {
+      var series = keys.map(function(k) { return _nwSnaps.map(function(s) { return s[k] || 0; }); });
+      return '<div><div style="font-size:10px;font-weight:700;color:var(--text2);margin-bottom:6px">' + title + '</div>'
+        + '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:' + H + 'px">' + sparkLine(series, colors) + '</svg>'
+        + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:3px">'
+        + labels.map(function(l, i) { return '<span style="font-family:var(--fm);font-size:9px;color:' + colors[i] + '">■ ' + l + '</span>'; }).join('')
+        + '</div></div>';
+    }
+    chartsHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)">'
+      + chart('📈 Net Worth Growth', ['netWorthBanker', 'netWorthRichDad'], ['#10b981', 'var(--blue)'], ['NW Banker', 'NW Rich Dad'])
+      + chart('📊 Assets vs Liabilities', ['totalAssetsBanker', 'totalLiabilities'], ['var(--cyan)', 'var(--red)'], ['Total Assets', 'Total Liab'])
+      + '</div>';
   }
-  var rows = _nwSnaps.slice().reverse().map(function(s, i) {
-    var prev = i < _nwSnaps.length - 1 ? _nwSnaps[_nwSnaps.length - 2 - i] : null;
-    var diff = prev && prev.netWorthBanker ? (s.netWorthBanker || 0) - prev.netWorthBanker : null;
-    var pct  = diff !== null && prev && prev.netWorthBanker ? Math.round(diff / Math.abs(prev.netWorthBanker) * 100) : null;
-    var diffHtml = diff === null ? '—'
-      : diff >= 0 ? '<span style="color:#10b981">▲ ৳' + nwF(diff) + (pct !== null ? ' (' + pct + '%)' : '') + '</span>'
-                  : '<span style="color:var(--red)">▼ ৳' + nwF(Math.abs(diff)) + (pct !== null ? ' (' + pct + '%)' : '') + '</span>';
-    return '<tr>'
-      + '<td><b>' + (s.month || '—') + '</b></td>'
-      + '<td style="color:var(--cyan);font-family:var(--fm)">৳' + nwF(s.totalAssetsBanker) + '</td>'
-      + '<td style="color:var(--red);font-family:var(--fm)">৳' + nwF(s.totalLiabilities) + '</td>'
-      + '<td style="color:#10b981;font-family:var(--fm);font-weight:700">' + nwFBDT(s.netWorthBanker) + '</td>'
-      + '<td style="color:var(--blue);font-family:var(--fm)">' + nwFBDT(s.netWorthRichDad) + '</td>'
-      + '<td>' + diffHtml + '</td>'
-      + '<td style="font-family:var(--fm);color:var(--text3)">' + (s.aedRate || '—') + '</td>'
-      + '</tr>';
-  }).join('');
-  el.innerHTML = '<div class="card"><div class="flex-between mb-14"><div class="ctit" style="margin:0">📅 Monthly Snapshot History</div>'
-    + '<span style="font-family:var(--fm);font-size:10px;color:var(--text3)">' + _nwSnaps.length + ' snapshots</span></div>'
-    + '<div class="tbl-wrap"><table><thead><tr>'
-    + '<th>Month</th><th>Total Assets</th><th>Total Liab</th><th>NW Banker</th><th>NW Rich Dad</th><th>MoM Change</th><th>AED Rate</th>'
-    + '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+
+  var histHtml = '';
+  if (!_nwSnaps.length) {
+    histHtml = '<div style="text-align:center;padding:20px;color:var(--text3)">📅 Snapshot history এখানে দেখা যাবে।</div>';
+  } else {
+    var reversed = _nwSnaps.slice().reverse();
+    var rows = reversed.map(function(s, i) {
+      var prev = i < reversed.length - 1 ? reversed[i + 1] : null;
+      var diff = prev && prev.netWorthBanker ? (s.netWorthBanker || 0) - prev.netWorthBanker : null;
+      var pct  = diff !== null && prev && prev.netWorthBanker ? Math.round(diff / Math.abs(prev.netWorthBanker) * 100) : null;
+      var dHtml = diff === null ? '—'
+        : diff >= 0 ? '<span style="color:#10b981">▲ ৳' + nwF(diff) + (pct !== null ? ' (' + pct + '%)' : '') + '</span>'
+                    : '<span style="color:var(--red)">▼ ৳' + nwF(Math.abs(diff)) + (pct !== null ? ' (' + pct + '%)' : '') + '</span>';
+      return '<tr>'
+        + '<td><b>' + (s.month || '—') + '</b></td>'
+        + '<td style="color:var(--cyan);font-family:var(--fm)">৳' + nwF(s.totalAssetsBanker) + '</td>'
+        + '<td style="color:var(--red);font-family:var(--fm)">৳' + nwF(s.totalLiabilities) + '</td>'
+        + '<td style="color:#10b981;font-family:var(--fm);font-weight:700">' + nwFBDT(s.netWorthBanker) + '</td>'
+        + '<td>' + dHtml + '</td>'
+        + '<td style="font-family:var(--fm);color:var(--text3)">' + (s.aedRate || '—') + '</td>'
+        + '</tr>';
+    }).join('');
+    histHtml = '<div class="flex-between" style="margin-bottom:10px">'
+      + '<div style="font-size:10px;font-weight:700;color:var(--text2)">📅 Monthly History</div>'
+      + '<span style="font-family:var(--fm);font-size:10px;color:var(--text3)">' + _nwSnaps.length + ' snapshots</span>'
+      + '</div>'
+      + '<div class="tbl-wrap"><table><thead><tr>'
+      + '<th>Month</th><th>Assets</th><th>Liab</th><th>NW Banker</th><th>MoM Change</th><th>AED Rate</th>'
+      + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }
+
+  el.innerHTML = '<div class="card">'
+    + '<div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:14px">📈 GROWTH TRACKER</div>'
+    + chartsHtml + histHtml
+    + '</div>';
 }
 
 // ── Manual Hub Modal ───────────────────────────────────────────────
@@ -6495,11 +6477,11 @@ function nwShowEditor(type) {
     (cfg.banks || []).forEach(function(b) {
       var v = b.balance !== null ? b.balance : '';
       h += '<div style="display:grid;grid-template-columns:160px 80px 1fr 30px;gap:8px;align-items:end;margin-bottom:8px">'
-        + '<div><label class="lbl">Bank Name</label><input type="text" value="' + (b.name || '') + '" data-bn="' + b.id + '" style="font-size:11px" placeholder="Bank name"></div>'
+        + '<div><label class="lbl">Bank Name</label><input type="text" value="' + (b.name || '') + '" data-bn="' + b.id + '" style="font-size:11px"></div>'
         + '<div><label class="lbl">Currency</label><select data-bc="' + b.id + '" style="font-size:10px"><option value="BDT"' + (b.currency === 'BDT' ? ' selected' : '') + '>BDT</option><option value="AED"' + (b.currency === 'AED' ? ' selected' : '') + '>AED</option></select></div>'
         + '<div><label class="lbl">Balance ' + (b.currency === 'AED' ? '(AED)' : '(৳)') + (b.currency === 'AED' && b.balance ? ' ≈ ৳' + nwF(Math.round((b.balance || 0) * rate)) : '') + ' <small style="color:var(--text3)">blank=Not Updated</small></label>'
         + '<input type="number" min="0" step="1" value="' + v + '" data-bv="' + b.id + '" placeholder="blank = not updated" style="font-size:11px"></div>'
-        + '<button onclick="nwRemoveBank(\'' + b.id + '\')" style="width:28px;height:28px;background:var(--red-dim,rgba(239,68,68,.1));border:1px solid rgba(239,68,68,.3);border-radius:4px;cursor:pointer;color:var(--red);margin-bottom:1px">×</button>'
+        + '<button onclick="nwRemoveBank(\'' + b.id + '\')" style="width:28px;height:28px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:4px;cursor:pointer;color:var(--red);margin-bottom:1px">×</button>'
         + '</div>';
     });
     h += '<button class="btn btn-o" onclick="nwAddBank()" style="font-size:9px;margin-top:4px">+ Add Bank</button>';
@@ -6511,7 +6493,6 @@ function nwShowEditor(type) {
     var h = '<div style="font-family:var(--fd);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);margin-bottom:10px">💵 Cash in Hand</div>'
       + '<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.35);border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:11px">'
       + '⚠️ Dubai Available Cash (AUTO): <b>AED ' + nwF(dcs.aed) + ' ≈ ৳' + nwF(dcs.bdt) + '</b><br>'
-      + '<span style="color:var(--text3);font-size:9px">Dubai Office-এ আলাদা cash থাকলে এবং Dubai Finance Hub-এ সেটা count হয়নি তবেই add করুন।</span><br>'
       + '<label style="display:flex;align-items:center;gap:6px;margin-top:6px;cursor:pointer;font-size:11px">'
       + '<input type="checkbox" id="nwDubSep" ' + (cfg.dubaiCashSeparate ? 'checked' : '') + '> Dubai Office Cash আলাদাভাবে count করবো</label></div>';
     (cfg.cashInHand || []).forEach(function(ci) {
@@ -6531,24 +6512,24 @@ function nwShowEditor(type) {
     var shPnL  = sh.cost && sh.marketValue ? sh.marketValue - sh.cost : null;
     area.innerHTML = '<div style="font-family:var(--fd);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);margin-bottom:10px">📊 Investments</div>'
       + '<div class="fg-2">'
-      + '<div class="fg"><label class="lbl">SIP — Total Invested (৳)</label><input type="number" id="nw_si" min="0" value="' + (sip.invested !== null && sip.invested !== undefined ? sip.invested : '') + '"></div>'
-      + '<div class="fg"><label class="lbl">SIP — Market Value (৳)</label><input type="number" id="nw_sm" min="0" value="' + (sip.marketValue !== null && sip.marketValue !== undefined ? sip.marketValue : '') + '">'
+      + '<div class="fg"><label class="lbl">SIP — Invested (৳)</label><input type="number" id="nw_si" min="0" value="' + (sip.invested != null ? sip.invested : '') + '"></div>'
+      + '<div class="fg"><label class="lbl">SIP — Market Value (৳)</label><input type="number" id="nw_sm" min="0" value="' + (sip.marketValue != null ? sip.marketValue : '') + '">'
       + (sipPnL !== null ? '<div style="font-family:var(--fm);font-size:10px;margin-top:2px;color:' + (sipPnL >= 0 ? '#10b981' : 'var(--red)') + '">P&L: ' + nwFBDT(sipPnL) + '</div>' : '') + '</div>'
-      + '<div class="fg"><label class="lbl">Shares — Purchase Cost (৳)</label><input type="number" id="nw_sc" min="0" value="' + (sh.cost !== null && sh.cost !== undefined ? sh.cost : '') + '"></div>'
-      + '<div class="fg"><label class="lbl">Shares — Market Value (৳)</label><input type="number" id="nw_sv" min="0" value="' + (sh.marketValue !== null && sh.marketValue !== undefined ? sh.marketValue : '') + '">'
+      + '<div class="fg"><label class="lbl">Shares — Cost (৳)</label><input type="number" id="nw_sc" min="0" value="' + (sh.cost != null ? sh.cost : '') + '"></div>'
+      + '<div class="fg"><label class="lbl">Shares — Market Value (৳)</label><input type="number" id="nw_sv" min="0" value="' + (sh.marketValue != null ? sh.marketValue : '') + '">'
       + (shPnL !== null ? '<div style="font-family:var(--fm);font-size:10px;margin-top:2px;color:' + (shPnL >= 0 ? '#10b981' : 'var(--red)') + '">P&L: ' + nwFBDT(shPnL) + '</div>' : '') + '</div>'
       + '</div>';
   }
 
   else if (type === 'personal') {
     var h = '<div style="font-family:var(--fd);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);margin-bottom:6px">💻 Personal / Doodad Assets</div>'
-      + '<div style="font-size:10px;color:#f59e0b;margin-bottom:10px">ℹ️ Banker Net Worth-এ count হবে। Rich Dad Net Worth-এ হবে না।</div>';
+      + '<div style="font-size:10px;color:#f59e0b;margin-bottom:10px">ℹ️ Banker NW-এ count হবে। Rich Dad NW-এ হবে না।</div>';
     (cfg.personalAssets || []).forEach(function(a, i) {
       h += '<div style="display:grid;grid-template-columns:1fr 120px 150px 32px;gap:8px;align-items:end;margin-bottom:7px">'
         + '<div><label class="lbl">Asset Name</label><input type="text" value="' + (a.name || '') + '" data-pan="' + i + '" style="font-size:11px"></div>'
         + '<div><label class="lbl">Resale Value ৳</label><input type="number" min="0" value="' + (a.resaleValue || '') + '" data-pav="' + i + '" style="font-size:11px"></div>'
         + '<div><label class="lbl">Note</label><input type="text" value="' + (a.note || '') + '" data-pant="' + i + '" style="font-size:11px"></div>'
-        + '<button onclick="nwDelPersonal(' + i + ')" style="width:28px;height:28px;background:var(--red-dim,rgba(239,68,68,.1));border:1px solid rgba(239,68,68,.3);border-radius:4px;cursor:pointer;color:var(--red);margin-bottom:1px">×</button>'
+        + '<button onclick="nwDelPersonal(' + i + ')" style="width:28px;height:28px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:4px;cursor:pointer;color:var(--red);margin-bottom:1px">×</button>'
         + '</div>';
     });
     h += '<button class="btn btn-o" onclick="nwAddPersonal()" style="font-size:9px;margin-top:4px">+ Add Personal Asset</button>';
@@ -6563,7 +6544,7 @@ function nwShowEditor(type) {
         + '<div><label class="lbl">Liability Name</label><input type="text" value="' + (l.name || '') + '" data-sln="' + i + '" style="font-size:11px"></div>'
         + '<div><label class="lbl">Person / Company</label><input type="text" value="' + (l.person || '') + '" data-slp="' + i + '" style="font-size:11px"></div>'
         + '<div><label class="lbl">Amount ৳</label><input type="number" min="0" value="' + (l.amount || '') + '" data-sla="' + i + '" style="font-size:11px"></div>'
-        + '<button onclick="nwDelStLiab(' + i + ')" style="width:28px;height:28px;background:var(--red-dim,rgba(239,68,68,.1));border:1px solid rgba(239,68,68,.3);border-radius:4px;cursor:pointer;color:var(--red);margin-bottom:1px">×</button>'
+        + '<button onclick="nwDelStLiab(' + i + ')" style="width:28px;height:28px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:4px;cursor:pointer;color:var(--red);margin-bottom:1px">×</button>'
         + '</div>';
     });
     h += '<button class="btn btn-o" onclick="nwAddStLiab()" style="font-size:9px;margin-top:4px">+ Add Liability</button>';
@@ -6576,12 +6557,12 @@ function nwShowEditor(type) {
       + '<div style="font-size:10px;color:#f59e0b;margin-bottom:10px">⚠️ Card limit assets-এ count হয় না। শুধু outstanding amount liabilities-এ যায়।</div>'
       + '<div class="fg-2">'
       + '<div><div style="font-family:var(--fd);font-size:9px;font-weight:700;color:var(--cyan);margin-bottom:8px">City Bank Card (Limit ৳3,50,000)</div>'
-      + '<div class="fg"><label class="lbl">Statement Balance ৳</label><input type="number" min="0" id="nw_cy_st" value="' + (cy.statementBalance !== null && cy.statementBalance !== undefined ? cy.statementBalance : '') + '"></div>'
-      + '<div class="fg"><label class="lbl">Unbilled Amount ৳</label><input type="number" min="0" id="nw_cy_ub" value="' + (cy.unbilledAmount !== null && cy.unbilledAmount !== undefined ? cy.unbilledAmount : '') + '"></div>'
+      + '<div class="fg"><label class="lbl">Statement Balance ৳</label><input type="number" min="0" id="nw_cy_st" value="' + (cy.statementBalance != null ? cy.statementBalance : '') + '"></div>'
+      + '<div class="fg"><label class="lbl">Unbilled Amount ৳</label><input type="number" min="0" id="nw_cy_ub" value="' + (cy.unbilledAmount != null ? cy.unbilledAmount : '') + '"></div>'
       + '<div class="fg"><label class="lbl">Due Date</label><input type="date" id="nw_cy_dd" value="' + (cy.dueDate || '') + '"></div></div>'
       + '<div><div style="font-family:var(--fd);font-size:9px;font-weight:700;color:var(--blue);margin-bottom:8px">EBL Credit Card (Limit ৳3,00,000)</div>'
-      + '<div class="fg"><label class="lbl">Statement Balance ৳</label><input type="number" min="0" id="nw_eb_st" value="' + (eb.statementBalance !== null && eb.statementBalance !== undefined ? eb.statementBalance : '') + '"></div>'
-      + '<div class="fg"><label class="lbl">Unbilled Amount ৳</label><input type="number" min="0" id="nw_eb_ub" value="' + (eb.unbilledAmount !== null && eb.unbilledAmount !== undefined ? eb.unbilledAmount : '') + '"></div>'
+      + '<div class="fg"><label class="lbl">Statement Balance ৳</label><input type="number" min="0" id="nw_eb_st" value="' + (eb.statementBalance != null ? eb.statementBalance : '') + '"></div>'
+      + '<div class="fg"><label class="lbl">Unbilled Amount ৳</label><input type="number" min="0" id="nw_eb_ub" value="' + (eb.unbilledAmount != null ? eb.unbilledAmount : '') + '"></div>'
       + '<div class="fg"><label class="lbl">Due Date</label><input type="date" id="nw_eb_dd" value="' + (eb.dueDate || '') + '"></div></div>'
       + '</div>';
   }
@@ -6603,7 +6584,7 @@ function nwShowEditor(type) {
       h += '<div style="display:grid;grid-template-columns:1fr 150px 32px;gap:8px;align-items:end;margin-bottom:7px">'
         + '<div><label class="lbl">Name</label><input type="text" value="' + (l.name || '') + '" data-fln="' + i + '" style="font-size:11px"></div>'
         + '<div><label class="lbl">Amount ৳</label><input type="number" min="0" value="' + (l.amount || '') + '" data-fla="' + i + '" style="font-size:11px"></div>'
-        + '<button onclick="nwDelFixedLiab(' + i + ')" style="width:28px;height:28px;background:var(--red-dim,rgba(239,68,68,.1));border:1px solid rgba(239,68,68,.3);border-radius:4px;cursor:pointer;color:var(--red);margin-bottom:1px">×</button>'
+        + '<button onclick="nwDelFixedLiab(' + i + ')" style="width:28px;height:28px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:4px;cursor:pointer;color:var(--red);margin-bottom:1px">×</button>'
         + '</div>';
     });
     h += '<button class="btn btn-o" onclick="nwAddFixedLiab()" style="font-size:9px;margin-top:4px">+ Add Fixed Liability</button>';
@@ -6614,7 +6595,6 @@ function nwShowEditor(type) {
 // ── Dynamic add/remove helpers ─────────────────────────────────────
 function nwAddBank() {
   if (!_nwConfig) return;
-  // Collect current values first
   var area = document.getElementById('nwEditorArea');
   if (area) nwCollectEditorValues(area);
   _nwConfig.banks.push({ id: 'b' + Date.now(), name: 'New Bank', currency: 'BDT', balance: null, updatedAt: null });
@@ -6667,14 +6647,23 @@ function nwDelFixedLiab(i) {
 
 // ── Main init / render ─────────────────────────────────────────────
 async function nwInit() {
-  if (_nwReady) { nwRenderAll(); return; }
-  nwSetSync('⏳ Loading...');
-  await nwLoadConfig();
-  await nwLoadSnapshots();
-  nwSubscribeDubai();
-  _nwReady = true;
-  nwRenderAll();
-  nwSetSync('✅ Live · ' + new Date().toLocaleTimeString());
+  try {
+    if (_nwReady) { nwRenderAll(); return; }
+    nwSetSync('⏳ Loading...');
+    // Render immediately with defaults (page never blank)
+    nwRenderAll();
+    // Load real data
+    await nwLoadConfig();
+    await nwLoadSnapshots();
+    nwSubscribeDubai();
+    _nwReady = true;
+    nwRenderAll();
+    nwSetSync('✅ Live · ' + new Date().toLocaleTimeString());
+  } catch (e) {
+    console.error('[NW] init error:', e);
+    nwSetSync('⚠️ Error: ' + e.message);
+    try { nwRenderAll(); } catch (e2) { console.error('[NW] render fallback error:', e2); }
+  }
 }
 
 function nwRenderAuto() {
@@ -6684,15 +6673,27 @@ function nwRenderAuto() {
 }
 
 function nwRenderAll() {
-  var c = nwComputeAll();
-  nwRenderRateWarn(c);
-  nwRenderKpi1(c);
-  nwRenderKpi2(c);
-  nwRenderComplete(c);
-  nwRenderStatement(c);
-  nwRenderBridge(c);
-  nwRenderCredit();
-  nwRenderCharts();
+  try {
+    var c = nwComputeAll();
+    nwRenderKpiRow(c);
+    nwRenderStatement2(c);
+    nwRenderBridge(c);
+    nwRenderCredit();
+    nwRenderGrowth();
+    var tsEl = document.getElementById('nwManualTs');
+    if (tsEl) {
+      if (_nwConfig && _nwConfig.updatedAt) {
+        tsEl.textContent = '📋 Manual: ' + new Date(_nwConfig.updatedAt).toLocaleDateString('en-BD', { month: 'short', day: 'numeric' });
+      } else {
+        tsEl.textContent = '';
+      }
+    }
+  } catch (e) {
+    console.error('[NW] renderAll error:', e);
+  }
+}
+// NW-MODULE-JS-END
+
   nwRenderHistory();
 }
 
