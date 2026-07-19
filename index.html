@@ -694,7 +694,7 @@ body{max-width:100vw;overflow-x:hidden!important}
       <button class="btn btn-o" onclick="nwOpenManualHub()" style="font-size:9px">✏️ Edit</button>
     </div>
   </div>
-  <div id="nwKpiRow" style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px"></div>
+  <div id="nwKpiRow" style="display:grid;grid-template-columns:repeat(8,1fr);gap:10px;margin-bottom:14px"></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
     <div id="nwAssetsCol" class="card" style="padding:14px"></div>
     <div id="nwLiabCol" class="card" style="padding:14px"></div>
@@ -6090,6 +6090,10 @@ function nwFBDT(n) {
   if (n === null || n === undefined || isNaN(n)) return '—';
   return (n < 0 ? '-৳' : '৳') + nwF(Math.abs(n));
 }
+function nwFAED2(n) {
+  if (n === null || n === undefined || isNaN(n) || !isFinite(n)) return '—';
+  return Number(Math.round(n * 100) / 100).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
 function nwBadge(status) {
   var map = {
     'AUTO':        '<span style="background:rgba(16,185,129,.12);color:#10b981;border:1px solid rgba(16,185,129,.35);font-family:var(--fm);font-size:7px;font-weight:700;padding:1px 5px;border-radius:3px;white-space:nowrap">AUTO</span>',
@@ -6170,13 +6174,29 @@ function nwRenderKpiRow(c) {
       label: 'Completeness', val: pct + '%', color: barColor,
       sub: '<div style="display:flex;gap:2px;margin-top:5px">' + barHtml + '</div>'
          + '<div style="font-family:var(--fm);font-size:8px;color:var(--text3);margin-top:2px">' + done + '/7 updated · <a onclick="nwOpenManualHub()" style="color:var(--cyan);cursor:pointer">Edit →</a></div>'
+    },
+    {
+      label: '🎯 Dubai Pipeline', color: 'var(--blue)', fs: '13px',
+      val: c.pipStatus === 'LOADING' ? '⏳ —' : 'AED ' + nwFAED2(c.dubaiPipAED),
+      sub: nwBadge(c.pipStatus)
+         + '<div style="font-family:var(--fm);font-size:8px;color:var(--text3);margin-top:2px">'
+         + (c.pipStatus === 'LOADING' ? 'Connecting...' : c.dubaiPipPcs + ' pcs · ≈৳' + nwF(c.dubaiPipBDT))
+         + '</div>'
+    },
+    {
+      label: '💵 Dubai Cash', color: '#10b981', fs: '13px',
+      val: c.cashStatus === 'LOADING' ? '⏳ —' : 'AED ' + nwFAED2(c.dubaiCashAED),
+      sub: nwBadge(c.cashStatus)
+         + '<div style="font-family:var(--fm);font-size:8px;color:var(--text3);margin-top:2px">'
+         + (c.cashStatus === 'LOADING' ? 'Connecting...' : '≈৳' + nwF(c.dubaiCashBDT))
+         + '</div>'
     }
   ];
 
   el.innerHTML = kpis.map(function(k) {
     return '<div class="kpi-card">'
       + '<div class="kpi-label">' + k.label + '</div>'
-      + '<div style="font-family:var(--fm);font-size:16px;font-weight:800;color:' + k.color + ';margin-top:3px">' + k.val + '</div>'
+      + '<div style="font-family:var(--fm);font-size:' + (k.fs || '16px') + ';font-weight:800;color:' + k.color + ';margin-top:3px;line-height:1.2">' + k.val + '</div>'
       + (k.sub || '')
       + '</div>';
   }).join('');
