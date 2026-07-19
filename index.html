@@ -5554,27 +5554,14 @@ function nwRateIsDefault() {
 // ── CTG Inventory (FIFO avail × costPerPc) ────────────────────────
 function nwCalcCtgInventory() {
   try {
-    if (!window.stockDB || !stockDB.batches) return { qty: 0, value: 0, status: 'LOADING' };
-    var soldMap = {};
-    if (window.db && db.customers) {
-      db.customers.forEach(function(c) {
-        (c.invoices || []).forEach(function(inv) {
-          (inv.items || []).forEach(function(it) {
-            var m = (it.model || '').toLowerCase();
-            soldMap[m] = (soldMap[m] || 0) + (it.qty || 0);
-          });
-          (inv.returns || []).forEach(function(rt) {
-            var m = (rt.model || '').toLowerCase();
-            soldMap[m] = (soldMap[m] || 0) - (rt.qty || 0);
-          });
-        });
-      });
-    }
+    var batches = (typeof getStockBatches === 'function') ? getStockBatches() : null;
+    if (!batches || !batches.length) return { qty: 0, value: 0, status: 'LOADING' };
     var totalQty = 0, totalVal = 0;
-    stockDB.batches.forEach(function(b) {
-      var bm = (b.model || '').toLowerCase();
-      var soldQ = soldMap[bm] || 0;
-      var avail = Math.max(0, (b.qty || b.qtyReceived || 0) - soldQ);
+    batches.forEach(function(b) {
+      // getStockBatches() batches already track qtySold
+      var received = b.qtyReceived || b.qty || 0;
+      var sold     = b.qtySold || 0;
+      var avail    = Math.max(0, received - sold);
       totalQty += avail;
       totalVal += avail * (b.costPerPc || 0);
     });
