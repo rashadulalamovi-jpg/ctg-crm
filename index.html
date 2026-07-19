@@ -5657,10 +5657,10 @@ function nwCalcDubaiPipeline() {
     var totalBooked = 0, totalRcvd = 0;
     cors.forEach(function(c) {
       var entries = nwLotEntries(c);
-      // bookedQty is the primary field — matches Dubai Finance Hub display
+      // bookedQty = total dispatched from Dubai
       var bq = c.bookedQty || entries.reduce(function(s, e) { return s + (e.qty || 0); }, 0) || 0;
-      // Received only when ctgReceiveDate set; full bookedQty counts
-      var rq = c.ctgReceiveDate ? bq : 0;
+      // receivedQty = actually received at CTG (may be less than bookedQty for partial deliveries)
+      var rq = c.receivedQty || 0;
       totalBooked += bq;
       totalRcvd   += rq;
     });
