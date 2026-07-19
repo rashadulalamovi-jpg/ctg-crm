@@ -5559,10 +5559,13 @@ function nwCalcCtgInventory() {
     var batches = (JSON.parse(raw).batches) || [];
     if (!batches.length) return { qty: 0, value: 0, expProfit: 0, lowRoi: 0, capBlockers: 0, status: 'LOADING' };
     var totalQty = 0, totalVal = 0, totalExpProfit = 0, lowRoi = 0, capBlockers = 0;
+    // Stock Age Tracker is the single source of truth: allocate invoice sales FIFO
+    // and use the exact same unsold formula shown in TOTAL UNSOLD QTY.
+    var fifoSold = computeBatchFifoSold();
     batches.forEach(function(b) {
       var received = parseInt(b.qtyReceived) || 0;
-      var sold     = parseInt(b.qtySold)     || 0;
-      var avail    = received - sold;          // same as Stock Age Tracker (no clamp)
+      var sold     = parseInt(fifoSold[b.id]) || 0;
+      var avail    = Math.max(0, received - sold);
       var cost     = parseFloat(b.costPerPc)  || 0;
       var sellP    = parseFloat(b.expectedSellPrice) || 0;
       var profitPc = sellP - cost;
