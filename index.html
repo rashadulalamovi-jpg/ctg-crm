@@ -5648,9 +5648,7 @@ function nwCalcDubaiPipeline() {
     if (!purs.length) return { pcs: 0, aed: 0, bdt: 0, officePcs: 0, transitPcs: 0, status: 'LOADING' };
 
     var totalPurPcs = purs.reduce(function(s, p) { return s + (p.qty || 0); }, 0);
-    var purValAED   = purs.reduce(function(s, p) {
-      return s + (p.netPayable !== undefined ? p.netPayable : (p.totalAED || 0));
-    }, 0);
+    var purValAED = purs.reduce(function(s, p) { return s + (p.totalAED || 0); }, 0);
     var prepAED = lcs.reduce(function(s, c) { return s + (c.totalAED || 0); }, 0);
     var invValAED = purValAED + prepAED;
 
