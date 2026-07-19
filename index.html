@@ -5658,8 +5658,10 @@ function nwCalcDubaiPipeline() {
     cors.forEach(function(c) {
       var entries = nwLotEntries(c);
       var bq = entries.reduce(function(s, e) { return s + (e.qty || 0); }, 0) || (c.bookedQty || 0);
-      var rq = entries.filter(function(e) { return c.ctgReceiveDate || e.received; })
-                      .reduce(function(s, e) { return s + (e.qty || 0); }, 0) || (c.receivedQty || 0);
+      // Only count received if courier-level ctgReceiveDate exists — matches Dubai Finance Hub logic
+      var rq = c.ctgReceiveDate
+        ? (entries.reduce(function(s, e) { return s + (e.qty || 0); }, 0) || c.bookedQty || 0)
+        : 0;
       totalBooked += bq;
       totalRcvd   += rq;
     });
@@ -5704,7 +5706,7 @@ function nwCalcDubaiCash() {
     var spLC = lcs.reduce(function(s, c) { return s + (c.totalAED || 0); }, 0);
     var spOE = oes.reduce(function(s, e) { return s + (e.amount || 0); }, 0);
     var spPE = pes.reduce(function(s, e) { return s + (e.amount || 0); }, 0);
-    var spCT = cts.reduce(function(s, c) { return s + (c.amount || c.aed || 0); }, 0);
+    var spCT = cts.reduce(function(s, c) { return s + (c.totalAED || c.amount || c.aed || 0); }, 0);
 
     var cashAED = rcvd - spPur - spAdv - spLC - spOE - spPE - spCT;
     var rate    = nwGetAedRate();
