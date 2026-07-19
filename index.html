@@ -4408,6 +4408,51 @@ function getDemandBadge(cls){
   return '<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;background:'+bg[cls]+';color:'+c[cls]+'">'+m[cls]+'</span>';
 }
 
+function renderModelDemand() {
+  var tbody = document.querySelector('#modeldemand table tbody');
+  if (!tbody) return;
+  var filter = (document.getElementById('demandFilter') || {}).value || 'all';
+  var filterMap = { star: 'star', rebuy: 'normal', lock: 'low', stop: 'weak' };
+  var targetCls = filterMap[filter];
+  var stats = getModelStats();
+  if (targetCls) stats = stats.filter(function(s) { return classifyModel(s) === targetCls; });
+  stats.sort(function(a, b) { return (b.q30 - a.q30) || (b.q7 - a.q7) || (b.totSold - a.totSold); });
+  if (!stats.length) {
+    tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:20px;color:var(--text3)">No models found</td></tr>';
+    return;
+  }
+  tbody.innerHTML = stats.map(function(s) {
+    var cls = classifyModel(s);
+    var demand = getDemandBadge(cls);
+    var riskColor, riskTxt;
+    if (s.avail === 0)       { riskColor = '#10b981'; riskTxt = '✅ Clear'; }
+    else if (s.avgAge > 60)  { riskColor = '#ef4444'; riskTxt = '🔴 High'; }
+    else if (s.avgAge > 30)  { riskColor = '#f59e0b'; riskTxt = '🟡 Mid'; }
+    else                     { riskColor = '#10b981'; riskTxt = '🟢 Low'; }
+    var action;
+    if (cls === 'star')        action = '🔥 BUY MORE';
+    else if (cls === 'normal') action = '✅ REBUY';
+    else if (cls === 'low')    action = '🔒 CLEAR FIRST';
+    else                       action = '❌ STOP BUY';
+    var sellOut = (s.sellOutDays != null) ? s.sellOutDays + 'd' : '—';
+    return '<tr>'
+      + '<td style="font-family:var(--fm);font-size:11px;font-weight:600;min-width:160px">' + s.model + '</td>'
+      + '<td>' + demand + '</td>'
+      + '<td style="color:' + riskColor + ';font-size:11px;font-weight:600">' + riskTxt + '</td>'
+      + '<td style="text-align:center">' + (s.q7 || 0) + '</td>'
+      + '<td style="text-align:center">' + (s.q30 || 0) + '</td>'
+      + '<td style="text-align:center">' + (s.totSold || 0) + '</td>'
+      + '<td style="text-align:center;font-weight:700">' + (s.avail || 0) + '</td>'
+      + '<td style="text-align:center;color:' + (s.avgAge > 45 ? '#ef4444' : 'var(--text)') + '">' + (s.avgAge || 0) + 'd</td>'
+      + '<td style="text-align:center;color:' + (s.roi >= 15 ? '#10b981' : s.roi >= 10 ? '#f59e0b' : '#ef4444') + '">' + (s.roi || 0) + '%</td>'
+      + '<td style="text-align:center;color:' + (s.retPct > 5 ? '#ef4444' : '#10b981') + '">' + (s.retPct || 0) + '%</td>'
+      + '<td style="text-align:center">' + sellOut + '</td>'
+      + '<td style="font-size:11px;font-weight:700">' + action + '</td>'
+      + '<td style="font-size:10px;color:var(--text3)">' + (s.custCount || 0) + ' custs</td>'
+      + '</tr>';
+  }).join('');
+}
+
 function getStockRiskBadge(age){
   if(age===null) return '<span style="color:var(--text3);font-size:9px">\u2014 No Stock</span>';
   if(age<=30)  return '<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(52,211,153,.1);color:var(--green)">\u{1F7E2} Healthy</span>';
