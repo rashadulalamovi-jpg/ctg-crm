@@ -4408,49 +4408,242 @@ function getDemandBadge(cls){
   return '<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;background:'+bg[cls]+';color:'+c[cls]+'">'+m[cls]+'</span>';
 }
 
-function renderModelDemand() {
-  var tbody = document.querySelector('#modeldemand table tbody');
-  if (!tbody) return;
-  var filter = (document.getElementById('demandFilter') || {}).value || 'all';
-  var filterMap = { star: 'star', rebuy: 'normal', lock: 'low', stop: 'weak' };
-  var targetCls = filterMap[filter];
-  var stats = getModelStats();
-  if (targetCls) stats = stats.filter(function(s) { return classifyModel(s) === targetCls; });
-  stats.sort(function(a, b) { return (b.q30 - a.q30) || (b.q7 - a.q7) || (b.totSold - a.totSold); });
-  if (!stats.length) {
-    tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:20px;color:var(--text3)">No models found</td></tr>';
-    return;
+function renderModelDemand(){
+  var filter = ((document.getElementById('demandFilter')||{}).value||'all');
+  // Populate customer filter
+  var custFilterEl=document.getElementById('demandCustFilter');
+  if(custFilterEl&&custFilterEl.options&&custFilterEl.options.length<2){
+    db.customers.slice().sort(function(a,b){return a.name.localeCompare(b.name);}).forEach(function(c){
+      var o=document.createElement('option'); o.value=c.id; o.text=c.name; custFilterEl.appendChild(o);
+    });
   }
-  tbody.innerHTML = stats.map(function(s) {
-    var cls = classifyModel(s);
-    var demand = getDemandBadge(cls);
-    var riskColor, riskTxt;
-    if (s.avail === 0)       { riskColor = '#10b981'; riskTxt = '✅ Clear'; }
-    else if (s.avgAge > 60)  { riskColor = '#ef4444'; riskTxt = '🔴 High'; }
-    else if (s.avgAge > 30)  { riskColor = '#f59e0b'; riskTxt = '🟡 Mid'; }
-    else                     { riskColor = '#10b981'; riskTxt = '🟢 Low'; }
-    var action;
-    if (cls === 'star')        action = '🔥 BUY MORE';
-    else if (cls === 'normal') action = '✅ REBUY';
-    else if (cls === 'low')    action = '🔒 CLEAR FIRST';
-    else                       action = '❌ STOP BUY';
-    var sellOut = (s.sellOutDays != null) ? s.sellOutDays + 'd' : '—';
-    return '<tr>'
-      + '<td style="font-family:var(--fm);font-size:11px;font-weight:600;min-width:160px">' + s.model + '</td>'
-      + '<td>' + demand + '</td>'
-      + '<td style="color:' + riskColor + ';font-size:11px;font-weight:600">' + riskTxt + '</td>'
-      + '<td style="text-align:center">' + (s.q7 || 0) + '</td>'
-      + '<td style="text-align:center">' + (s.q30 || 0) + '</td>'
-      + '<td style="text-align:center">' + (s.totSold || 0) + '</td>'
-      + '<td style="text-align:center;font-weight:700">' + (s.avail || 0) + '</td>'
-      + '<td style="text-align:center;color:' + (s.avgAge > 45 ? '#ef4444' : 'var(--text)') + '">' + (s.avgAge || 0) + 'd</td>'
-      + '<td style="text-align:center;color:' + (s.roi >= 15 ? '#10b981' : s.roi >= 10 ? '#f59e0b' : '#ef4444') + '">' + (s.roi || 0) + '%</td>'
-      + '<td style="text-align:center;color:' + (s.retPct > 5 ? '#ef4444' : '#10b981') + '">' + (s.retPct || 0) + '%</td>'
-      + '<td style="text-align:center">' + sellOut + '</td>'
-      + '<td style="font-size:11px;font-weight:700">' + action + '</td>'
-      + '<td style="font-size:10px;color:var(--text3)">' + (s.custCount || 0) + ' custs</td>'
-      + '</tr>';
-  }).join('');
+  var custFilterId = custFilterEl ? (parseInt(custFilterEl.value)||null) : null;
+  var stats;
+  if(custFilterId){
+    // Show only this customer's model stats
+    var fc=db.customers.find(function(x){return x.id===custFilterId;});
+    if(fc){
+      var cm=getCustomerModelStats(fc);
+      stats=cm.map(function(s){
+        return {model:s.model,tot:s.tot,q7:s.q7,q30:s.q30,custCount:1,
+                avail:s.tot,avgAge:null,costPerPc:0,sellPrice:0,profitPc:null,
+                roi:s.roi,retPct:s.retPct,sellOutDays:null,retQty:s.retQty||0,totSold:s.tot};
+      });
+    } else { stats=getModelStats(); }
+  } else {
+    stats = getModelStats();
+  }
+  var starCount   = stats.filter(function(s){return classifyModel(s)==='star';}).length;
+  var lockCount   = stats.filter(function(s){var a=s.avgAge||0;return a>45;}).length;
+  var t7  = stats.reduce(function(a,s){return a+s.q7;},0);
+  var t30 = stats.reduce(function(a,s){return a+s.q30;},0);
+  var rebuyCount  = stats.filter(function(s){return getFinalAction(s).priority==='rebuy';}).length;
+  var stopCount   = stats.filter(function(s){var p=getFinalAction(s).priority;return p==='stop'||p==='clear';}).length;
+  var capRisk     = stats.reduce(function(a,s){return a+s.avail*(s.costPerPc||0);},0);
+
+  // ── KPI Cards ────────────────────────────────────────────────────────────────
+  var cards = document.getElementById('demandCards');
+  if(cards){
+    var kpis=[
+      {l:'Total Models',    v:stats.length,       c:'var(--text2)'},
+      {l:'\u2B50 Star Models',    v:starCount,          c:'var(--gold)'},
+      {l:'\u{1F512} Slow / Lock',    v:lockCount,          c:'var(--orange)'},
+      {l:'Last 7d Sold',    v:t7+'pcs',           c:'var(--cyan)'},
+      {l:'Last 30d Sold',   v:t30+'pcs',          c:'var(--green)'},
+      {l:'\u2705 Rebuy Approved', v:rebuyCount,         c:'var(--green)'},
+      {l:'\u274C Stop Buy',      v:stopCount,          c:'var(--red)'},
+      {l:'\u{1F512} Capital Risk',   v:'\u09F3'+fmtNum(capRisk),c:'var(--red)'},
+    ];
+    var ch='';
+    kpis.forEach(function(k){
+      ch+='<div class="kpi-card"><div class="kpi-label">'+k.l+'</div><div class="kpi-val" style="color:'+k.c+';font-size:18px">'+k.v+'</div></div>';
+    });
+    cards.innerHTML=ch;
+  }
+
+  // ── Filter ──────────────────────────────────────────────────────────────────
+  var filtered = stats;
+  if(filter==='star')   filtered = stats.filter(function(s){return classifyModel(s)==='star';});
+  if(filter==='rebuy')  filtered = stats.filter(function(s){return getFinalAction(s).priority==='rebuy';});
+  if(filter==='lock')   filtered = stats.filter(function(s){return (s.avgAge||0)>45;});
+  if(filter==='stop')   filtered = stats.filter(function(s){var p=getFinalAction(s).priority;return p==='stop'||p==='clear';});
+
+  // ── Main Table ───────────────────────────────────────────────────────────────
+  // Customer-specific WA offer section
+  var custOfferEl=document.getElementById('demandCustOffer');
+  if(custOfferEl){
+    if(custFilterId){
+      var fc2=db.customers.find(function(x){return x.id===custFilterId;});
+      if(fc2) custOfferEl.innerHTML=renderCustOfferPanel(fc2);
+      else custOfferEl.innerHTML='';
+    } else { custOfferEl.innerHTML=''; }
+  }
+
+  var tbody = document.getElementById('demandTbody');
+  if(tbody){
+    if(!filtered.length){
+      tbody.innerHTML='<tr><td colspan="12" style="text-align:center;padding:30px;color:var(--text3)">Invoice-\u098F model items \u09AF\u09CB\u0997 \u0995\u09B0\u09B2\u09C7 data \u09A6\u09C7\u0996\u09BE\u09AC\u09C7</td></tr>';
+    } else {
+      var th='';
+      filtered.forEach(function(s){
+        var cls = classifyModel(s);
+        var fa  = getFinalAction(s);
+        var sug = getCustSuggestion(s);
+        var rowBg = fa.priority==='rebuy'?'rgba(52,211,153,.03)':
+                    fa.priority==='stop'||fa.priority==='clear'?'rgba(156,163,175,.03)':
+                    fa.priority==='reduce'||fa.priority==='offer'?'rgba(249,115,22,.02)':'';
+        th+='<tr style="background:'+rowBg+'">';
+        // Model name — customer-specific or aggregate
+        var _cmd=null;
+        if(custFilterId){
+          var _fc=db.customers.find(function(x){return x.id===custFilterId;});
+          if(_fc){ var _cm=getCustomerModelStats(_fc); _cmd=_cm.find(function(x){return x.model.toLowerCase()===s.model.toLowerCase();}); }
+        }
+        var _sub=_cmd
+          ? ('\u0995\u09BF\u09A8\u09C7\u099B\u09C7: <span style="color:var(--cyan);font-weight:700">'+_cmd.tot+'pcs</span>'
+             +' \u00B7 30d: <span style="color:'+(_cmd.q30>0?'var(--green)':'var(--text3))')+'">'+_cmd.q30+'pcs</span>'
+             +' \u00B7 Last: '+(_cmd.lastDate?fmtDateShort(_cmd.lastDate):'\u2014'))
+          : ('All: '+s.tot+'pcs \u00B7 '+s.custCount+' custs');
+        th+='<td style="min-width:140px">'
+          +'<div style="font-size:11px;font-weight:600;color:var(--text);font-family:var(--fu)">'+s.model+'</div>'
+          +'<div style="font-family:var(--fm);font-size:9px;color:var(--text3);margin-top:2px">'
+          +_sub
+          +'</div>'
+          +'<button onclick="genOfferWA(getModelStats().find(function(x){return x.model===\''+s.model.replace(/'/g,"\\'")+'\'}))" '
+          +'style="margin-top:3px;font-family:var(--fd);font-size:7px;font-weight:700;padding:2px 7px;border-radius:3px;'
+          +'background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.25);color:#25d366;cursor:pointer">'
+          +'\u{1F4F1} Offer WA</button>'
+          +'</td>';
+        // Demand Class — customer pattern or overall
+        var _demBadge = _cmd
+          ? (function(){
+              var _p=getCustModelPattern(_cmd);
+              return '<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;background:'+_p.bg+';color:'+_p.color+'">'+_p.tag+'</span>';
+            })()
+          : getDemandBadge(cls);
+        th+='<td>'+_demBadge+'</td>';
+        // Stock Risk
+        th+='<td>'+getStockRiskBadge(s.avgAge)+'</td>';
+        // Last 7d
+        th+='<td style="font-family:var(--fm);font-weight:700;color:'+(s.q7>0?'var(--green)':'var(--text3)')+'">'+s.q7+'pcs</td>';
+        // Last 30d
+        th+='<td style="font-family:var(--fm);font-weight:700;color:'+(s.q30>0?'var(--cyan)':'var(--text3)')+'">'+s.q30+'pcs</td>';
+        // All Time
+        var _allTime = _cmd ? _cmd.tot : s.tot;
+        th+='<td style="font-family:var(--fm);font-weight:700;color:var(--text2)">'+_allTime+'pcs</td>';
+        // Available
+        th+='<td style="font-family:var(--fm);font-weight:700;color:'+(s.avail>0?'var(--text)':'var(--text3)')+'">'+s.avail+'pcs</td>';
+        // Stock Age
+        var ageColor=s.avgAge===null?'var(--text3)':s.avgAge<=30?'var(--green)':s.avgAge<=60?'var(--orange)':'var(--red)';
+        th+='<td style="font-family:var(--fm);font-weight:700;color:'+ageColor+'">'+(s.avgAge!==null?s.avgAge+'d':'\u2014')+'</td>';
+        // ROI
+        th+='<td>'+getROIBadge(s.roi)
+          +(s.profitPc!==null?'<div style="font-family:var(--fm);font-size:8px;color:var(--text3)">\u09F3'+fmtNum(s.profitPc)+'/pc</div>':'')
+          +'</td>';
+        // Return %
+        th+='<td>'+getReturnBadge(s.retPct)+'</td>';
+        // Sell-Out Days
+        th+='<td>'+getSellOutBadge(s.sellOutDays)+'</td>';
+        // Final Action — customer rec or overall
+        var _faH;
+        if(_cmd){
+          var _cp=getCustModelPattern(_cmd),_cr=getCustModelRec(_cmd,_cp);
+          _faH='<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;color:'+_cr.color+';background:'+_cr.bg+';white-space:nowrap">'+_cr.rec+'</span>'
+            +'<div style="font-family:var(--fm);font-size:8px;color:var(--text3);margin-top:2px">'+_cr.qty+'</div>';
+        } else {
+          _faH='<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;background:'+fa.bg+';color:'+fa.color+';border:1px solid '+fa.color+'33;white-space:nowrap">'+fa.action+'</span>'
+            +(s.retPct>8?'<div style="font-size:8px;color:var(--red);margin-top:2px">\u26A0\uFE0F High Return Risk</div>':'');
+        }
+        th+='<td>'+_faH+'</td>';
+        // Customer column — show top buyers of this model
+        var topBuyers=[];
+        db.customers.forEach(function(c){
+          var qty=0;
+          (c.invoices||[]).forEach(function(inv){
+            (inv.items||[]).forEach(function(it){
+              if((it.model||'').toLowerCase()===s.model.toLowerCase()) qty+=it.qty;
+            });
+          });
+          if(qty>0) topBuyers.push({name:c.name,qty:qty,id:c.id});
+        });
+        topBuyers.sort(function(a,b){return b.qty-a.qty;});
+        var buyerHtml='';
+        if(custFilterId){
+          // Customer-specific view: show offer angle
+          buyerHtml='<div style="font-size:9px;color:var(--text2);font-family:var(--fu)">'+sug.cust+'</div>'
+            +'<div style="font-size:8px;color:var(--text3);margin-top:2px">'+sug.angle+'</div>';
+        } else {
+          topBuyers.slice(0,3).forEach(function(b){
+            buyerHtml+='<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;cursor:pointer" onclick="setDemandCust('+b.id+')">'
+              +'<span style="font-family:var(--fu);font-size:9px;color:var(--text2)">'+b.name+'</span>'
+              +'<span style="font-family:var(--fm);font-size:8px;color:var(--cyan);font-weight:700">'+b.qty+'pcs</span>'
+              +'</div>';
+          });
+          if(!topBuyers.length) buyerHtml='<span style="color:var(--text3);font-size:9px">\u2014</span>';
+        }
+        th+='<td style="min-width:140px">'+buyerHtml+'</td>';
+        th+='</tr>';
+      });
+      tbody.innerHTML=th;
+    }
+  }
+
+  // ── Section 1: Star / Rebuy ──────────────────────────────────────────────────
+  var starEl=document.getElementById('starList');
+  if(starEl){
+    var stars=stats.filter(function(s){var p=getFinalAction(s).priority;return p==='rebuy'||p==='small'||classifyModel(s)==='star';}).slice(0,6);
+    var sh='';
+    if(!stars.length) sh='<div style="color:var(--text3);font-size:11px;padding:8px">এখনো Star model নেই</div>';
+    stars.forEach(function(s){
+      var fa=getFinalAction(s);
+      sh+='<div style="display:flex;align-items:center;gap:8px;padding:9px 11px;'
+        +'background:rgba(251,191,36,.05);border:1px solid rgba(251,191,36,.15);border-radius:7px;margin-bottom:5px">';
+      sh+='<span style="font-size:14px">\u2B50</span>';
+      sh+='<div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:var(--text);font-family:var(--fu)">'+s.model+'</div>';
+      sh+='<div style="font-family:var(--fm);font-size:8px;color:var(--text3)">30d: '+s.q30+'pcs \u00B7 '+s.custCount+' custs \u00B7 ROI: '+(s.roi!==null?s.roi+'%':'\u2014')+'</div></div>';
+      sh+='<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;background:'+fa.bg+';color:'+fa.color+'">'+fa.action+'</span>';
+      sh+='</div>';
+    });
+    starEl.innerHTML=sh;
+  }
+
+  // ── Section 2: Watch / Offer Push ────────────────────────────────────────────
+  var watchEl=document.getElementById('watchList');
+  if(watchEl){
+    var watches=stats.filter(function(s){var p=getFinalAction(s).priority;return p==='offer'||p==='watch'||p==='monitor';}).slice(0,6);
+    var wh='';
+    if(!watches.length) wh='<div style="color:var(--green);font-size:11px;padding:8px">\u2705 কোনো Watch model নেই</div>';
+    watches.forEach(function(s){
+      var fa=getFinalAction(s);
+      wh+='<div style="display:flex;align-items:center;gap:8px;padding:9px 11px;'
+        +'background:rgba(249,115,22,.05);border:1px solid rgba(249,115,22,.15);border-radius:7px;margin-bottom:5px">';
+      wh+='<span style="font-size:14px">\u{1F440}</span>';
+      wh+='<div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:var(--text);font-family:var(--fu)">'+s.model+'</div>';
+      wh+='<div style="font-family:var(--fm);font-size:8px;color:var(--text3)">Age: '+(s.avgAge!==null?s.avgAge+'d':'\u2014')+' \u00B7 30d: '+s.q30+'pcs \u00B7 Sell-out: '+(s.sellOutDays!==null?'~'+s.sellOutDays+'d':'?')+'</div></div>';
+      wh+='<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;background:'+fa.bg+';color:'+fa.color+'">'+fa.action+'</span>';
+      wh+='</div>';
+    });
+    watchEl.innerHTML=wh;
+  }
+
+  // ── Section 3: Capital Lock / Stop Buy ────────────────────────────────────────
+  var lockEl=document.getElementById('lockList');
+  if(lockEl){
+    var locks=stats.filter(function(s){var p=getFinalAction(s).priority;return p==='stop'||p==='clear'||p==='reduce'||p==='avoid';}).slice(0,6);
+    var lh='';
+    if(!locks.length) lh='<div style="color:var(--green);font-size:11px;padding:8px">\u2705 কোনো Capital Lock নেই</div>';
+    locks.forEach(function(s){
+      var fa=getFinalAction(s);
+      lh+='<div style="display:flex;align-items:center;gap:8px;padding:9px 11px;'
+        +'background:rgba(232,33,26,.04);border:1px solid rgba(232,33,26,.15);border-radius:7px;margin-bottom:5px">';
+      lh+='<span style="font-size:14px">\u{1F512}</span>';
+      lh+='<div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:var(--text);font-family:var(--fu)">'+s.model+'</div>';
+      lh+='<div style="font-family:var(--fm);font-size:8px;color:var(--text3)">Age: '+(s.avgAge!==null?s.avgAge+'d':'\u2014')+' \u00B7 Return: '+s.retPct+'% \u00B7 ROI: '+(s.roi!==null?s.roi+'%':'\u2014')+'</div></div>';
+      lh+='<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;background:'+fa.bg+';color:'+fa.color+'">'+fa.action+'</span>';
+      lh+='</div>';
+    });
+    lockEl.innerHTML=lh;
+  }
 }
 
 function getStockRiskBadge(age){
