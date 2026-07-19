@@ -5555,20 +5555,30 @@ function nwRateIsDefault() {
 function nwCalcCtgInventory() {
   try {
     var batches = (typeof getStockBatches === 'function') ? getStockBatches() : null;
-    if (!batches || !batches.length) return { qty: 0, value: 0, status: 'LOADING' };
-    var totalQty = 0, totalVal = 0;
+    if (!batches || !batches.length) return { qty: 0, value: 0, expProfit: 0, lowRoi: 0, capBlockers: 0, status: 'LOADING' };
+    var totalQty = 0, totalVal = 0, totalExpProfit = 0, lowRoi = 0, capBlockers = 0;
     batches.forEach(function(b) {
-      // getStockBatches() batches already track qtySold
       var received = b.qtyReceived || b.qty || 0;
-      var sold     = b.qtySold || 0;
+      var sold     = b.qtySold    || 0;
       var avail    = Math.max(0, received - sold);
-      totalQty += avail;
-      totalVal += avail * (b.costPerPc || 0);
+      var cost     = b.costPerPc  || 0;
+      var sellP    = b.expectedSellPrice || 0;
+      var profitPc = sellP - cost;
+      var roi      = cost > 0 ? profitPc / cost : 0;
+      totalQty      += avail;
+      totalVal      += avail * cost;
+      totalExpProfit += avail * profitPc;
+      if (avail > 0 && roi < 0.12) lowRoi++;       // <12% ROI = low ROI
+      if (avail > 0 && roi < 0.05) capBlockers++;  // <5% ROI = capital blocker
     });
-    return { qty: Math.round(totalQty), value: Math.round(totalVal), status: 'AUTO' };
+    return {
+      qty: Math.round(totalQty), value: Math.round(totalVal),
+      expProfit: Math.round(totalExpProfit), lowRoi: lowRoi, capBlockers: capBlockers,
+      status: 'AUTO'
+    };
   } catch (e) {
     console.warn('[NW] ctgInv', e);
-    return { qty: 0, value: 0, status: 'SYNC_ERROR' };
+    return { qty: 0, value: 0, expProfit: 0, lowRoi: 0, capBlockers: 0, status: 'SYNC_ERROR' };
   }
 }
 
@@ -6639,7 +6649,16 @@ function nwDelFixedLiab(i) {
 // ── Main init / render ─────────────────────────────────────────────
 async function nwInit() {
   try {
-    if (_nwReady) { nwRenderAll(); return; }
+    // Initialize Firestore (fsdb) if not yet set — main app uses firebase.firestore()
+    if (!window.fsdb && typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length) {
+      try { window.fsdb = firebase.firestore(); } catch(e) { console.warn('[NW] fsdb init:', e); }
+    }
+    if (_nwReady) {
+      // Re-subscribe Dubai if subscriptions dropped (e.g. navigated away and back)
+      if (_nwUnsubs.length === 0) nwSubscribeDubai();
+      nwRenderAll();
+      return;
+    }
     nwSetSync('⏳ Loading...');
     // Render immediately with defaults (page never blank)
     nwRenderAll();
