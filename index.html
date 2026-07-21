@@ -7065,7 +7065,7 @@ function goTo(sec, btn){
 
 // ── renderAll (called after every data change) ──────────
 function renderAll(){
-  /*CTG_FIFO_RECONCILE*/try{if(window.db&&db.customers&&db.customers.length&&window.stockDB&&stockDB.batches&&typeof computeBatchFifoSold==='function'){var _rfM=computeBatchFifoSold();stockDB.batches.forEach(function(_b){_b.qtySold=_rfM[_b.id]||0;});}}catch(_eRf){}
+  /*CTG_FIFO_RECONCILE2*/try{if(typeof db!=='undefined'&&db.customers&&db.customers.length&&typeof stockDB!=='undefined'&&stockDB.batches&&typeof computeBatchFifoSold==='function'){var _rfM=computeBatchFifoSold();stockDB.batches.forEach(function(_b){_b.qtySold=_rfM[_b.id]||0;});}}catch(_eRf){}
 
   refreshStockList();
 
