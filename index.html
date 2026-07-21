@@ -427,7 +427,7 @@ body{max-width:100vw;overflow-x:hidden!important}
   <div class="g5 mb-14" id="stockBuckets"></div>
   <div class="stock-tabs">
     <button class="stab active" id="st_all"  onclick="switchStab('all')">&#x1F4CB; &#x09B8;&#x09AC; Stock</button>
-    <button class="stab"        id="st_add"     onclick="switchStab('add')">+ &#x09A8;&#x09A4;&#x09C1;&#x09A8; Batch</button>
+    <button class="stab"        id="st_add"     onclick="switchStab('add')">+ &#x09A8;&#x09A4;&#x09C1;&#x09A8; Batch</button><button class="stab"        id="st_add"     onclick="switchStab('healthy')">🟢 Healthy 0–30d</button><button class="stab"        id="st_add"     onclick="switchStab('watch')">🟡 Watch 31–45d</button>
     <button class="stab"        id="st_slow"    onclick="switchStab('slow')">&#x26A0;&#xFE0F; Slow 45d+</button>
     <button class="stab"        id="st_dead"    onclick="switchStab('dead')">&#x1F480; Dead 90d+</button>
     <button class="stab"        id="st_history" onclick="switchStab('history')">📊 Buy History</button>
@@ -478,7 +478,7 @@ body{max-width:100vw;overflow-x:hidden!important}
       <div id="recentBatches"></div>
     </div>
   </div>
-  <div class="stab-c" id="sc_slow">
+  <div class="stab-c" id="sc_healthy"><div style="background:rgba(34,197,94,.05);border:1px solid rgba(34,197,94,.2);border-radius:var(--rl);padding:14px;margin-bottom:14px"><div style="font-family:var(--fd);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#16a34a;margin-bottom:4px">🟢 Healthy Stock — 0–30 দিন</div><div style="font-size:11px;color:var(--text3)">Fresh stock · rotation ঠিক আছে — <strong style="color:#16a34a">Sell Momentum ধরে রাখুন</strong></div></div><div class="card"><div id="healthyTbl"></div></div></div><div class="stab-c" id="sc_watch"><div style="background:rgba(234,179,8,.06);border:1px solid rgba(234,179,8,.25);border-radius:var(--rl);padding:14px;margin-bottom:14px"><div style="font-family:var(--fd);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#b45309;margin-bottom:4px">🟡 Watch — 31–45 দিন</div><div style="font-size:11px;color:var(--text3)">এখনই push করুন, Slow হওয়ার আগে — <strong style="color:#b45309">Push Now &gt; Discount Later</strong></div></div><div class="card"><div id="watchTbl"></div></div></div><div class="stab-c" id="sc_slow">
     <div style="background:rgba(249,115,22,.05);border:1px solid rgba(249,115,22,.2);border-radius:var(--rl);padding:14px;margin-bottom:14px">
       <div style="font-family:var(--fd);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--orange);margin-bottom:4px">&#x26A0;&#xFE0F; Slow Stock &#x2014; 45 &#x09A6;&#x09BF;&#x09A8;&#x09C7;&#x09B0; &#x09AC;&#x09C7;&#x09B6;&#x09BF;</div>
       <div style="font-size:11px;color:var(--text3)">Margin &#x0995;&#x09AE;&#x09BF;&#x09AF;&#x09BC;&#x09C7; &#x09B9;&#x09B2;&#x09C7;&#x0993; sell &#x0995;&#x09B0;&#x09C1;&#x09A8; &#x2014; <strong style="color:var(--orange)">Cash &gt; Paper Profit</strong></div>
@@ -3723,7 +3723,7 @@ function copySlowList(){
 }
 
 function switchStab(tab){
-  ['all','add','slow','dead','history','buylist','returnin'].forEach(function(t){
+  ['all','add','healthy','watch','slow','dead','history','buylist','returnin'].forEach(function(t){
     var b=document.getElementById('st_'+t), c=document.getElementById('sc_'+t);
     if(b) b.classList.toggle('active', t===tab);
     if(c) c.classList.toggle('active', t===tab);
@@ -3997,6 +3997,38 @@ async function renderStockKPIBar(){
   el.innerHTML=h;
 }
 function renderStockAll(){
+  /*CTG_HW_TABS*/try{
+  var _hwDefs=[
+    {el:'healthyTbl',min:0,max:30,tag:'Healthy',col:'#16a34a',bg:'rgba(34,197,94,.12)'},
+    {el:'watchTbl',min:31,max:45,tag:'Watch',col:'#b45309',bg:'rgba(234,179,8,.15)'}
+  ];
+  _hwDefs.forEach(function(_d){
+    var _el=document.getElementById(_d.el); if(!_el) return;
+    var _ls=stockDB.batches.filter(function(b){var _a=getAge(b.entryDate);var _v=Math.max(0,(b.qtyReceived||0)-(b.qtySold||0));return _v>0&&_a>=_d.min&&_a<=_d.max;});
+    _ls.sort(function(a,b){return getAge(b.entryDate)-getAge(a.entryDate);});
+    var _tp=0,_tc=0;
+    var _h='<table style="width:100%;border-collapse:collapse"><thead><tr>';
+    ['MODEL','ENTRY','\u09AC\u09DF\u09B8','AVAILABLE','CAPITAL','STATUS'].forEach(function(_c){_h+='<th style="text-align:left;padding:9px 11px;font-family:var(--fd);font-size:9px;font-weight:800;letter-spacing:1px;color:var(--text3);border-bottom:1px solid var(--border)">'+_c+'</th>';});
+    _h+='</tr></thead><tbody>';
+    if(!_ls.length){_h+='<tr><td colspan="6" style="text-align:center;padding:26px;color:var(--text3);font-size:11px">\u098F\u0987 \u0995\u09CD\u09AF\u09BE\u099F\u09BE\u0997\u09B0\u09BF\u09A4\u09C7 \u0995\u09CB\u09A8\u09CB batch \u09A8\u09C7\u0987</td></tr>';}
+    _ls.forEach(function(b){
+      var _a=getAge(b.entryDate);var _v=Math.max(0,(b.qtyReceived||0)-(b.qtySold||0));var _cap=_v*(b.costPerPc||0);_tp+=_v;_tc+=_cap;
+      var _dt=(typeof fmtDateShort==='function')?fmtDateShort(b.entryDate):(b.entryDate||'');
+      _h+='<tr>'
+        +'<td style="padding:9px 11px;font-size:11px;font-weight:600;color:var(--text);font-family:var(--fu);border-bottom:1px solid var(--border)">'+(b.model||'')+'</td>'
+        +'<td style="padding:9px 11px;font-family:var(--fm);font-size:10px;color:var(--text3);border-bottom:1px solid var(--border)">'+_dt+'</td>'
+        +'<td style="padding:9px 11px;font-family:var(--fm);font-size:11px;font-weight:700;color:'+_d.col+';border-bottom:1px solid var(--border)">'+_a+'d</td>'
+        +'<td style="padding:9px 11px;font-family:var(--fm);font-size:11px;font-weight:700;color:var(--text2);border-bottom:1px solid var(--border)">'+_v+' pcs</td>'
+        +'<td style="padding:9px 11px;font-family:var(--fm);font-size:11px;font-weight:700;color:var(--text2);border-bottom:1px solid var(--border)">\u09F3'+fmtNum(_cap)+'</td>'
+        +'<td style="padding:9px 11px;border-bottom:1px solid var(--border)"><span style="font-family:var(--fd);font-size:8px;font-weight:800;padding:3px 10px;border-radius:5px;background:'+_d.bg+';color:'+_d.col+'">'+_d.tag+'</span></td>'
+        +'</tr>';
+    });
+    _h+='</tbody></table>';
+    _h+='<div style="text-align:right;padding:11px 13px;font-family:var(--fm);font-size:11px;font-weight:700;color:'+_d.col+';border-top:1px solid var(--border)">Total Available: '+_tp+' pcs \u00B7 Total Capital: \u09F3'+fmtNum(_tc)+' ('+_ls.length+' batch)</div>';
+    _el.innerHTML=_h;
+  });
+  }catch(_eHW){}
+
   renderStockKPIBar();
   renderStockBuckets();
   renderStockModelSummary();
