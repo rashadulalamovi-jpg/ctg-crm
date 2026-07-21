@@ -3997,6 +3997,29 @@ async function renderStockKPIBar(){
   el.innerHTML=h;
 }
 function renderStockAll(){
+  /*CTG_SD_TOTALS*/setTimeout(function(){try{
+  [['slowTbl','var(--orange)'],['deadTbl','#6b7280']].forEach(function(_cfg){
+    var _el=document.getElementById(_cfg[0]); if(!_el) return;
+    var _old=_el.querySelector('.sdTotFoot'); if(_old) _old.remove();
+    var _trs=_el.querySelectorAll('tbody tr'); var _tp=0,_tc=0,_n=0;
+    _trs.forEach(function(_tr){
+      var _tds=_tr.querySelectorAll('td'); if(_tds.length<4) return;
+      var _pcs=null,_cap=null;
+      _tds.forEach(function(_td){ var _x=_td.textContent.trim();
+        var _mp=_x.match(/^(\d+)\s*pcs$/); if(_mp&&_pcs===null) _pcs=parseInt(_mp[1]);
+        var _mc=_x.match(/^\u09F3([\d,]+)$/); if(_mc&&_cap===null) _cap=parseInt(_mc[1].replace(/,/g,''));
+      });
+      if(_pcs!==null){_tp+=_pcs;_n++;}
+      if(_cap!==null)_tc+=_cap;
+    });
+    if(!_n) return;
+    var _f=document.createElement('div'); _f.className='sdTotFoot';
+    _f.style.cssText='text-align:right;padding:11px 13px;font-family:var(--fm);font-size:11px;font-weight:700;border-top:1px solid var(--border);color:'+_cfg[1];
+    _f.textContent='Total Available: '+_tp+' pcs \u00B7 Total Capital: \u09F3'+fmtNum(_tc)+' ('+_n+' batch)';
+    _el.appendChild(_f);
+  });
+  }catch(_eSD){}},0);
+
   /*CTG_HW_TABS*/try{
   var _hwDefs=[
     {el:'healthyTbl',min:0,max:30,tag:'Healthy',col:'#16a34a',bg:'rgba(34,197,94,.12)'},
