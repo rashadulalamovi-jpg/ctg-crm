@@ -451,7 +451,7 @@ body{max-width:100vw;overflow-x:hidden!important}
       </div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>Model</th><th>Entry</th><th>বয়স;</th><th>Status</th><th>Rcvd</th><th>Sold</th><th>Avail</th><th>Cost/pc</th><th>Sell Price</th><th>Profit/pc</th><th>ROI%</th><th>7D Sold</th><th>30D Sold</th><th>Return Qty</th><th>Return %</th><th>Sell-Out</th><th>Action</th><th>Rebuy</th><th></th></tr></thead>
+          <thead><tr><th>Model</th><th>Entry</th><th>বয়স;</th><th title="Model-level: current total stock ÷ recent daily sales speed">Rotation Days</th><th>Status</th><th title="This batch">Rcvd</th><th title="This batch">Sold</th><th title="This batch">Avail</th><th>Cost/pc</th><th>Sell Price</th><th>Profit/pc</th><th>ROI%</th><th title="Whole model, all batches">7D Sold</th><th title="Whole model, all batches">30D Sold</th><th>Return Qty</th><th>Return %</th><th title="This batch only">Sell-Out</th><th>Action</th><th>Rebuy</th><th></th></tr></thead>
           <tbody id="stockTbody"></tbody>
         </table>
       </div>
@@ -3360,7 +3360,7 @@ function renderStockBuckets(){
   let h = '';
   const _fifoSold = computeBatchFifoSold();
   defs.forEach(function(bk){
-    const m = stockDB.batches.filter(b=>bk.f(getAge(b.entryDate)));
+    const m = stockDB.batches.filter(b=>bk.f(getAge(b.entryDate)) && Math.max(0,(b.qtyReceived||0)-(_fifoSold[b.id]||0))>0);
     const pcs = m.reduce((a,b)=>a+Math.max(0,(b.qtyReceived||0)-(_fifoSold[b.id]||0)),0);
     const cap = m.reduce((a,b)=>a+Math.max(0,(b.qtyReceived||0)-(_fifoSold[b.id]||0))*(b.costPerPc||0),0);
     h += '<div class="sbucket" style="border-top:2px solid '+bk.color+'">';
@@ -3391,21 +3391,34 @@ function autoDetectBrand(){
 }
 
 // Weighted average cost for a model across batches
-function getModel7dSold(modelName){
-  var sold=0;
+function modelKey(m){ return (m||'').trim().toLowerCase(); }
+
+// CTG_ROTATION_ENGINE — exact-match, window-generalized model sales/returns
+function getModelSoldInWindow(modelName, days){
+  var sold=0; var key=modelKey(modelName);
   db.customers.forEach(function(c){
     (c.invoices||[]).forEach(function(inv){
-      if(getAge(inv.date)<=7){
+      if(getAge(inv.date)<=days){
         (inv.items||[]).forEach(function(it){
-          if(it.model&&(it.model.toLowerCase().includes(modelName.toLowerCase())||
-             modelName.toLowerCase().includes(it.model.toLowerCase())))
-            sold+=it.qty;
+          if(modelKey(it.model)===key) sold+=(it.qty||0);
         });
       }
     });
   });
   return sold;
 }
+function getModelReturnInWindow(modelName, days){
+  var ret=0; var key=modelKey(modelName);
+  db.customers.forEach(function(c){
+    (c.invoices||[]).forEach(function(inv){
+      (inv.returns||[]).forEach(function(r){
+        if(modelKey(r.model)===key && getAge(r.date||inv.date)<=days) ret+=(r.qty||0);
+      });
+    });
+  });
+  return ret;
+}
+function getModel7dSold(modelName){ return getModelSoldInWindow(modelName, 7); }
 
 function getWeightedAvgCost(modelName){
   var matching=stockDB.batches.filter(function(b){
@@ -3427,19 +3440,59 @@ function saveExpectedSellPrice(id, val){
   renderStockTable();
 }
 
-function getModel30dSold(modelName){
-  var sold=0;
-  db.customers.forEach(function(c){
-    (c.invoices||[]).forEach(function(inv){
-      if(getAge(inv.date)<=30){
-        (inv.items||[]).forEach(function(it){
-          if(it.model&&it.model.toLowerCase().includes(modelName.toLowerCase())||
-             modelName.toLowerCase().includes((it.model||'').toLowerCase())) sold+=it.qty;
-        });
-      }
-    });
+function getModel30dSold(modelName){ return getModelSoldInWindow(modelName, 30); }
+
+// CTG_ROTATION_ENGINE — model-level sellable stock (sum of avail across all this model's batches)
+function getModelAvailable(modelName){
+  var key=modelKey(modelName);
+  var fifo=computeBatchFifoSold();
+  var total=0;
+  stockDB.batches.forEach(function(b){
+    if(modelKey(b.model)===key) total+=Math.max(0,(b.qtyReceived||0)-(fifo[b.id]||0));
   });
-  return sold;
+  return total;
+}
+// Effective window: min(30, days since this model's earliest batch entered stock) — avoids
+// penalizing a freshly-arrived model for not having 30 days of sales history yet.
+function getModelEffectiveWindow(modelName){
+  var key=modelKey(modelName);
+  var earliest=null;
+  stockDB.batches.forEach(function(b){
+    if(modelKey(b.model)===key){
+      var d=new Date(b.entryDate||'');
+      if(!isNaN(d) && (!earliest || d<earliest)) earliest=d;
+    }
+  });
+  if(!earliest) return 30;
+  var daysSinceFirst=Math.floor((Date.now()-earliest.getTime())/86400000);
+  return Math.max(1, Math.min(30, daysSinceFirst||1));
+}
+function getRotationStatus(days){
+  if(days===null) return {label:'No Movement', sub:'Stop Buy', color:'#9ca3af', bg:'rgba(156,163,175,.12)'};
+  if(days<=14) return {label:'Fast', sub:'Rebuy Consideration', color:'var(--green)', bg:'rgba(52,211,153,.1)'};
+  if(days<=21) return {label:'Healthy', sub:'Maintain Stock', color:'var(--cyan)', bg:'rgba(34,211,238,.1)'};
+  if(days<=30) return {label:'Watch', sub:'Limited Buying', color:'var(--warn)', bg:'rgba(245,158,11,.1)'};
+  if(days<=45) return {label:'Slow', sub:'Stop/Reduce Rebuy', color:'var(--orange)', bg:'rgba(249,115,22,.1)'};
+  if(days<=60) return {label:'Danger', sub:'Clearance', color:'var(--red)', bg:'rgba(227,6,19,.1)'};
+  return {label:'Dead Capital', sub:'Forced Capital Release', color:'#9ca3af', bg:'rgba(156,163,175,.15)'};
+}
+// CTG_ROTATION_ENGINE — the locked Live Rotation Days formula (model-level)
+function getModelRotationDays(modelName){
+  var avail = getModelAvailable(modelName);
+  var win   = getModelEffectiveWindow(modelName);
+  var sold  = getModelSoldInWindow(modelName, win);
+  var ret   = getModelReturnInWindow(modelName, win);
+  var net   = Math.max(0, sold-ret);
+  var velocity = net/win;
+  if(velocity<=0){
+    return {avail:avail, velocity:0, days:null, status:getRotationStatus(null)};
+  }
+  if(avail<=0){
+    return {avail:0, velocity:Math.round(velocity*100)/100, days:0,
+      status:{label:'Out of Stock', sub:'\u{1F525} Urgent Rebuy', color:'var(--red)', bg:'rgba(227,6,19,.14)'}};
+  }
+  var days = Math.round(avail/velocity);
+  return {avail:avail, velocity:Math.round(velocity*100)/100, days:days, status:getRotationStatus(days)};
 }
 
 function getStockAction(age, roi, avail, sold30){
@@ -3453,27 +3506,35 @@ function getStockAction(age, roi, avail, sold30){
   return {label:'\u23F8\uFE0F Hold', cls:'age-h', color:'var(--text2)'};
 }
 
-function getRebuyDecision(age, roi, avail, sold30, totalStock){
-  if(age>=90) return {label:'\u{1F6D1} Stop Rebuy', color:'var(--red)', bg:'rgba(227,6,19,.1)'};
-  if(age>=60) return {label:'\u274C Stop', color:'var(--red)', bg:'rgba(227,6,19,.1)'};
-  if(sold30>=5 && age<=30 && roi!==null && roi>=15) return {label:'\u2705 Rebuy', color:'var(--green)', bg:'rgba(52,211,153,.1)'};
-  if(sold30>=3 && age<=45 && roi!==null && roi>=12) return {label:'\u{1F4E6} Small Qty', color:'var(--cyan)', bg:'rgba(34,211,238,.1)'};
-  if(sold30>=1) return {label:'\u23F8\uFE0F Hold', color:'var(--text2)', bg:'rgba(15,23,42,.04)'};
-  return {label:'\u274C Stop', color:'var(--red)', bg:'rgba(227,6,19,.08)'};
+// CTG_ROTATION_ENGINE \u2014 Rebuy decision now driven by model-level Live Rotation Days + ROI,
+// NOT the age of one specific (possibly already-closed) batch. A model that is out of stock
+// but still selling gets flagged as an urgent rebuy instead of "Stop" just because its last
+// batch happened to be old.
+function getRebuyDecision(modelName, roi){
+  var rot = getModelRotationDays(modelName);
+  if(rot.days===0 && rot.velocity>0){
+    return {label:'\u{1F525} Urgent Rebuy', color:'var(--red)', bg:'rgba(227,6,19,.14)'};
+  }
+  if(rot.days===null){
+    return {label:'\u274C Stop (No Movement)', color:'var(--red)', bg:'rgba(227,6,19,.08)'};
+  }
+  if(rot.days<=14){
+    if(roi!==null && roi>=15) return {label:'\u2705 Rebuy', color:'var(--green)', bg:'rgba(52,211,153,.1)'};
+    return {label:'\u{1F4E6} Small Qty (Low ROI)', color:'var(--cyan)', bg:'rgba(34,211,238,.1)'};
+  }
+  if(rot.days<=21) return {label:'\u23F8\uFE0F Maintain', color:'var(--text2)', bg:'rgba(15,23,42,.04)'};
+  if(rot.days<=30) return {label:'\u26A0\uFE0F Limited Buy', color:'var(--warn)', bg:'rgba(245,158,11,.1)'};
+  if(rot.days<=45) return {label:'\u274C Stop/Reduce', color:'var(--orange)', bg:'rgba(249,115,22,.1)'};
+  if(rot.days<=60) return {label:'\u{1F6D1} Clearance', color:'var(--red)', bg:'rgba(227,6,19,.1)'};
+  return {label:'\u26AB Dead Capital', color:'#9ca3af', bg:'rgba(156,163,175,.1)'};
 }
 
 function getModelReturnStats(modelName){
-  var retQty=0, totSold=0;
+  var retQty=0, totSold=0; var key=modelKey(modelName);
   db.customers.forEach(function(c){
     (c.invoices||[]).forEach(function(inv){
-      (inv.items||[]).forEach(function(it){
-        var mn=(it.model||'').toLowerCase(), bm=modelName.toLowerCase();
-        if(mn.includes(bm)||bm.includes(mn)) totSold+=it.qty;
-      });
-      (inv.returns||[]).forEach(function(r){
-        var rn=(r.model||'').toLowerCase(), bm=modelName.toLowerCase();
-        if(rn.includes(bm)||bm.includes(rn)) retQty+=r.qty;
-      });
+      (inv.items||[]).forEach(function(it){ if(modelKey(it.model)===key) totSold+=(it.qty||0); });
+      (inv.returns||[]).forEach(function(r){ if(modelKey(r.model)===key) retQty+=(r.qty||0); });
     });
   });
   var retPct=totSold>0?Math.round(retQty/totSold*100):0;
@@ -3481,7 +3542,7 @@ function getModelReturnStats(modelName){
 }
 
 function computeBatchFifoSold(){var res={};var byM={};stockDB.batches.forEach(function(b){if(!byM[b.model])byM[b.model]=[];byM[b.model].push(b);});Object.keys(byM).forEach(function(m){var s=byM[m].slice().sort(function(a,b){return new Date(a.entryDate||'')-new Date(b.entryDate||'')}); var rem=getModelInvSold(m);s.forEach(function(b){var sold=Math.min(rem,b.qtyReceived||0);res[b.id]=sold;rem=Math.max(0,rem-sold);});});return res;}
-function getModelInvSold(m){var sold=0;(db||{customers:[]}).customers.forEach(function(c){(c.invoices||[]).forEach(function(inv){(inv.items||[]).forEach(function(it){if(it.model&&(it.model.toLowerCase().includes(m.toLowerCase())||m.toLowerCase().includes(it.model.toLowerCase())))sold+=it.qty;});});});return sold;}
+function getModelInvSold(m){var key=modelKey(m);var sold=0;(db||{customers:[]}).customers.forEach(function(c){(c.invoices||[]).forEach(function(inv){(inv.items||[]).forEach(function(it){if(modelKey(it.model)===key)sold+=(it.qty||0);});});});return sold;}
 function renderStockTable(){
   const tbody = document.getElementById('stockTbody'); if(!tbody) return;
   const q = ((document.getElementById('stSearch')||{}).value||'').toLowerCase();
@@ -3500,14 +3561,19 @@ function renderStockTable(){
   });
   batches.sort(function(a,b){return getAge(b.entryDate)-getAge(a.entryDate);});
   if(!batches.length){
-    tbody.innerHTML='<tr><td colspan="19" style="text-align:center;padding:30px;color:var(--text3)">Stock batch \u09A8\u09C7\u0987</td></tr>';
+    tbody.innerHTML='<tr><td colspan="20" style="text-align:center;padding:30px;color:var(--text3)">Stock batch \u09A8\u09C7\u0987</td></tr>';
     var t0=document.getElementById('stockTot'); if(t0) t0.textContent=''; return;
   }
   var h='', totC=0, totA=0, totProfit=0, lowROI=0, capitalBlock=0;
+  var _rotCache = {};
+  function _rotFor(model){ var k=modelKey(model); if(!_rotCache[k]) _rotCache[k]=getModelRotationDays(model); return _rotCache[k]; }
   batches.forEach(function(b){
     var age   = getAge(b.entryDate);
-    var bk    = getAgeBucket(age);
     var avail = Math.max(0,(b.qtyReceived||0)-(_fifoSold[b.id]||0));
+    // CTG_ROTATION_ENGINE: a batch with Avail=0 is closed — nothing is "ageing" in it anymore,
+    // so it should never show as Healthy/Watch/Slow/Dead-Risk. Only open (avail>0) batches get
+    // the age-bucket badge; closed batches get a neutral "Closed" tag instead.
+    var bk    = avail>0 ? getAgeBucket(age) : {label:'Closed', cls:'age-h', color:'var(--text3)', bg:'rgba(15,23,42,.03)', emoji:'⚪'};
     var cost  = b.costPerPc||0;
     var sellP = b.expectedSellPrice||0;
     var profit= sellP>0 ? sellP-cost : null;
@@ -3520,13 +3586,15 @@ function renderStockTable(){
     var velocity30 = sold30 > 0 ? sold30/30 : 0;
     var velocity   = velocity7 > 0 ? velocity7 : velocity30; // prefer 7d
     var sellOutDays = (velocity>0 && avail>0) ? Math.ceil(avail/velocity) : null;
+    var rot = _rotFor(b.model); // model-level Live Rotation Days (locked formula)
     var wavg  = getWeightedAvgCost(b.model);
     var multiP= stockDB.batches.filter(function(x){return x.model.toLowerCase()===b.model.toLowerCase();}).length>1;
     var bBrand= b.brand||autoDetectBrandFromName(b.model);
     var isSmall = avail>0 && avail<=2;
     var action  = getStockAction(age, roi, avail, sold30);
-    var rebuy   = getRebuyDecision(age, roi, avail, sold30, b.qtyReceived);
-    var rowBg   = age>=90?'background:rgba(156,163,175,.04);':
+    var rebuy   = getRebuyDecision(b.model, roi); // model-level: driven by Rotation Days + ROI, not this batch's age
+    var rowBg   = avail<=0 ? '' :
+                  age>=90?'background:rgba(156,163,175,.04);':
                   age>=60?'background:rgba(227,6,19,.04);':
                   age>=45?'background:rgba(249,115,22,.03);':
                   isSmall?'background:rgba(245,158,11,.03);':'';
@@ -3548,6 +3616,15 @@ function renderStockTable(){
     h+='<td style="font-family:var(--fm);font-size:10px;color:var(--text3);white-space:nowrap">'+fmtDateShort(b.entryDate)+'</td>';
     // Age
     h+='<td><span style="font-family:var(--fm);font-size:13px;font-weight:700;color:'+bk.color+'">'+age+'d</span></td>';
+    // Rotation Days (model-level, locked formula)
+    h+='<td>';
+    if(rot.days===null){
+      h+='<span style="font-family:var(--fm);font-size:10px;color:'+rot.status.color+'">—</span>';
+    } else {
+      h+='<span style="font-family:var(--fm);font-size:13px;font-weight:700;color:'+rot.status.color+'">'+rot.days+'d</span>';
+    }
+    h+='<div style="font-family:var(--fd);font-size:7px;font-weight:700;color:'+rot.status.color+'">'+rot.status.label+'</div>';
+    h+='</td>';
     // Status
     h+='<td><span class="'+bk.cls+'">'+bk.emoji+' '+bk.label+'</span></td>';
     // Rcvd
@@ -4114,6 +4191,12 @@ function calcModelBuyHistory(){
     var totRevenue = sales.reduce(function(a,s){return a+s.qty*(s.price||0);},0);
     var avgSellP   = totSold>0 ? Math.round(totRevenue/totSold) : 0;
 
+    // NOTE (CTG_ROTATION_ENGINE): avgHold below is a blended HISTORICAL metric only —
+    // it mixes "days a sold unit sat before selling" with "current age of still-unsold batches".
+    // It is NOT the same as Stock Age (per-lot, current stock only) or Live Rotation Days
+    // (current sellable stock ÷ recent velocity) used on the Stock Ageing Tracker page.
+    // Kept as-is here for this Buy History tab's own decision engine; do not reuse it as
+    // Stock Age or Rotation Days elsewhere.
     // Avg hold days: for each invoice sale, find closest batch entry before it
     var holdDays = [];
     sales.forEach(function(s){
@@ -4312,7 +4395,7 @@ h+='</div>';
   var thr='padding:8px 6px;font-size:10px;color:#64748b;font-weight:700;letter-spacing:0.5px;text-align:right;white-space:nowrap;border-bottom:1px solid #1e293b';
   var thl='padding:8px 6px;font-size:10px;color:#64748b;font-weight:700;letter-spacing:0.5px;text-align:left;white-space:nowrap;border-bottom:1px solid #1e293b';
   h+='<div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:10px;overflow:hidden"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>';
-  ['MODEL','BATCH','BUY','SOLD','UNSOLD','AVG BUY ৳','AVG SELL ৳','PROFIT/PC','ROI%','HOLD','VEL/WK','RET%','৳ CAPITAL','৳ AT RISK','DECISION'].forEach(function(col,i){
+  ['MODEL','BATCH','BUY','SOLD','UNSOLD','AVG BUY ৳','AVG SELL ৳','PROFIT/PC','ROI%','AVG HOLD (hist.)','VEL/WK','RET%','৳ CAPITAL','৳ AT RISK','DECISION'].forEach(function(col,i){
     h+='<th style="'+(i===0||i===14?thl:thr)+'">'+col+'</th>';
   });
   h+='</tr></thead><tbody>';
