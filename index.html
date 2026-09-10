@@ -377,11 +377,19 @@ body{max-width:100vw;overflow-x:hidden!important}
   <div class="flex-between mb-18">
     <div>
       <div style="font-family:var(--fd);font-size:22px;font-weight:800">&#x1F4CA; Intelligence Dashboard</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:3px">12 KPI cards &#183; Attention needed &#183; Top customers</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:3px">12 KPI cards &#183; Stock &amp; Cash intelligence &#183; Urgent rebuy &#183; Attention needed &#183; Top customers</div>
     </div>
     <button class="btn btn-g" onclick="renderDashboard()" style="font-size:9px">&#x1F504; Refresh</button>
   </div>
   <div id="dashKpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px"></div>
+
+  <div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">&#x1F4E6; Stock &amp; Cash Intelligence</div>
+  <div id="dashStockKpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px"></div>
+  <div class="card" style="margin-bottom:18px">
+    <div class="ctit">&#x1F525; Urgent Rebuy</div>
+    <div id="dashUrgentRebuy"></div>
+  </div>
+
   <div class="g2">
     <div class="card">
       <div class="ctit">&#x26A1; Attention Needed</div>
@@ -451,7 +459,7 @@ body{max-width:100vw;overflow-x:hidden!important}
       </div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>Model</th><th>Entry</th><th>বয়স;</th><th title="Model-level: current total stock ÷ recent daily sales speed">Rotation Days</th><th>Status</th><th title="This batch">Rcvd</th><th title="This batch">Sold</th><th title="This batch">Avail</th><th>Cost/pc</th><th>Sell Price</th><th>Profit/pc</th><th>ROI%</th><th title="Whole model, all batches">7D Sold</th><th title="Whole model, all batches">30D Sold</th><th>Return Qty</th><th>Return %</th><th title="This batch only">Sell-Out</th><th>Action</th><th>Rebuy</th><th></th></tr></thead>
+          <thead><tr><th>Model</th><th>Entry</th><th>বয়স;</th><th title="Model-level: current total stock ÷ recent daily sales speed">Rotation Days</th><th>Status</th><th title="This batch">Rcvd</th><th title="This batch">Sold</th><th title="This batch">Avail</th><th>Cost/pc</th><th>Sell Price</th><th>Profit/pc</th><th>ROI%</th><th title="Whole model, all batches">7D Sold</th><th title="Whole model, all batches">30D Sold</th><th>Return Qty</th><th>Return %</th><th>Action</th><th>Rebuy</th><th></th></tr></thead>
           <tbody id="stockTbody"></tbody>
         </table>
       </div>
@@ -1788,6 +1796,74 @@ function renderDashboard(){
     h += '<div class="kpi-sub">'+k.sub+'</div></div>';
   });
   el.innerHTML = h;
+
+  // ── Stock & Cash Intelligence KPI cards (CEO Dashboard addition) ──
+  const stockKpiEl = document.getElementById('dashStockKpis');
+  if(stockKpiEl){
+    const oldest = getOldestOpenBatch();
+    const rotSum = getRotationSummary();
+    const cash   = getCashRotationDays(60);
+    const totSO  = getTotalMovingSellOutDays();
+
+    let sh = '';
+    // Card 1: Stock Age (oldest open lot)
+    sh += '<div class="kpi-card"><div class="kpi-label">\u{1F4E6} Stock Age (Oldest Lot)</div>';
+    if(oldest){
+      const ageColor = oldest.age>=90?'var(--red)':oldest.age>=60?'var(--orange)':oldest.age>=45?'var(--warn)':'var(--text2)';
+      sh += '<div class="kpi-val" style="color:'+ageColor+'">'+oldest.age+'d</div>';
+      sh += '<div class="kpi-sub" style="font-family:var(--fu)">'+oldest.model+' &#183; ৳'+fmtNum(oldest.capital)+' locked</div>';
+    } else {
+      sh += '<div class="kpi-val" style="color:var(--text3)">—</div><div class="kpi-sub">কোনো open stock নেই</div>';
+    }
+    sh += '</div>';
+
+    // Card 2: Live Rotation Days Summary
+    sh += '<div class="kpi-card"><div class="kpi-label">⚡ Live Rotation Summary</div>';
+    sh += '<div class="kpi-val" style="color:'+(rotSum.needsAttention>0?'var(--red)':'var(--green)')+'">'+rotSum.needsAttention+'</div>';
+    sh += '<div class="kpi-sub">Danger/Dead/Urgent (of '+rotSum.totalModels+' models)</div>';
+    sh += '</div>';
+
+    // Card 3: Cash Rotation Days (DHBS + DSO, 60d window)
+    sh += '<div class="kpi-card"><div class="kpi-label">\u{1F4B0} Cash Rotation Days</div>';
+    if(cash.cashRotation!==null){
+      sh += '<div class="kpi-val" style="color:var(--cyan)">'+cash.cashRotation+'d</div>';
+      sh += '<div class="kpi-sub">DHBS '+(cash.avgDHBS!==null?cash.avgDHBS+'d':'—')+' + DSO '+(cash.avgDSO!==null?cash.avgDSO+'d':'—')+' (60d)</div>';
+    } else {
+      sh += '<div class="kpi-val" style="color:var(--text3)">—</div><div class="kpi-sub">60 দিনে যথেষ্ট ডেটা নেই</div>';
+    }
+    sh += '</div>';
+
+    // Card 4: Total Stock Sell-Out Days (moving stock only)
+    sh += '<div class="kpi-card"><div class="kpi-label">\u{1F4CA} Total Sell-Out (Moving Stock)</div>';
+    if(totSO.days!==null){
+      sh += '<div class="kpi-val" style="color:var(--green)">'+totSO.days+'d</div>';
+      sh += '<div class="kpi-sub">'+totSO.movingModelCount+' models &#183; '+totSO.totalAvail+'pcs নিয়ে</div>';
+    } else {
+      sh += '<div class="kpi-val" style="color:var(--text3)">—</div><div class="kpi-sub">পর্যাপ্ত চলমান মডেল নেই</div>';
+    }
+    sh += '</div>';
+
+    stockKpiEl.innerHTML = sh;
+  }
+
+  // Urgent Rebuy widget
+  const urgEl = document.getElementById('dashUrgentRebuy');
+  if(urgEl){
+    const urg = getUrgentRebuyList();
+    if(!urg.length){
+      urgEl.innerHTML = '<div style="color:var(--text3);font-size:11px;padding:10px">✅ এখন কোনো urgent rebuy নেই</div>';
+    } else {
+      let uh = '';
+      urg.slice(0,10).forEach(function(u){
+        uh += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(15,23,42,.04)">';
+        uh += '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--text);font-family:var(--fu)">'+u.model+'</div>';
+        uh += '<div style="font-family:var(--fm);font-size:9px;color:var(--text3)">30D Sold: '+u.sold30+'pcs &#183; '+u.velocity+'/day</div></div>';
+        uh += '<span style="font-family:var(--fm);font-size:9px;font-weight:700;padding:3px 9px;border-radius:4px;background:rgba(227,6,19,.14);color:var(--red)">\u{1F525} Urgent Rebuy</span>';
+        uh += '</div>';
+      });
+      urgEl.innerHTML = uh;
+    }
+  }
 
   // Attention list
   const attn = document.getElementById('dashAttn');
@@ -3543,6 +3619,160 @@ function getModelReturnStats(modelName){
 
 function computeBatchFifoSold(){var res={};var byM={};stockDB.batches.forEach(function(b){if(!byM[b.model])byM[b.model]=[];byM[b.model].push(b);});Object.keys(byM).forEach(function(m){var s=byM[m].slice().sort(function(a,b){return new Date(a.entryDate||'')-new Date(b.entryDate||'')}); var rem=getModelInvSold(m);s.forEach(function(b){var sold=Math.min(rem,b.qtyReceived||0);res[b.id]=sold;rem=Math.max(0,rem-sold);});});return res;}
 function getModelInvSold(m){var key=modelKey(m);var sold=0;(db||{customers:[]}).customers.forEach(function(c){(c.invoices||[]).forEach(function(inv){(inv.items||[]).forEach(function(it){if(modelKey(it.model)===key)sold+=(it.qty||0);});});});return sold;}
+
+// ════════════════════════════════════════════════════════
+// CEO DASHBOARD ENGINE — Stock Age / Rotation Summary / Cash Rotation / Total Sell-Out / Urgent Rebuy
+// All of these reuse the already-locked, tested Rotation Days engine above. No new stock-KPI formula
+// is introduced here except Cash Rotation Days (DHBS+DSO), which is new and documented inline.
+// ════════════════════════════════════════════════════════
+
+// Oldest currently-open (avail>0) batch across all stock — flags the single worst capital-lock case.
+function getOldestOpenBatch(){
+  var fifo = computeBatchFifoSold();
+  var worst = null;
+  stockDB.batches.forEach(function(b){
+    var avail = Math.max(0,(b.qtyReceived||0)-(fifo[b.id]||0));
+    if(avail<=0) return;
+    var age = getAge(b.entryDate);
+    if(!worst || age>worst.age){
+      worst = {model:b.model, age:age, entryDate:b.entryDate, avail:avail, cost:b.costPerPc||0, capital:avail*(b.costPerPc||0)};
+    }
+  });
+  return worst; // null if no open stock at all
+}
+
+// Bucket-count summary across every model's Live Rotation Days status (locked engine).
+function getRotationSummary(){
+  var models = [...new Set(stockDB.batches.map(function(b){return b.model;}))];
+  var counts = {'Out of Stock':0,'Fast':0,'Healthy':0,'Watch':0,'Slow':0,'Danger':0,'Dead Capital':0,'No Movement':0};
+  models.forEach(function(m){
+    var rot = getModelRotationDays(m);
+    var label = rot.status.label;
+    if(counts[label]===undefined) counts[label]=0;
+    counts[label]++;
+  });
+  var needsAttention = (counts['Danger']||0) + (counts['Dead Capital']||0) + (counts['Out of Stock']||0);
+  return {counts:counts, needsAttention:needsAttention, totalModels:models.length};
+}
+
+// Total Stock Sell-Out Days — MOVING stock only (Fast/Healthy/Watch models). Dead/No-Movement/
+// Out-of-Stock models are excluded on purpose so one blended number isn't inflated by dead capital
+// that will never sell — sum-of-quantities / sum-of-velocities, not an average of individual days.
+function getTotalMovingSellOutDays(){
+  var models = [...new Set(stockDB.batches.map(function(b){return b.model;}))];
+  var totalAvail=0, totalVelocity=0, movingModelCount=0;
+  models.forEach(function(m){
+    var rot = getModelRotationDays(m);
+    if(['Fast','Healthy','Watch'].indexOf(rot.status.label)===-1) return;
+    totalAvail += rot.avail;
+    totalVelocity += rot.velocity;
+    movingModelCount++;
+  });
+  var days = totalVelocity>0 ? Math.ceil(totalAvail/totalVelocity) : null;
+  return {days:days, totalAvail:totalAvail, totalVelocity:Math.round(totalVelocity*100)/100, movingModelCount:movingModelCount};
+}
+
+// Models currently flagged "Out of Stock" by the Rotation engine (avail=0, still selling) —
+// exactly the locked "🔥 Urgent Rebuy" condition, reused as-is (no new formula).
+function getUrgentRebuyList(){
+  var models = [...new Set(stockDB.batches.map(function(b){return b.model;}))];
+  var out = [];
+  models.forEach(function(m){
+    var rot = getModelRotationDays(m);
+    if(rot.status.label==='Out of Stock'){
+      out.push({model:m, velocity:rot.velocity, sold30:getModel30dSold(m)});
+    }
+  });
+  out.sort(function(a,b){return b.velocity-a.velocity;});
+  return out;
+}
+
+// Cash Rotation Days = DHBS (Days Held Before Sale) + DSO (Days Sales Outstanding), aggregated
+// over the last 60 days, as a single CEO Dashboard KPI card (not per-model — that needs full
+// per-invoice batch matching which is a separate, higher-risk build).
+//
+// DHBS: for every model, walk that model's ENTIRE invoice history in chronological order and
+// consume that model's batches oldest-first (same FIFO principle as computeBatchFifoSold, but
+// tracking which invoice's units came from which batch's entry date instead of just a total).
+// Then keep only the consumption events whose invoice date falls in the last 60 days, and take
+// the qty-weighted average of (invoiceDate - matchedBatchEntryDate).
+//
+// DSO: for invoices in the last 60 days that have at least one payment, DSO = first payment date
+// − invoice date, averaged across those invoices (per the user's locked decision: first payment,
+// not full clearance).
+function getCashRotationDays(windowDays){
+  windowDays = windowDays || 60;
+  var cutoff = Date.now() - windowDays*86400000;
+
+  // ---- DHBS ----
+  var byModelBatches = {};
+  stockDB.batches.forEach(function(b){
+    var key = modelKey(b.model);
+    if(!byModelBatches[key]) byModelBatches[key]=[];
+    byModelBatches[key].push({entryDate:b.entryDate, remaining:b.qtyReceived||0});
+  });
+  Object.keys(byModelBatches).forEach(function(key){
+    byModelBatches[key].sort(function(a,b){return new Date(a.entryDate||'')-new Date(b.entryDate||'');});
+  });
+  var byModelItems = {}; // key -> [{invDate, qty}] across ALL customers, all-time
+  db.customers.forEach(function(c){
+    (c.invoices||[]).forEach(function(inv){
+      (inv.items||[]).forEach(function(it){
+        var key = modelKey(it.model);
+        if(!byModelItems[key]) byModelItems[key]=[];
+        byModelItems[key].push({invDate:inv.date, qty:it.qty||0});
+      });
+    });
+  });
+  var dhbsWeightedSum=0, dhbsQty=0;
+  Object.keys(byModelItems).forEach(function(key){
+    var queue = byModelBatches[key]||[];
+    var items = byModelItems[key].slice().sort(function(a,b){return new Date(a.invDate||'')-new Date(b.invDate||'');});
+    var qi=0; // pointer into queue
+    items.forEach(function(it){
+      var remQty = it.qty;
+      var invTime = new Date(it.invDate||'').getTime();
+      while(remQty>0 && qi<queue.length){
+        var batch = queue[qi];
+        if(batch.remaining<=0){ qi++; continue; }
+        var chunk = Math.min(remQty, batch.remaining);
+        batch.remaining -= chunk;
+        remQty -= chunk;
+        if(!isNaN(invTime) && invTime>=cutoff){
+          var batchTime = new Date(batch.entryDate||'').getTime();
+          if(!isNaN(batchTime)){
+            var dhbs = Math.max(0, Math.round((invTime-batchTime)/86400000));
+            dhbsWeightedSum += dhbs*chunk;
+            dhbsQty += chunk;
+          }
+        }
+        if(batch.remaining<=0) qi++;
+      }
+      // remQty left over (sold more than ever received, data-gap) — skip, don't fabricate a DHBS
+    });
+  });
+  var avgDHBS = dhbsQty>0 ? Math.round((dhbsWeightedSum/dhbsQty)*10)/10 : null;
+
+  // ---- DSO ----
+  var dsoSum=0, dsoCount=0;
+  db.customers.forEach(function(c){
+    (c.invoices||[]).forEach(function(inv){
+      var invTime = new Date(inv.date||'').getTime();
+      if(isNaN(invTime) || invTime<cutoff) return;
+      var pays = (inv.payments||[]).filter(function(p){return p.date;});
+      if(!pays.length) return;
+      var firstPay = pays.reduce(function(a,p){var t=new Date(p.date).getTime();return (a===null||t<a)?t:a;}, null);
+      if(firstPay===null || isNaN(firstPay)) return;
+      var dso = Math.max(0, Math.round((firstPay-invTime)/86400000));
+      dsoSum += dso; dsoCount++;
+    });
+  });
+  var avgDSO = dsoCount>0 ? Math.round((dsoSum/dsoCount)*10)/10 : null;
+
+  var cashRotation = (avgDHBS!==null && avgDSO!==null) ? Math.round((avgDHBS+avgDSO)*10)/10 : null;
+  return {avgDHBS:avgDHBS, avgDSO:avgDSO, cashRotation:cashRotation, dhbsSampleQty:dhbsQty, dsoSampleInvoices:dsoCount, windowDays:windowDays};
+}
+
 function renderStockTable(){
   const tbody = document.getElementById('stockTbody'); if(!tbody) return;
   const q = ((document.getElementById('stSearch')||{}).value||'').toLowerCase();
@@ -3561,7 +3791,7 @@ function renderStockTable(){
   });
   batches.sort(function(a,b){return getAge(b.entryDate)-getAge(a.entryDate);});
   if(!batches.length){
-    tbody.innerHTML='<tr><td colspan="20" style="text-align:center;padding:30px;color:var(--text3)">Stock batch \u09A8\u09C7\u0987</td></tr>';
+    tbody.innerHTML='<tr><td colspan="19" style="text-align:center;padding:30px;color:var(--text3)">Stock batch \u09A8\u09C7\u0987</td></tr>';
     var t0=document.getElementById('stockTot'); if(t0) t0.textContent=''; return;
   }
   var h='', totC=0, totA=0, totProfit=0, lowROI=0, capitalBlock=0;
@@ -3581,12 +3811,8 @@ function renderStockTable(){
     var cap   = avail*cost;
     var sold30= getModel30dSold(b.model);
     var sold7 = getModel7dSold(b.model);
-    // Use 7d velocity if recent sale exists (more accurate trend)
-    var velocity7  = sold7  > 0 ? sold7/7  : 0;
-    var velocity30 = sold30 > 0 ? sold30/30 : 0;
-    var velocity   = velocity7 > 0 ? velocity7 : velocity30; // prefer 7d
-    var sellOutDays = (velocity>0 && avail>0) ? Math.ceil(avail/velocity) : null;
-    var rot = _rotFor(b.model); // model-level Live Rotation Days (locked formula)
+    var velocity7  = sold7  > 0 ? sold7/7  : 0; // used only for the 7D Sold "/wk" sub-label below
+    var rot = _rotFor(b.model); // model-level Live Rotation Days (locked formula) — single source of truth for "days to sell out"
     var wavg  = getWeightedAvgCost(b.model);
     var multiP= stockDB.batches.filter(function(x){return x.model.toLowerCase()===b.model.toLowerCase();}).length>1;
     var bBrand= b.brand||autoDetectBrandFromName(b.model);
@@ -3662,14 +3888,6 @@ function renderStockTable(){
     var _retColor=_retS.retPct>5?'var(--red)':_retS.retPct>3?'var(--warn)':'var(--green)';
     h+='<td style="font-family:var(--fm);font-size:11px;font-weight:700;text-align:center;color:'+(_retS.retQty>0?'var(--orange)':'var(--text3)')+"'\">"+(_retS.retQty>0?_retS.retQty+'pcs':'—')+'</td>';
     h+='<td style="font-family:var(--fm);font-size:10px;text-align:center;color:'+_retColor+"'\">"+_retS.retPct+'%</td>';
-    // Sell-Out Days
-    h+='<td>';
-    if(avail<=0) h+='<span style="font-family:var(--fm);font-size:9px;color:var(--text3)">Sold</span>';
-    else if(sellOutDays!==null){
-      var soColor = sellOutDays<=14?'var(--green)':sellOutDays<=30?'var(--cyan)':sellOutDays<=60?'var(--warn)':'var(--red)';
-      h+='<span style="font-family:var(--fm);font-size:11px;font-weight:700;color:'+soColor+'">~'+sellOutDays+'d</span>';
-    } else { h+='<span style="font-family:var(--fm);font-size:9px;color:var(--text3)">\u221E \u09A7\u09C0\u09B0</span>'; }
-    h+='</td>';
     // Action
     h+='<td><span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;background:'+bk.bg+';color:'+action.color+';border:1px solid '+action.color+'33;white-space:nowrap">'+action.label+'</span></td>';
     // Rebuy
