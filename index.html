@@ -5983,7 +5983,7 @@ var _nwUnsubs = [];
 var _nwDubS = {
   payments:[], advances:[], purchases:[], lot_costs:[],
   office_expenses:[], personal_expenses:[], courier:[],
-  nejam_commission:[], ctg_office:[]
+  nejam_commission:[], ctg_office:[], dubai_sales:[]
 };
 var _nwConfig = null;
 var _nwSnaps = [];
@@ -6077,7 +6077,7 @@ function nwSubscribeDubai() {
   if (!window._fbReady || !window.fsdb) return;
   var DCOLS = ['payments', 'advances', 'purchases', 'lot_costs',
                'office_expenses', 'personal_expenses', 'courier',
-               'nejam_commission', 'ctg_office'];
+               'nejam_commission', 'ctg_office', 'dubai_sales'];
   DCOLS.forEach(function(col) {
     try {
       var unsub = fsdb.collection(col).onSnapshot(function(snap) {
@@ -6110,12 +6110,18 @@ function nwCalcDubaiPipeline() {
     var purs = _nwDubS.purchases || [];
     var lcs  = _nwDubS.lot_costs || [];
     var cors = _nwDubS.courier || [];
+    var dsales = _nwDubS.dubai_sales || [];
     if (!purs.length) return { pcs: 0, aed: 0, bdt: 0, officePcs: 0, transitPcs: 0, status: 'LOADING' };
 
     var totalPurPcs = purs.reduce(function(s, p) { return s + (p.qty || 0); }, 0);
     var purValAED = purs.reduce(function(s, p) { return s + (p.totalAED || 0); }, 0);
     var prepAED = lcs.reduce(function(s, c) { return s + (c.totalAED || 0); }, 0);
     var invValAED = purValAED + prepAED;
+
+    // Units sold directly from Dubai (Dubai Sales) never reach BD stock and are no
+    // longer Dubai inventory either — exclude them, or they get double-counted as
+    // a Net Worth asset on top of the cash/receivable their sale already produced.
+    var soldPcs = dsales.reduce(function(s, d) { return s + (d.qty || 0); }, 0);
 
     var totalBooked = 0, totalRcvd = 0;
     cors.forEach(function(c) {
@@ -6129,7 +6135,7 @@ function nwCalcDubaiPipeline() {
     });
 
     var inTransit = Math.max(0, totalBooked - totalRcvd);
-    var dubaiOff  = Math.max(0, totalPurPcs - totalBooked);
+    var dubaiOff  = Math.max(0, totalPurPcs - totalBooked - soldPcs);
     var pipPcs    = dubaiOff + inTransit;
     var avgCost   = totalPurPcs > 0 ? invValAED / totalPurPcs : 0;
     var pipAED    = pipPcs * avgCost;
