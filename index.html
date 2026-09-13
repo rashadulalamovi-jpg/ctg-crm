@@ -6413,7 +6413,7 @@ function nwQuickEditStart(spanEl, group, id, rawVal) {
   input.addEventListener('blur', function() { finish(true); });
   input.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-    else if (e.key === 'Escape') { spanEl.innerHTML = orig; finish(false); }
+    else if (e.key === 'Escape') { finish(false); spanEl.innerHTML = orig; }
   });
 }
 
