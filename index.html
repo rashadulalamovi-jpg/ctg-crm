@@ -3436,9 +3436,9 @@ function renderStockBuckets(){
   let h = '';
   const _fifoSold = computeBatchFifoSold();
   defs.forEach(function(bk){
-    const m = stockDB.batches.filter(b=>bk.f(getAge(b.entryDate)) && Math.max(0,(b.qtyReceived||0)-(_fifoSold[b.id]||0))>0);
-    const pcs = m.reduce((a,b)=>a+Math.max(0,(b.qtyReceived||0)-(_fifoSold[b.id]||0)),0);
-    const cap = m.reduce((a,b)=>a+Math.max(0,(b.qtyReceived||0)-(_fifoSold[b.id]||0))*(b.costPerPc||0),0);
+    const m = stockDB.batches.filter(b=>bk.f(getAge(b.entryDate)) && sellableAvail(b,_fifoSold)>0);
+    const pcs = m.reduce((a,b)=>a+sellableAvail(b,_fifoSold),0);
+    const cap = m.reduce((a,b)=>a+sellableAvail(b,_fifoSold)*(b.costPerPc||0),0);
     h += '<div class="sbucket" style="border-top:2px solid '+bk.color+'">';
     h += '<div style="font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:'+bk.color+'">'+bk.emoji+' '+bk.label+'</div>';
     h += '<div style="font-family:var(--fm);font-size:9px;color:var(--text3)">'+bk.days+' \u09A6\u09BF\u09A8</div>';
@@ -3468,6 +3468,26 @@ function autoDetectBrand(){
 
 // Weighted average cost for a model across batches
 function modelKey(m){ return (m||'').trim().toLowerCase(); }
+
+// A return-batch only counts as SELLABLE stock once it's been marked "ready" (post QC/repair).
+// Mirrors the exact gate already used by the Invoice autofill/picker and the WA stock list
+// generator (addInvAutoFill, refreshStockList, buildSimpleStockList) — this makes the Stock
+// Ageing Tracker / CEO Dashboard's "Avail" agree with what the Invoice form will actually let
+// you sell. A non-ready return batch still shows in the tracker (with a Repairing/Pending
+// badge) — it just isn't counted as sellable/available capital until marked Ready.
+function isSellableBatch(b){
+  if(!b) return false;
+  if(b.returnBatch){
+    var rs = (b.returnStatus||'pending').toLowerCase();
+    if(rs!=='ready') return false;
+  }
+  return true;
+}
+// Sellable avail for one batch — same Rcvd-Sold math, but zeroed out for non-ready return batches.
+function sellableAvail(b, fifoMap){
+  var raw = Math.max(0,(b.qtyReceived||0)-((fifoMap ? fifoMap[b.id] : b.qtySold)||0));
+  return isSellableBatch(b) ? raw : 0;
+}
 
 // CTG_ROTATION_ENGINE — exact-match, window-generalized model sales/returns
 function getModelSoldInWindow(modelName, days){
@@ -3524,7 +3544,7 @@ function getModelAvailable(modelName){
   var fifo=computeBatchFifoSold();
   var total=0;
   stockDB.batches.forEach(function(b){
-    if(modelKey(b.model)===key) total+=Math.max(0,(b.qtyReceived||0)-(fifo[b.id]||0));
+    if(modelKey(b.model)===key) total+=sellableAvail(b, fifo);
   });
   return total;
 }
@@ -3631,7 +3651,7 @@ function getOldestOpenBatch(){
   var fifo = computeBatchFifoSold();
   var worst = null;
   stockDB.batches.forEach(function(b){
-    var avail = Math.max(0,(b.qtyReceived||0)-(fifo[b.id]||0));
+    var avail = sellableAvail(b, fifo);
     if(avail<=0) return;
     var age = getAge(b.entryDate);
     if(!worst || age>worst.age){
@@ -3780,7 +3800,7 @@ function renderStockTable(){
   const qtyF   = ((document.getElementById('stQtyFilter')||{}).value||'');
   var _fifoSold=computeBatchFifoSold();
   let batches = stockDB.batches.filter(function(b){
-    var avail=Math.max(0,(b.qtyReceived||0)-(_fifoSold[b.id]||0));
+    var avail=sellableAvail(b, _fifoSold);
     if(q && !b.model.toLowerCase().includes(q)) return false;
     var brand = b.brand || autoDetectBrandFromName(b.model);
     if(brandF && brand!==brandF) return false;
@@ -3799,11 +3819,22 @@ function renderStockTable(){
   function _rotFor(model){ var k=modelKey(model); if(!_rotCache[k]) _rotCache[k]=getModelRotationDays(model); return _rotCache[k]; }
   batches.forEach(function(b){
     var age   = getAge(b.entryDate);
-    var avail = Math.max(0,(b.qtyReceived||0)-(_fifoSold[b.id]||0));
+    var avail = sellableAvail(b, _fifoSold);
     // CTG_ROTATION_ENGINE: a batch with Avail=0 is closed — nothing is "ageing" in it anymore,
     // so it should never show as Healthy/Watch/Slow/Dead-Risk. Only open (avail>0) batches get
-    // the age-bucket badge; closed batches get a neutral "Closed" tag instead.
-    var bk    = avail>0 ? getAgeBucket(age) : {label:'Closed', cls:'age-h', color:'var(--text3)', bg:'rgba(15,23,42,.03)', emoji:'⚪'};
+    // the age-bucket badge; closed batches get a neutral "Closed" tag instead. A non-ready
+    // return batch (repairing/pending) is neither — it's held stock, not sold — so it gets its
+    // own badge instead of being mislabeled "Closed".
+    var _rsRaw = (b.returnStatus||'pending').toLowerCase();
+    var bk;
+    if(avail>0){
+      bk = getAgeBucket(age);
+    } else if(b.returnBatch && _rsRaw!=='ready'){
+      var _rsBadge = {pending:{label:'Pending',emoji:'⏳'},checking:{label:'Checking',emoji:'🔍'},repairing:{label:'Repairing',emoji:'🔧'},scrap:{label:'Scrap',emoji:'❌'}}[_rsRaw] || {label:'Pending',emoji:'⏳'};
+      bk = {label:_rsBadge.label, cls:'age-w', color:'var(--orange)', bg:'rgba(249,115,22,.08)', emoji:_rsBadge.emoji};
+    } else {
+      bk = {label:'Closed', cls:'age-h', color:'var(--text3)', bg:'rgba(15,23,42,.03)', emoji:'⚪'};
+    }
     var cost  = b.costPerPc||0;
     var sellP = b.expectedSellPrice||0;
     var profit= sellP>0 ? sellP-cost : null;
@@ -3892,8 +3923,12 @@ function renderStockTable(){
     h+='<td><span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;background:'+bk.bg+';color:'+action.color+';border:1px solid '+action.color+'33;white-space:nowrap">'+action.label+'</span></td>';
     // Rebuy
     h+='<td><span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;background:'+rebuy.bg+';color:'+rebuy.color+';white-space:nowrap">'+rebuy.label+'</span></td>';
-    // Delete
-    h+='<td><button onclick="delBatch('+b.id+')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px">\u{1F5D1}</button></td>';
+    // Delete (+ Mark Ready for non-ready return batches)
+    h+='<td style="white-space:nowrap">';
+    if(b.returnBatch && _rsRaw!=='ready'){
+      h+='<button onclick="markBatchReady('+b.id+')" title="Repair/QC শেষ — এখন বিক্রির জন্য প্রস্তুত" style="background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.35);color:var(--green);cursor:pointer;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;margin-right:4px">✅ Mark Ready</button>';
+    }
+    h+='<button onclick="delBatch('+b.id+')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px">\u{1F5D1}</button></td>';
     h+='</tr>';
   });
   tbody.innerHTML=h;
@@ -3927,6 +3962,23 @@ function delBatch(id){
   }
   renderStockAll();
   notify('\u{1F5D1} Batch deleted');
+}
+
+// Marks a repairing/pending/checking return-batch as "Ready" \u2014 it then counts as normal
+// sellable stock everywhere (Stock Ageing Tracker Avail, Invoice form, WA stock list, Rotation
+// Days engine, CEO Dashboard) without needing to delete-and-re-add the batch.
+function markBatchReady(id){
+  const b = stockDB.batches.find(x=>x.id===id); if(!b) return;
+  if(!b.returnBatch) return;
+  if(!confirm(b.model+' \u2014 \u098f\u0996\u09a8 \u09ac\u09bf\u0995\u09cd\u09b0\u09bf\u09b0 \u099c\u09a8\u09cd\u09af Ready \u09b9\u09bf\u09b8\u09c7\u09ac\u09c7 \u09ae\u09be\u09b0\u09cd\u0995 \u0995\u09b0\u09ac\u09c7\u09a8?')) return;
+  b.returnStatus = 'ready';
+  b.isReturnPending = false;
+  saveStock();
+  if(window._fbReady && fsdb && b._fbId){
+    fsdb.collection('stockBatches').doc(b._fbId).set({returnStatus:'ready', isReturnPending:false},{merge:true}).catch(function(){});
+  }
+  renderStockAll();
+  notify('\u2705 '+b.model+' \u2014 Ready \u09b9\u09b2\u09cb, \u098f\u0996\u09a8 \u09ac\u09bf\u0995\u09cd\u09b0\u09bf\u09b0 \u099c\u09a8\u09cd\u09af \u0989\u09aa\u09b2\u09ac\u09cd\u09a7');
 }
 
 function delCust(cid){
@@ -3969,16 +4021,16 @@ function addBatch(){
 
 function renderAgeTable(minDays, containerId){
   const el = document.getElementById(containerId); if(!el) return;
-  const batches = stockDB.batches.filter(b=>getAge(b.entryDate)>=minDays && Math.max(0,(b.qtyReceived||0)-(b.qtySold||0))>0).sort((a,b)=>getAge(b.entryDate)-getAge(a.entryDate));
+  const batches = stockDB.batches.filter(b=>getAge(b.entryDate)>=minDays && sellableAvail(b)>0).sort((a,b)=>getAge(b.entryDate)-getAge(a.entryDate));
   if(!batches.length){
     el.innerHTML = '<div style="text-align:center;padding:26px;color:var(--text3)"><div style="font-size:24px;margin-bottom:6px">\u2705</div><div>'+minDays+'+ \u09A6\u09BF\u09A8\u09C7\u09B0 \u0995\u09CB\u09A8\u09CB stock \u09A8\u09C7\u0987!</div></div>';
     return;
   }
-  const totC = batches.reduce((a,b)=>a+Math.max(0,(b.qtyReceived||0)-(b.qtySold||0))*(b.costPerPc||0),0);
+  const totC = batches.reduce((a,b)=>a+sellableAvail(b)*(b.costPerPc||0),0);
   let h = '<table><thead><tr><th>Model</th><th>Entry</th><th>\u09AC\u09DF\u09B8</th><th>Available</th><th>Capital</th><th>Status</th></tr></thead><tbody>';
   batches.forEach(function(b){
     const age=getAge(b.entryDate), bk=getAgeBucket(age);
-    const avail=Math.max(0,(b.qtyReceived||0)-(b.qtySold||0)), cap=avail*(b.costPerPc||0);
+    const avail=sellableAvail(b), cap=avail*(b.costPerPc||0);
     // Return batch highlight
     var _isRet = b.returnBatch===true;
     var _retStatus = b.returnStatus||'pending';
@@ -4322,7 +4374,7 @@ function renderStockAll(){
   ];
   _hwDefs.forEach(function(_d){
     var _el=document.getElementById(_d.el); if(!_el) return;
-    var _ls=stockDB.batches.filter(function(b){var _a=getAge(b.entryDate);var _v=Math.max(0,(b.qtyReceived||0)-(b.qtySold||0));return _v>0&&_a>=_d.min&&_a<=_d.max;});
+    var _ls=stockDB.batches.filter(function(b){var _a=getAge(b.entryDate);var _v=sellableAvail(b);return _v>0&&_a>=_d.min&&_a<=_d.max;});
     _ls.sort(function(a,b){return getAge(b.entryDate)-getAge(a.entryDate);});
     var _tp=0,_tc=0;
     var _h='<table style="width:100%;border-collapse:collapse"><thead><tr>';
@@ -4330,7 +4382,7 @@ function renderStockAll(){
     _h+='</tr></thead><tbody>';
     if(!_ls.length){_h+='<tr><td colspan="6" style="text-align:center;padding:26px;color:var(--text3);font-size:11px">\u098F\u0987 \u0995\u09CD\u09AF\u09BE\u099F\u09BE\u0997\u09B0\u09BF\u09A4\u09C7 \u0995\u09CB\u09A8\u09CB batch \u09A8\u09C7\u0987</td></tr>';}
     _ls.forEach(function(b){
-      var _a=getAge(b.entryDate);var _v=Math.max(0,(b.qtyReceived||0)-(b.qtySold||0));var _cap=_v*(b.costPerPc||0);_tp+=_v;_tc+=_cap;
+      var _a=getAge(b.entryDate);var _v=sellableAvail(b);var _cap=_v*(b.costPerPc||0);_tp+=_v;_tc+=_cap;
       var _dt=(typeof fmtDateShort==='function')?fmtDateShort(b.entryDate):(b.entryDate||'');
       _h+='<tr>'
         +'<td style="padding:9px 11px;font-size:11px;font-weight:600;color:var(--text);font-family:var(--fu);border-bottom:1px solid var(--border)">'+(b.model||'')+'</td>'
@@ -4648,13 +4700,14 @@ h+='</div>';
 function renderCapitalBlockers(){
   var el=document.getElementById('capitalBlockers'); if(!el) return;
   var small=stockDB.batches.filter(function(b){
-    return Math.max(0,(b.qtyReceived||0)-(b.qtySold||0))>0 && Math.max(0,(b.qtyReceived||0)-(b.qtySold||0))<=2;
+    var av = sellableAvail(b);
+    return av>0 && av<=2;
   }).sort(function(a,b){return getAge(b.entryDate)-getAge(a.entryDate);});
   if(!small.length){
     el.innerHTML='<div style="color:var(--green);font-size:11px;padding:8px">\u2705 \u0995\u09CB\u09A8\u09CB Capital Blocker stock \u09A8\u09C7\u0987!</div>';
     return;
   }
-  var totCap=small.reduce(function(a,b){return a+Math.max(0,(b.qtyReceived||0)-(b.qtySold||0))*(b.costPerPc||0);},0);
+  var totCap=small.reduce(function(a,b){return a+sellableAvail(b)*(b.costPerPc||0);},0);
   var h='<div style="background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:8px;padding:10px;margin-bottom:10px">';
   h+='<div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--warn);margin-bottom:4px">';
   h+='\u26A0\uFE0F Capital Blocker \u2014 \u22642 pcs \u00B7 \u09AE\u09CB\u099F: \u09F3'+fmtNum(totCap)+' locked</div>';
@@ -4672,7 +4725,7 @@ function renderCapitalBlockers(){
   h+='<div style="font-size:10px;color:var(--text3);margin-bottom:8px">';
   h+='Wholesale-\u098F 1\u20132 pc \u0986\u099F\u0995\u09C7 \u09A5\u09BE\u0995\u09B2\u09C7 capital rotate \u09B9\u09AF\u09BC \u09A8\u09BE\u0964 Sell \u0995\u09B0\u09C1\u09A8 \u09AC\u09BE bundle \u0995\u09B0\u09C1\u09A8\u0964</div>';
   small.forEach(function(b){
-    var avail=Math.max(0,(b.qtyReceived||0)-(b.qtySold||0));
+    var avail=sellableAvail(b);
     var age=getAge(b.entryDate),bk=getAgeBucket(age);
     h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(245,158,11,.04);border:1px solid rgba(245,158,11,.12);border-radius:5px;margin-bottom:3px">';
     h+='<span style="flex:1;font-size:11px;font-weight:600;color:var(--text);font-family:var(--fu)">'+b.model+'</span>';
@@ -8396,7 +8449,7 @@ function renderStockModelSummary(){
   var el=document.getElementById('stockModelSummary'); if(!el) return;
   var models={};
   stockDB.batches.forEach(function(b){
-    var avail=Math.max(0,(b.qtyReceived||0)-(b.qtySold||0));
+    var avail=sellableAvail(b);
     if(avail<=0) return;
     var k=(b.model||'').trim(); if(!k) return;
     if(!models[k]) models[k]={model:k,avail:0,cost:0,age:[]};
