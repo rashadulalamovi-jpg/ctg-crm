@@ -6385,6 +6385,82 @@ function nwCollectEditorValues(area) {
   }
 }
 
+// ── Quick inline edit (click a number in the statement, type, done — no full editor modal) ─────
+// Covers exactly the 4 "Manual" list sections that are just one number per row: Bank Cash,
+// Cash in Hand, Personal/Doodads, Short-Term Liabilities. Multi-field entries (cards, loans,
+// investments) still use the full nwShowEditor() form since there's more than one value to fill in.
+var _nwQuickEditing = false;
+function nwQuickEditStart(spanEl, group, id, rawVal) {
+  if (_nwQuickEditing) return; // one edit at a time
+  _nwQuickEditing = true;
+  var orig = spanEl.innerHTML;
+  var input = document.createElement('input');
+  input.type = 'number';
+  input.step = '1';
+  input.value = (rawVal === null || rawVal === undefined) ? '' : rawVal;
+  input.style.cssText = 'font-family:var(--fm);font-size:11px;font-weight:700;width:110px;text-align:right;padding:2px 5px;border:1px solid var(--cyan);border-radius:4px';
+  spanEl.innerHTML = '';
+  spanEl.appendChild(input);
+  input.focus();
+  input.select();
+  var done = false;
+  function finish(save) {
+    if (done) return;
+    done = true;
+    _nwQuickEditing = false;
+    if (save) nwQuickEditSave(group, id, input.value);
+  }
+  input.addEventListener('blur', function() { finish(true); });
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    else if (e.key === 'Escape') { spanEl.innerHTML = orig; finish(false); }
+  });
+}
+
+async function nwQuickEditSave(group, id, rawInput) {
+  var cfg = _nwConfig;
+  if (!cfg) return;
+  var raw = String(rawInput).trim();
+  var val = raw === '' ? null : (parseFloat(raw) || 0);
+  var now = new Date().toISOString();
+
+  if (group === 'bank') {
+    var b = (cfg.banks || []).find(function(x) { return String(x.id) === String(id); });
+    if (b) { b.balance = val; if (val !== null) b.updatedAt = now; }
+  } else if (group === 'cash') {
+    var ci = (cfg.cashInHand || []).find(function(x) { return String(x.id) === String(id); });
+    if (ci) { ci.amount = val; if (val !== null) ci.updatedAt = now; }
+  } else if (group === 'personal') {
+    var i = parseInt(id);
+    if (cfg.personalAssets && cfg.personalAssets[i]) { cfg.personalAssets[i].resaleValue = val || 0; cfg.personalAssets[i].updatedAt = now; }
+  } else if (group === 'stliab') {
+    var j = parseInt(id);
+    if (cfg.stLiabilities && cfg.stLiabilities[j]) { cfg.stLiabilities[j].amount = val || 0; cfg.stLiabilities[j].updatedAt = now; }
+  } else if (group === 'sip') {
+    if (!cfg.sip) cfg.sip = {};
+    cfg.sip.marketValue = val;
+    if (val !== null) cfg.sip.updatedAt = now;
+  } else if (group === 'share') {
+    if (!cfg.share) cfg.share = {};
+    cfg.share.marketValue = val;
+    if (val !== null) cfg.share.updatedAt = now;
+  } else {
+    return;
+  }
+
+  cfg.updatedAt = now;
+  nwRenderAll();
+  notify('✅ Updated');
+  if (!window._fbReady || !window.fsdb) { notify('⚠️ Offline – not synced to Firebase'); return; }
+  try {
+    var data = JSON.parse(JSON.stringify(cfg, function(k, v) { return v === undefined ? null : v; }));
+    await fsdb.collection('meta').doc('netWorthConfig').set(data, { merge: true });
+  } catch (e) {
+    console.error('[NW] quickEditSave', e);
+    notify('⚠️ Firebase error: ' + e.message);
+  }
+}
+
 // ── Snapshots ──────────────────────────────────────────────────────
 async function nwLoadSnapshots() {
   _nwSnaps = [];
@@ -6688,6 +6764,26 @@ function nwRenderStatement2(c) {
       + '<span style="font-family:var(--fm);font-size:11px;font-weight:700;flex-shrink:0">' + val + '</span>'
       + '</div>';
   }
+  // Same as ir(), but shows an explicit "✏️ Edit" button next to the value — clicking it turns
+  // the value into an input right there, so a single number can be updated without opening the
+  // full "Bank Accounts / Cash in Hand / ..." editor form. group+id tell nwQuickEditStart which
+  // _nwConfig record/field to write back to.
+  function irEdit(emoji, label, badge, val, sub, group, id, rawVal) {
+    return '<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(15,23,42,.04)">'
+      + '<div style="flex:1;min-width:0;margin-right:6px">'
+      + '<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
+      + '<span>' + emoji + '</span><span style="font-size:11px;font-weight:600">' + label + '</span>' + nwBadge(badge)
+      + '</div>'
+      + (sub ? '<div style="font-family:var(--fm);font-size:9px;color:var(--text3)">' + sub + '</div>' : '')
+      + '</div>'
+      + '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
+      + '<span class="nwval" style="font-family:var(--fm);font-size:11px;font-weight:700">' + val + '</span>'
+      + '<button onclick="nwQuickEditStart(this.previousElementSibling,\'' + group + '\',\'' + id + '\',' + (rawVal === null || rawVal === undefined ? 'null' : rawVal) + ')" '
+      + 'title="ক্লিক করে সরাসরি নাম্বার বদলান" '
+      + 'style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.35);color:var(--cyan);cursor:pointer;white-space:nowrap">✏️ Edit</button>'
+      + '</div>'
+      + '</div>';
+  }
   function stRow(label, val, color, big) {
     var fs = big ? '13px' : '11px';
     var fw = big ? '800' : '700';
@@ -6714,7 +6810,7 @@ function nwRenderStatement2(c) {
     shownBanks++;
     var v = parseFloat(b.balance) || 0;
     var valStr = b.currency === 'AED' ? '≈৳' + nwF(Math.round(v * rate)) : '৳' + nwF(v);
-    A += ir('🏦', b.name, 'MANUAL', valStr, b.currency === 'AED' ? 'AED ' + nwF(v) : (b.updatedAt ? new Date(b.updatedAt).toLocaleDateString('en-BD', {month:'short',day:'numeric'}) : ''));
+    A += irEdit('🏦', b.name, 'MANUAL', valStr, b.currency === 'AED' ? 'AED ' + nwF(v) : (b.updatedAt ? new Date(b.updatedAt).toLocaleDateString('en-BD', {month:'short',day:'numeric'}) : ''), 'bank', b.id, v);
   });
   if (!bankUpdated) A += '<div style="font-size:10px;color:#f59e0b;padding:3px 0">Not updated · <a onclick="nwOpenEditor(\'bank\')" style="color:var(--cyan);cursor:pointer">Add →</a></div>';
   A += stRow('Bank Cash', '৳' + nwF(c.bankCash), 'var(--text)', false);
@@ -6727,23 +6823,25 @@ function nwRenderStatement2(c) {
     cashUpdated = true;
     var v = parseFloat(ch.amount) || 0;
     var valStr = ch.currency === 'AED' ? '≈৳' + nwF(Math.round(v * rate)) : '৳' + nwF(v);
-    A += ir('💰', ch.label, 'MANUAL', valStr, '');
+    A += irEdit('💰', ch.label, 'MANUAL', valStr, '', 'cash', ch.id, v);
   });
   if (!cashUpdated) A += '<div style="font-size:10px;color:#f59e0b;padding:3px 0">Not updated · <a onclick="nwOpenEditor(\'cash\')" style="color:var(--cyan);cursor:pointer">Add →</a></div>';
   A += stRow('Cash in Hand', '৳' + nwF(c.cashInHand), 'var(--text)', false);
 
   A += sh('Manual — Investments');
-  A += ir('📊', 'SIP', cfg.sip && cfg.sip.marketValue !== null ? 'MANUAL' : 'NOT_UPDATED',
+  A += irEdit('📊', 'SIP', cfg.sip && cfg.sip.marketValue !== null ? 'MANUAL' : 'NOT_UPDATED',
     cfg.sip && cfg.sip.marketValue !== null ? '৳' + nwF(cfg.sip.marketValue) : '—',
-    cfg.sip && cfg.sip.invested ? 'Cost ৳' + nwF(cfg.sip.invested) : '');
-  A += ir('📈', 'Shares', cfg.share && cfg.share.marketValue !== null ? 'MANUAL' : 'NOT_UPDATED',
+    cfg.sip && cfg.sip.invested ? 'Cost ৳' + nwF(cfg.sip.invested) : '',
+    'sip', 0, cfg.sip ? cfg.sip.marketValue : null);
+  A += irEdit('📈', 'Shares', cfg.share && cfg.share.marketValue !== null ? 'MANUAL' : 'NOT_UPDATED',
     cfg.share && cfg.share.marketValue !== null ? '৳' + nwF(cfg.share.marketValue) : '—',
-    cfg.share && cfg.share.cost ? 'Cost ৳' + nwF(cfg.share.cost) : '');
+    cfg.share && cfg.share.cost ? 'Cost ৳' + nwF(cfg.share.cost) : '',
+    'share', 0, cfg.share ? cfg.share.marketValue : null);
 
   A += sh('Manual — Personal / Doodads');
   if (cfg.personalAssets && cfg.personalAssets.length) {
-    cfg.personalAssets.forEach(function(a) {
-      A += ir('💻', a.name, 'MANUAL', '৳' + nwF(a.resaleValue), a.note || 'Resale · Banker only');
+    cfg.personalAssets.forEach(function(a, i) {
+      A += irEdit('💻', a.name, 'MANUAL', '৳' + nwF(a.resaleValue), a.note || 'Resale · Banker only', 'personal', i, a.resaleValue);
     });
   } else {
     A += '<div style="font-size:10px;color:var(--text3);padding:3px 0">None · <a onclick="nwOpenEditor(\'personal\')" style="color:var(--cyan);cursor:pointer">Add →</a></div>';
@@ -6759,8 +6857,8 @@ function nwRenderStatement2(c) {
 
   L += sh('Short-Term');
   if (cfg.stLiabilities && cfg.stLiabilities.length) {
-    cfg.stLiabilities.forEach(function(l) {
-      L += ir('📋', l.name, 'MANUAL', '৳' + nwF(l.amount), l.person || '');
+    cfg.stLiabilities.forEach(function(l, i) {
+      L += irEdit('📋', l.name, 'MANUAL', '৳' + nwF(l.amount), l.person || '', 'stliab', i, l.amount);
     });
   } else {
     L += '<div style="font-size:10px;color:var(--text3);padding:3px 0">None · <a onclick="nwOpenEditor(\'stliab\')" style="color:var(--cyan);cursor:pointer">Add →</a></div>';
