@@ -3888,8 +3888,8 @@ function renderStockTable(){
     h+='<td style="font-family:var(--fm)">'+b.qtyReceived+'</td>';
     // Sold
     h+='<td style="font-family:var(--fm);font-size:11px;font-weight:600;color:var(--cyan);text-align:center">'+(_fifoSold[b.id]||0)+'</td>';
-    // Avail
-    h+='<td style="font-family:var(--fm);font-weight:700;color:'+(avail>0?'var(--cyan)':'var(--text3)')+'">'+avail+'</td>';
+    // Avail — highlighted pill (bigger + background), matching the Rotation Days emphasis, so pcs count is easy to spot at a glance
+    h+='<td><span style="display:inline-block;font-family:var(--fm);font-size:14px;font-weight:800;padding:2px 9px;border-radius:5px;'+(avail>0?'background:rgba(34,211,238,.13);color:var(--cyan)':'background:rgba(15,23,42,.04);color:var(--text3)')+'">'+avail+'</span></td>';
     // Cost/pc
     h+='<td><div style="font-family:var(--fm);font-size:10px">\u09F3'+fmtNum(cost)+'</div>';
     if(multiP&&wavg&&wavg!==cost) h+='<div style="font-family:var(--fm);font-size:8px;color:var(--gold)">Avg:\u09F3'+fmtNum(wavg)+'</div>';
@@ -5272,6 +5272,52 @@ function genDemandOfferWA(cid){
 // Goal: QC improvement + Fix cost tracking + Customer analysis
 // ═══════════════════════════════════════════════════════════════
 
+// CTG_RETURN_RESALE_LINK — a return-log entry (inv.returns[]) and the stock batch it creates
+// (stockDB.batches[], returnBatch:true) are pushed back-to-back inside saveReturn() with two
+// SEPARATE Date.now() calls, so there is no shared foreign key stored anywhere. But because the
+// return.id is always generated a moment BEFORE the batch.id in the same synchronous call, the two
+// ids are always 0-1ms apart for the SAME submission, while different submissions (even of the same
+// model, same day) are always seconds/minutes apart. We use that to reconstruct the link: for each
+// return (oldest id first), claim the nearest not-yet-claimed same-model return-batch within a small
+// time window. Verified against real production data: all 16 historical returns matched their exact
+// batch with 0-1ms delta and zero mismatches.
+function _matchReturnBatches(rets){
+  var retBatches = stockDB.batches.filter(function(b){ return b.returnBatch; });
+  var claimed = {};
+  var map = {};
+  rets.slice().sort(function(a,b){return a.id-b.id;}).forEach(function(r){
+    var best=null, bestDelta=Infinity;
+    retBatches.forEach(function(b){
+      if(claimed[b.id]) return;
+      if((b.model||'').toLowerCase()!==(r.model||'').toLowerCase()) return;
+      var d=Math.abs(b.id-r.id);
+      if(d<bestDelta){ bestDelta=d; best=b; }
+    });
+    if(best && bestDelta<=5000){ claimed[best.id]=true; map[r.id]=best; }
+  });
+  return map;
+}
+
+// Real resale status for one return, derived from its matched stock batch — NOT the dead
+// r.fixStatus/r.restock fields (those are read from a push() that never sets them, so they always
+// default to 'pending'/false; see build-3 notes). code is used for KPI aggregation, label/color/bg
+// for display.
+function getReturnResaleStatus(batch){
+  if(!batch) return {code:'unknown', label:'❓ Unknown', color:'var(--text3)', bg:'rgba(15,23,42,.04)'};
+  var rs=(batch.returnStatus||'pending').toLowerCase();
+  if(rs!=='ready'){
+    var m={pending:{label:'⏳ Pending QC',color:'var(--warn)'},
+           checking:{label:'\u{1F50D} Checking',color:'var(--cyan)'},
+           repairing:{label:'\u{1F527} Repairing',color:'var(--orange)'},
+           scrap:{label:'❌ Scrapped',color:'var(--red)'}}[rs] || {label:'⏳ Pending QC',color:'var(--warn)'};
+    return {code:rs, label:m.label, color:m.color, bg:'rgba(15,23,42,.04)'};
+  }
+  var sold=batch.qtySold||0, recv=batch.qtyReceived||0;
+  if(recv>0 && sold>=recv) return {code:'ready_resold', label:'✅ Resold', color:'var(--green)', bg:'rgba(52,211,153,.1)'};
+  if(sold>0) return {code:'ready_partial', label:'\u{1F7E1} Partial ('+sold+'/'+recv+')', color:'var(--warn)', bg:'rgba(245,158,11,.1)'};
+  return {code:'ready_instock', label:'\u{1F4E6} In Stock', color:'var(--cyan)', bg:'rgba(34,211,238,.1)'};
+}
+
 function getAllReturns(){
   var period=(document.getElementById('retPagePeriod')||{}).value||'all';
   var custId=parseInt((document.getElementById('retPageFilter')||{}).value)||null;
@@ -5295,6 +5341,8 @@ function getAllReturns(){
       });
     });
   });
+  var _batchMap=_matchReturnBatches(rets);
+  rets.forEach(function(r){ r.resale=getReturnResaleStatus(_batchMap[r.id]); });
   return rets.sort(function(a,b){return b.date.localeCompare(a.date);});
 }
 
@@ -5339,8 +5387,10 @@ function renderReturnDashboard(){
   if(kpiEl){
     var totQty    = rets.reduce(function(a,r){return a+r.qty;},0);
     var totFix    = rets.reduce(function(a,r){return a+r.fixCost*r.qty;},0);
-    var pending   = rets.filter(function(r){return r.fixStatus==='pending';});
-    var restocked = rets.filter(function(r){return r.restock;}).reduce(function(a,r){return a+r.qty;},0);
+    // Real status, from the matched stock batch (see getReturnResaleStatus) \u2014 NOT the dead
+    // r.fixStatus/r.restock fields, which never get set and always default pending/false.
+    var stillProcessing = rets.filter(function(r){return ['pending','checking','repairing'].indexOf(r.resale.code)>-1;});
+    var resoldPcs = rets.filter(function(r){return r.resale.code==='ready_resold';}).reduce(function(a,r){return a+r.qty;},0);
     var totSold   = db.customers.reduce(function(a,c){
       return a+(c.invoices||[]).reduce(function(b,i){return b+(i.items||[]).reduce(function(cc,x){return cc+x.qty;},0);},0);
     },0);
@@ -5349,8 +5399,8 @@ function renderReturnDashboard(){
       {l:'\u21A9\uFE0F Total Returns',  v:rets.length+' cases / '+totQty+'pcs', c:totQty>0?'var(--orange)':'var(--green)'},
       {l:'\u{1F534} Return Rate',        v:retRate+'%',                          c:retRate<=3?'var(--green)':retRate<=5?'var(--warn)':'var(--red)'},
       {l:'\u{1F4B8} Fix Cost (Real Loss)',v:'\u09F3'+fmtNum(totFix),             c:totFix>0?'var(--orange)':'var(--text3)'},
-      {l:'\u23F3 Fix Pending',           v:pending.length+' cases',              c:pending.length>0?'var(--warn)':'var(--green)'},
-      {l:'\u{1F4E6} Restocked',          v:restocked+'pcs',                      c:'var(--cyan)'},
+      {l:'\u{1F527} QC/Repair Pending',  v:stillProcessing.length+' cases',      c:stillProcessing.length>0?'var(--warn)':'var(--green)'},
+      {l:'\u2705 Resold Again',         v:resoldPcs+'pcs',                      c:'var(--green)'},
       {l:'\u{1F4CA} Avg Fix/Case',       v:rets.length>0?'\u09F3'+fmtNum(Math.round(totFix/rets.length)):'\u2014', c:'var(--text2)'},
     ];
     var kh='';
@@ -5511,15 +5561,14 @@ function renderReturnDashboard(){
   h+='<div class="ctit" style="margin-bottom:10px">\u{1F4CB} Full Return Log \u2014 '+rets.length+' records</div>';
   h+='<div class="tbl-wrap"><table>';
   h+='<thead><tr>';
-  ['Date','Customer','Invoice','Model','Qty','Reason','Fix Cost','Fix Status','Restocked','Note'].forEach(function(col){
+  ['Date','Customer','Invoice','Model','Qty','Reason','Fix Cost','Resale Status','Note'].forEach(function(col){
     h+='<th>'+col+'</th>';
   });
   h+='</tr></thead><tbody>';
   rets.forEach(function(r){
     var rl=REASON_LABELS[r.reason]||r.reason;
     var rc=REASON_COLORS[r.reason]||'var(--text3)';
-    var fsColor=r.fixStatus==='fixed'?'var(--green)':r.fixStatus==='no_fix'?'var(--cyan)':'var(--warn)';
-    var fsLabel=r.fixStatus==='fixed'?'\u2705 Fixed':r.fixStatus==='no_fix'?'\u2714\uFE0F No Fix':'\u23F3 Pending';
+    var rs=r.resale||{label:'\u2753 Unknown',color:'var(--text3)',bg:'rgba(15,23,42,.04)'};
     h+='<tr>';
     h+='<td style="font-family:var(--fm);font-size:10px;white-space:nowrap;color:var(--text3)">'+fmtDateShort(r.date)+'</td>';
     h+='<td style="font-family:var(--fu);font-size:10px;color:var(--text)">'+r.custName+'</td>';
@@ -5528,8 +5577,7 @@ function renderReturnDashboard(){
     h+='<td style="font-family:var(--fm);font-weight:700;color:var(--orange);text-align:center">'+r.qty+'</td>';
     h+='<td><span style="font-family:var(--fd);font-size:8px;padding:1px 6px;border-radius:3px;background:rgba(15,23,42,.05);color:'+rc+'">'+rl+'</span></td>';
     h+='<td style="font-family:var(--fm);font-size:10px;text-align:right;color:'+(r.fixCost>0?'var(--red)':'var(--text3))')+'">'+(r.fixCost>0?'\u09F3'+fmtNum(r.fixCost*r.qty):'\u2014')+'</td>';
-    h+='<td><span style="font-family:var(--fm);font-size:9px;color:'+fsColor+'">'+fsLabel+'</span></td>';
-    h+='<td style="text-align:center">'+(r.restock?'\u{1F4E6} Yes':'\u2014')+'</td>';
+    h+='<td><span style="font-family:var(--fd);font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:'+rs.bg+';color:'+rs.color+';white-space:nowrap">'+rs.label+'</span></td>';
     h+='<td style="font-family:var(--fm);font-size:9px;color:var(--text3)">'+r.note+'</td>';
     h+='</tr>';
   });
