@@ -4241,18 +4241,18 @@ function renderTodayKPIBar(){
   function rs(l){return l.reduce(function(s,v){var r=(v.returns||[]).reduce(function(x,t){return x+(t.qty||t.returnQty||1);},0);return s+((v.qty||0)-r);},0);}
   function fi(f){return ai.filter(function(v){var d=(v.date||'').slice(0,10);return d>=f&&d<=td;});}
   var tS=rs(fi(td)),wS=rs(fi(wd)),mS=rs(fi(mn));
-  function kc(ic,lb,vl,cl,br){
-    return '<div style="background:#0c1520;border:1px solid '+br+';border-top:3px solid '+cl+';border-radius:8px;padding:14px 10px;text-align:center;flex:1;">'
+  function kc(ic,lb,vl,cl){
+    return '<div style="background:#fff;border:1px solid #E5E7EB;border-top:3px solid '+cl+';border-radius:8px;padding:14px 10px;text-align:center;flex:1;box-shadow:0 1px 4px rgba(15,23,42,0.08);">'
       +'<div style="font-size:15px;margin-bottom:4px;">'+ic+'</div>'
-      +'<div style="color:#6b7a8d;font-size:10px;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">'+lb+'</div>'
+      +'<div style="color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">'+lb+'</div>'
       +'<div style="color:'+cl+';font-size:24px;font-weight:700;line-height:1;">'+vl+'</div>'
       +'</div>';
   }
-  return '<div style="display:flex;gap:10px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #1a2a3a;">'
-    +kc('📦','Today Buy',tB+' pcs','#4fc3f7','#1a3a4a')
-    +kc('✅','Today Sold',tS+' pcs','#4caf50','#1a3a1a')
-    +kc('📊','This Week Sold',wS+' pcs','#ff9800','#3a2a0a')
-    +kc('📈','This Month Sold',mS+' pcs','#ce93d8','#2a1a3a')
+  return '<div style="display:flex;gap:10px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #E5E7EB;">'
+    +kc('📦','Today Buy',tB+' pcs','#3B82F6')
+    +kc('✅','Today Sold',tS+' pcs','#10B981')
+    +kc('📊','This Week Sold',wS+' pcs','#F59E0B')
+    +kc('📈','This Month Sold',mS+' pcs','#8B5CF6')
     +'</div>';
 }
 async function renderStockKPIBar(){
@@ -4585,23 +4585,23 @@ function renderModelBuyHistory(){
 
   // Helpers
   function fmtM(n){if(!n)return '৳'+0;if(n>=10000000)return '৳'+(n/10000000).toFixed(1)+'Cr';if(n>=100000)return '৳'+(n/100000).toFixed(1)+'L';return '৳'+n.toLocaleString('en-IN');}
-  function roiBadge(roi){if(roi==null)return '<span style="color:#555">—</span>';var cl=roi>=20?'#00d4aa':roi>=15?'#4ade80':roi>=10?'#facc15':roi>=0?'#fb923c':'#ef4444';return '<span style="background:'+cl+'22;color:'+cl+';border:1px solid '+cl+'44;border-radius:4px;padding:1px 6px;font-size:12px;font-weight:700">'+roi+'%</span>';}
+  function roiBadge(roi){if(roi==null)return '<span style="color:#9CA3AF">—</span>';var cl=roi>=20?'#10B981':roi>=15?'#059669':roi>=10?'#F59E0B':roi>=0?'#fb923c':'#E30613';return '<span style="background:'+cl+'1a;color:'+cl+';border:1px solid '+cl+'44;border-radius:4px;padding:1px 6px;font-size:12px;font-weight:700">'+roi+'%</span>';}
   function fBtn(v,l,a){
-var ac=a?'rgba(227,6,19,.18)':'rgba(15,23,42,.03)';
-var bc=a?'#E30613':'#253545';
-var tc=a?'#ff7070':'#7a8899';
+var ac=a?'rgba(227,6,19,.12)':'rgba(15,23,42,.03)';
+var bc=a?'#E30613':'#D8DCE3';
+var tc=a?'#E30613':'#6B7280';
 var fw=a?'600':'400';
 return '<button onclick="window._bhFilter=\x27'+v+'\x27;renderModelBuyHistory()" style="padding:5px 12px;border-radius:20px;border:1px solid '+bc+';background:'+ac+';color:'+tc+';font-size:11px;cursor:pointer;font-weight:'+fw+';white-space:nowrap;">'+l+'</button>';
 }
   function sBtn(v,l,a){
-var bc=a?'#4fc3f7':'#253545';
-var bg=a?'rgba(79,195,247,.15)':'rgba(15,23,42,.03)';
-var tc=a?'#4fc3f7':'#7a8899';
+var bc=a?'#3B82F6':'#D8DCE3';
+var bg=a?'rgba(59,130,246,.12)':'rgba(15,23,42,.03)';
+var tc=a?'#3B82F6':'#6B7280';
 var fw=a?'600':'400';
 return '<button onclick="window._bhSort=\x27'+v+'\x27;renderModelBuyHistory()" style="padding:5px 12px;border-radius:20px;border:1px solid '+bc+';background:'+bg+';color:'+tc+';font-size:11px;cursor:pointer;font-weight:'+fw+';white-space:nowrap;">'+l+'</button>';
 }
 
-  var roiC=avgROI>=20?'#00d4aa':avgROI>=15?'#4ade80':avgROI>=10?'#facc15':'#ef4444';
+  var roiC=avgROI>=20?'#10B981':avgROI>=15?'#059669':avgROI>=10?'#F59E0B':'#E30613';
   var roiLbl=avgROI>=20?'Excellent':avgROI>=15?'Good':avgROI>=10?'Below target':'Critical';
   var spct=totBQ>0?Math.round(totSQ/totBQ*100):0;
   var crL=Math.round(totCR/100000);
@@ -4610,34 +4610,34 @@ return '<button onclick="window._bhSort=\x27'+v+'\x27;renderModelBuyHistory()" s
 
   // ROW 1 — 5 KPI Cards
   h+='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px">';
-  h+='<div style="background:#0f172a;border:1px solid #1e3a5f;border-radius:10px;padding:14px"><div style="color:#64748b;font-size:11px;letter-spacing:1px;margin-bottom:6px">📦 TOTAL BUY QTY</div><div style="color:#f8fafc;font-size:28px;font-weight:800">'+totBQ+'<span style="font-size:14px;color:#94a3b8">pcs</span></div><div style="color:#64748b;font-size:11px;margin-top:4px">'+data.length+' models</div></div>';
-  h+='<div style="background:#0a2318;border:1px solid #14532d;border-radius:10px;padding:14px"><div style="color:#64748b;font-size:11px;letter-spacing:1px;margin-bottom:6px">✅ TOTAL SOLD QTY</div><div style="color:#4ade80;font-size:28px;font-weight:800">'+totSQ+'<span style="font-size:14px;color:#94a3b8">pcs</span></div><div style="color:#64748b;font-size:11px;margin-top:4px">'+spct+'% sell-through</div></div>';
-  h+='<div style="background:#1a0a0a;border:1px solid #7f1d1d;border-radius:10px;padding:14px"><div style="color:#64748b;font-size:11px;letter-spacing:1px;margin-bottom:6px">📤 TOTAL UNSOLD QTY</div><div style="color:#ef4444;font-size:28px;font-weight:800">'+totUQ+'<span style="font-size:14px;color:#94a3b8">pcs</span></div><div style="color:#ef4444;font-size:11px;margin-top:4px">'+fmtM(totCR)+' at risk</div></div>';
-  h+='<div style="background:#0f172a;border:1px solid '+(avgROI>=15?'#14532d':'#7f1d1d')+';border-radius:10px;padding:14px"><div style="color:#64748b;font-size:11px;letter-spacing:1px;margin-bottom:6px">📊 AVG PORTFOLIO ROI</div><div style="color:'+roiC+';font-size:28px;font-weight:800">'+avgROI+'<span style="font-size:16px">%</span></div><div style="color:'+roiC+';font-size:11px;margin-top:4px">'+roiLbl+'</div></div>';
-  h+='<div style="background:#1a0a0a;border:1px solid #7f1d1d;border-radius:10px;padding:14px"><div style="color:#64748b;font-size:11px;letter-spacing:1px;margin-bottom:6px">🔒 CAPITAL AT RISK</div><div style="color:#ef4444;font-size:28px;font-weight:800">৳'+crL+'L</div><div style="color:#94a3b8;font-size:11px;margin-top:4px">'+totUQ+' unsold locked</div></div>';
+  h+='<div style="background:#fff;border:1px solid #E5E7EB;border-left:3px solid #3B82F6;border-radius:10px;padding:14px;box-shadow:0 1px 4px rgba(15,23,42,0.08)"><div style="color:#6B7280;font-size:11px;letter-spacing:1px;margin-bottom:6px">📦 TOTAL BUY QTY</div><div style="color:#1F2937;font-size:28px;font-weight:800">'+totBQ+'<span style="font-size:14px;color:#9CA3AF">pcs</span></div><div style="color:#6B7280;font-size:11px;margin-top:4px">'+data.length+' models</div></div>';
+  h+='<div style="background:#fff;border:1px solid #E5E7EB;border-left:3px solid #10B981;border-radius:10px;padding:14px;box-shadow:0 1px 4px rgba(15,23,42,0.08)"><div style="color:#6B7280;font-size:11px;letter-spacing:1px;margin-bottom:6px">✅ TOTAL SOLD QTY</div><div style="color:#059669;font-size:28px;font-weight:800">'+totSQ+'<span style="font-size:14px;color:#9CA3AF">pcs</span></div><div style="color:#6B7280;font-size:11px;margin-top:4px">'+spct+'% sell-through</div></div>';
+  h+='<div style="background:#fff;border:1px solid #E5E7EB;border-left:3px solid #E30613;border-radius:10px;padding:14px;box-shadow:0 1px 4px rgba(15,23,42,0.08)"><div style="color:#6B7280;font-size:11px;letter-spacing:1px;margin-bottom:6px">📤 TOTAL UNSOLD QTY</div><div style="color:#E30613;font-size:28px;font-weight:800">'+totUQ+'<span style="font-size:14px;color:#9CA3AF">pcs</span></div><div style="color:#E30613;font-size:11px;margin-top:4px">'+fmtM(totCR)+' at risk</div></div>';
+  h+='<div style="background:#fff;border:1px solid #E5E7EB;border-left:3px solid '+roiC+';border-radius:10px;padding:14px;box-shadow:0 1px 4px rgba(15,23,42,0.08)"><div style="color:#6B7280;font-size:11px;letter-spacing:1px;margin-bottom:6px">📊 AVG PORTFOLIO ROI</div><div style="color:'+roiC+';font-size:28px;font-weight:800">'+avgROI+'<span style="font-size:16px">%</span></div><div style="color:'+roiC+';font-size:11px;margin-top:4px">'+roiLbl+'</div></div>';
+  h+='<div style="background:#fff;border:1px solid #E5E7EB;border-left:3px solid #E30613;border-radius:10px;padding:14px;box-shadow:0 1px 4px rgba(15,23,42,0.08)"><div style="color:#6B7280;font-size:11px;letter-spacing:1px;margin-bottom:6px">🔒 CAPITAL AT RISK</div><div style="color:#E30613;font-size:28px;font-weight:800">৳'+crL+'L</div><div style="color:#6B7280;font-size:11px;margin-top:4px">'+totUQ+' unsold locked</div></div>';
   h+='</div>';
 
   // ROW 2 — 5 Highlight Cards
   h+='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px">';
-  h+='<div style="background:linear-gradient(135deg,#2d1f00,#1a1200);border:1px solid #a16207;border-radius:10px;padding:14px"><div style="color:#a16207;font-size:11px;font-weight:700;margin-bottom:6px">⭐ Star Buy Models</div><div style="color:#fbbf24;font-size:24px;font-weight:800">'+starBuys.length+' <span style="font-size:12px;color:#a16207">models</span></div><div style="color:#a16207;font-size:10px;margin-top:4px">'+starBuys.slice(0,2).map(function(d){return d.model.replace('HP ','');}).join(', ')+(starBuys.length>2?'...':'')+'</div></div>';
-  h+='<div style="background:linear-gradient(135deg,#1a0000,#110000);border:1px solid #b91c1c;border-radius:10px;padding:14px"><div style="color:#f87171;font-size:11px;font-weight:700;margin-bottom:6px">❌ Avoid Models</div><div style="color:#ef4444;font-size:24px;font-weight:800">'+avoidList.length+' <span style="font-size:12px;color:#b91c1c">models</span></div><div style="color:#b91c1c;font-size:10px;margin-top:4px">'+avoidList.slice(0,2).map(function(d){return d.model.replace('HP ','');}).join(', ')+(avoidList.length>2?'...':'')+'</div></div>';
-  h+='<div style="background:linear-gradient(135deg,#001a1a,#001212);border:1px solid #0e7490;border-radius:10px;padding:14px"><div style="color:#22d3ee;font-size:11px;font-weight:700;margin-bottom:6px">⚡ Fastest Moving</div>'+(fastM?'<div style="color:#22d3ee;font-size:24px;font-weight:800">'+fastM.avgHold+'d <span style="font-size:12px;color:#0e7490">avg</span></div><div style="color:#0e7490;font-size:10px;margin-top:4px">'+fastM.model+'</div>':'<div style="color:#64748b">No data</div>')+'</div>';
-  h+='<div style="background:linear-gradient(135deg,#001500,#000f00);border:1px solid #15803d;border-radius:10px;padding:14px"><div style="color:#86efac;font-size:11px;font-weight:700;margin-bottom:6px">🏆 Best Performer</div>'+(bestM?'<div style="color:#4ade80;font-size:22px;font-weight:800">ROI '+(bestM.roi!=null?bestM.roi+'%':'—')+'</div><div style="color:#15803d;font-size:10px;margin-top:4px">'+bestM.model+' · '+bestM.totSold+' sold</div>':'<div style="color:#64748b">No data</div>')+'</div>';
-  h+='<div style="background:linear-gradient(135deg,#1a0000,#110000);border:1px solid #991b1b;border-radius:10px;padding:14px"><div style="color:#fca5a5;font-size:11px;font-weight:700;margin-bottom:6px">💥 Worst Performer</div>'+(worstM?'<div style="color:#ef4444;font-size:22px;font-weight:800">ROI '+(worstM.roi!=null?worstM.roi+'%':'—')+'</div><div style="color:#991b1b;font-size:10px;margin-top:4px">'+worstM.model+' · '+worstM.unsold+' unsold</div>':'<div style="color:#64748b">No data</div>')+'</div>';
+  h+='<div style="background:linear-gradient(135deg,rgba(217,119,6,.10),rgba(217,119,6,.03));border:1px solid rgba(217,119,6,.35);border-radius:10px;padding:14px"><div style="color:#B45309;font-size:11px;font-weight:700;margin-bottom:6px">⭐ Star Buy Models</div><div style="color:#D97706;font-size:24px;font-weight:800">'+starBuys.length+' <span style="font-size:12px;color:#B45309">models</span></div><div style="color:#92400E;font-size:10px;margin-top:4px">'+starBuys.slice(0,2).map(function(d){return d.model.replace('HP ','');}).join(', ')+(starBuys.length>2?'...':'')+'</div></div>';
+  h+='<div style="background:linear-gradient(135deg,rgba(227,6,19,.08),rgba(227,6,19,.02));border:1px solid rgba(227,6,19,.3);border-radius:10px;padding:14px"><div style="color:#B7050F;font-size:11px;font-weight:700;margin-bottom:6px">❌ Avoid Models</div><div style="color:#E30613;font-size:24px;font-weight:800">'+avoidList.length+' <span style="font-size:12px;color:#B7050F">models</span></div><div style="color:#B7050F;font-size:10px;margin-top:4px">'+avoidList.slice(0,2).map(function(d){return d.model.replace('HP ','');}).join(', ')+(avoidList.length>2?'...':'')+'</div></div>';
+  h+='<div style="background:linear-gradient(135deg,rgba(8,145,178,.08),rgba(8,145,178,.02));border:1px solid rgba(8,145,178,.3);border-radius:10px;padding:14px"><div style="color:#0E7490;font-size:11px;font-weight:700;margin-bottom:6px">⚡ Fastest Moving</div>'+(fastM?'<div style="color:#0891B2;font-size:24px;font-weight:800">'+fastM.avgHold+'d <span style="font-size:12px;color:#0E7490">avg</span></div><div style="color:#0E7490;font-size:10px;margin-top:4px">'+fastM.model+'</div>':'<div style="color:#9CA3AF">No data</div>')+'</div>';
+  h+='<div style="background:linear-gradient(135deg,rgba(16,185,129,.08),rgba(16,185,129,.02));border:1px solid rgba(16,185,129,.3);border-radius:10px;padding:14px"><div style="color:#059669;font-size:11px;font-weight:700;margin-bottom:6px">🏆 Best Performer</div>'+(bestM?'<div style="color:#10B981;font-size:22px;font-weight:800">ROI '+(bestM.roi!=null?bestM.roi+'%':'—')+'</div><div style="color:#059669;font-size:10px;margin-top:4px">'+bestM.model+' · '+bestM.totSold+' sold</div>':'<div style="color:#9CA3AF">No data</div>')+'</div>';
+  h+='<div style="background:linear-gradient(135deg,rgba(227,6,19,.08),rgba(227,6,19,.02));border:1px solid rgba(227,6,19,.3);border-radius:10px;padding:14px"><div style="color:#B7050F;font-size:11px;font-weight:700;margin-bottom:6px">💥 Worst Performer</div>'+(worstM?'<div style="color:#E30613;font-size:22px;font-weight:800">ROI '+(worstM.roi!=null?worstM.roi+'%':'—')+'</div><div style="color:#B7050F;font-size:10px;margin-top:4px">'+worstM.model+' · '+worstM.unsold+' unsold</div>':'<div style="color:#9CA3AF">No data</div>')+'</div>';
   h+='</div>';
 
   // ROW 3 — Decision + Filters + Sort
-  h+='<div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:10px;padding:14px;margin-bottom:10px">';
-  h+='<div style="margin-bottom:10px"><span style="color:#64748b;font-size:11px;letter-spacing:1px;margin-right:8px">BUYING DECISION SUMMARY</span>';
-  h+='<span style="background:#2d1f00;color:#fbbf24;border:1px solid #a16207;border-radius:12px;padding:2px 10px;font-size:11px;margin:2px">⭐ Star Buy '+dc.s+'</span>';
-  h+='<span style="background:#0a2318;color:#4ade80;border:1px solid #14532d;border-radius:12px;padding:2px 10px;font-size:11px;margin:2px">✅ Buy '+dc.b+'</span>';
-  h+='<span style="background:#1a1500;color:#facc15;border:1px solid #a16207;border-radius:12px;padding:2px 10px;font-size:11px;margin:2px">🟡 Small '+dc.sm+'</span>';
-  h+='<span style="background:#0f172a;color:#93c5fd;border:1px solid #1e3a5f;border-radius:12px;padding:2px 10px;font-size:11px;margin:2px">⏸️ Hold '+dc.h+'</span>';
-  h+='<span style="background:#1a0000;color:#f87171;border:1px solid #b91c1c;border-radius:12px;padding:2px 10px;font-size:11px;margin:2px">❌ Avoid '+dc.av+'</span>';
-  h+='<span style="background:#0f172a;color:#64748b;border:1px solid #334155;border-radius:12px;padding:2px 10px;font-size:11px;margin:2px">❓ No Data '+dc.nd+'</span></div>';
-  h+='<div style="background:#0c1520;border:1px solid #1c2d3d;border-radius:10px;padding:14px 16px;margin-bottom:14px;">';
+  h+='<div style="background:#fff;border:1px solid #E5E7EB;border-radius:10px;padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(15,23,42,0.06)">';
+  h+='<div style="margin-bottom:10px"><span style="color:#6B7280;font-size:11px;letter-spacing:1px;margin-right:8px">BUYING DECISION SUMMARY</span>';
+  h+='<span style="background:rgba(217,119,6,.10);color:#B45309;border:1px solid rgba(217,119,6,.4);border-radius:12px;padding:2px 10px;font-size:11px;margin:2px">⭐ Star Buy '+dc.s+'</span>';
+  h+='<span style="background:rgba(16,185,129,.10);color:#059669;border:1px solid rgba(16,185,129,.4);border-radius:12px;padding:2px 10px;font-size:11px;margin:2px">✅ Buy '+dc.b+'</span>';
+  h+='<span style="background:rgba(245,158,11,.10);color:#B45309;border:1px solid rgba(245,158,11,.4);border-radius:12px;padding:2px 10px;font-size:11px;margin:2px">🟡 Small '+dc.sm+'</span>';
+  h+='<span style="background:rgba(15,23,42,.04);color:#6B7280;border:1px solid #D8DCE3;border-radius:12px;padding:2px 10px;font-size:11px;margin:2px">⏸️ Hold '+dc.h+'</span>';
+  h+='<span style="background:rgba(227,6,19,.08);color:#E30613;border:1px solid rgba(227,6,19,.35);border-radius:12px;padding:2px 10px;font-size:11px;margin:2px">❌ Avoid '+dc.av+'</span>';
+  h+='<span style="background:rgba(15,23,42,.04);color:#9CA3AF;border:1px solid #E5E7EB;border-radius:12px;padding:2px 10px;font-size:11px;margin:2px">❓ No Data '+dc.nd+'</span></div>';
+  h+='<div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:14px 16px;margin-bottom:14px;">';
 h+='<div style="display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-bottom:10px;">';
-h+='<span style="color:#4a5a6a;font-size:10px;font-weight:700;letter-spacing:1px;min-width:48px;text-transform:uppercase;">Filter</span>';
+h+='<span style="color:#6B7280;font-size:10px;font-weight:700;letter-spacing:1px;min-width:48px;text-transform:uppercase;">Filter</span>';
 h+=fBtn('all','All',flt==='all');
 h+=fBtn('rebuy','⭐ Rebuy',flt==='rebuy');
 h+=fBtn('smallqty','🟡 Small',flt==='smallqty');
@@ -4649,47 +4649,47 @@ h+=fBtn('fast','⚡ Fast',flt==='fast');
 h+=fBtn('slow','🐢 Slow',flt==='slow');
 h+='</div>';
 h+='<div style="display:flex;flex-wrap:wrap;gap:7px;align-items:center;">';
-h+='<span style="color:#4a5a6a;font-size:10px;font-weight:700;letter-spacing:1px;min-width:48px;text-transform:uppercase;">Sort</span>';
+h+='<span style="color:#6B7280;font-size:10px;font-weight:700;letter-spacing:1px;min-width:48px;text-transform:uppercase;">Sort</span>';
 h+=sBtn('default','Decision',srt==='default');
 h+=sBtn('rd','ROI ↓',srt==='rd');
 h+=sBtn('ra','ROI ↑',srt==='ra');
 h+=sBtn('cr','Cap Risk',srt==='cr');
 h+=sBtn('sp','Fastest',srt==='sp');
 h+=sBtn('rp','Return %',srt==='rp');
-h+='<span style="color:#4a5a6a;font-size:11px;margin-left:auto;padding:4px 10px;background:#131d2b;border-radius:12px;">'+data.length+' models</span>';
+h+='<span style="color:#6B7280;font-size:11px;margin-left:auto;padding:4px 10px;background:rgba(15,23,42,.05);border-radius:12px;">'+data.length+' models</span>';
 h+='</div>';
 h+='</div>';
   h+='</div>';
 
   // ROW 4 — Table
-  var thr='padding:8px 6px;font-size:10px;color:#64748b;font-weight:700;letter-spacing:0.5px;text-align:right;white-space:nowrap;border-bottom:1px solid #1e293b';
-  var thl='padding:8px 6px;font-size:10px;color:#64748b;font-weight:700;letter-spacing:0.5px;text-align:left;white-space:nowrap;border-bottom:1px solid #1e293b';
-  h+='<div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:10px;overflow:hidden"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>';
+  var thr='padding:8px 6px;font-size:10px;color:#6B7280;font-weight:700;letter-spacing:0.5px;text-align:right;white-space:nowrap;border-bottom:1px solid #E5E7EB;background:#F9FAFB';
+  var thl='padding:8px 6px;font-size:10px;color:#6B7280;font-weight:700;letter-spacing:0.5px;text-align:left;white-space:nowrap;border-bottom:1px solid #E5E7EB;background:#F9FAFB';
+  h+='<div style="background:#fff;border:1px solid #E5E7EB;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(15,23,42,0.06)"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>';
   ['MODEL','BATCH','BUY','SOLD','UNSOLD','AVG BUY ৳','AVG SELL ৳','PROFIT/PC','ROI%','AVG HOLD (hist.)','VEL/WK','RET%','৳ CAPITAL','৳ AT RISK','DECISION'].forEach(function(col,i){
     h+='<th style="'+(i===0||i===14?thl:thr)+'">'+col+'</th>';
   });
   h+='</tr></thead><tbody>';
 
-  var tdr='padding:7px 6px;text-align:right;border-bottom:1px solid #0f172a';
-  var tdl='padding:7px 6px;text-align:left;border-bottom:1px solid #0f172a';
+  var tdr='padding:7px 6px;text-align:right;border-bottom:1px solid #F3F4F6';
+  var tdl='padding:7px 6px;text-align:left;border-bottom:1px solid #F3F4F6';
   filt.forEach(function(d){
-    var rb=d.dPri===5?'background:#1a1200;':d.dPri===4?'background:#001a0a;':'';
+    var rb=d.dPri===5?'background:rgba(217,119,6,.05);':d.dPri===4?'background:rgba(16,185,129,.05);':'';
     var pc=d.profitPc||0;
     h+='<tr style="'+rb+'">';
-    h+='<td style="'+tdl+';border-left:3px solid '+d.dColor+'"><span style="color:#e2e8f0;font-weight:600">'+d.model+'</span></td>';
-    h+='<td style="'+tdr+';color:#64748b">'+d.buyCount+'x</td>';
-    h+='<td style="'+tdr+';color:#94a3b8">'+d.totBought+'</td>';
-    h+='<td style="'+tdr+';color:#4ade80">'+d.totSold+'</td>';
-    h+='<td style="'+tdr+';color:'+(d.unsold>0?'#ef4444':'#4ade80')+'">'+d.unsold+'</td>';
-    h+='<td style="'+tdr+';color:#94a3b8">৳'+Math.round(d.avgCost).toLocaleString('en-IN')+'</td>';
-    h+='<td style="'+tdr+';color:#94a3b8">৳'+Math.round(d.avgSellP||0).toLocaleString('en-IN')+'</td>';
-    h+='<td style="'+tdr+';color:'+(pc>0?'#4ade80':'#ef4444')+';font-weight:700">'+(pc>0?'+':'')+'৳'+Math.round(pc).toLocaleString('en-IN')+'</td>';
+    h+='<td style="'+tdl+';border-left:3px solid '+d.dColor+'"><span style="color:#1F2937;font-weight:600">'+d.model+'</span></td>';
+    h+='<td style="'+tdr+';color:#6B7280">'+d.buyCount+'x</td>';
+    h+='<td style="'+tdr+';color:#6B7280">'+d.totBought+'</td>';
+    h+='<td style="'+tdr+';color:#059669">'+d.totSold+'</td>';
+    h+='<td style="'+tdr+';color:'+(d.unsold>0?'#E30613':'#059669')+'">'+d.unsold+'</td>';
+    h+='<td style="'+tdr+';color:#6B7280">৳'+Math.round(d.avgCost).toLocaleString('en-IN')+'</td>';
+    h+='<td style="'+tdr+';color:#6B7280">৳'+Math.round(d.avgSellP||0).toLocaleString('en-IN')+'</td>';
+    h+='<td style="'+tdr+';color:'+(pc>0?'#059669':'#E30613')+';font-weight:700">'+(pc>0?'+':'')+'৳'+Math.round(pc).toLocaleString('en-IN')+'</td>';
     h+='<td style="'+tdr+'">'+roiBadge(d.roi)+'</td>';
-    h+='<td style="'+tdr+';color:#94a3b8">'+(d.avgHold>0?d.avgHold+'d':'—')+'</td>';
-    h+='<td style="'+tdr+';color:#64748b">'+(d.velocity>0?d.velocity:'—')+'</td>';
-    h+='<td style="'+tdr+';color:'+(d.retPct>5?'#ef4444':'#64748b')+'">'+d.retPct+'%</td>';
-    h+='<td style="'+tdr+';color:#64748b">৳'+Math.round(d.capitalDeployed||0).toLocaleString('en-IN')+'</td>';
-    h+='<td style="'+tdr+'">'+(d.capitalAtRisk>0?'<span style="color:#ef4444">৳'+d.capitalAtRisk.toLocaleString('en-IN')+'</span>':'<span style="color:#334155">—</span>')+'</td>';
+    h+='<td style="'+tdr+';color:#6B7280">'+(d.avgHold>0?d.avgHold+'d':'—')+'</td>';
+    h+='<td style="'+tdr+';color:#9CA3AF">'+(d.velocity>0?d.velocity:'—')+'</td>';
+    h+='<td style="'+tdr+';color:'+(d.retPct>5?'#E30613':'#9CA3AF')+'">'+d.retPct+'%</td>';
+    h+='<td style="'+tdr+';color:#6B7280">৳'+Math.round(d.capitalDeployed||0).toLocaleString('en-IN')+'</td>';
+    h+='<td style="'+tdr+'">'+(d.capitalAtRisk>0?'<span style="color:#E30613">৳'+d.capitalAtRisk.toLocaleString('en-IN')+'</span>':'<span style="color:#D1D5DB">—</span>')+'</td>';
     h+='<td style="'+tdl+'"><span style="background:'+d.dBg+';color:'+d.dColor+';border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap">'+d.decision+'</span></td>';
     h+='</tr>';
   });
