@@ -4461,8 +4461,9 @@ function calcModelBuyHistory(){
     var totRevenue = sales.reduce(function(a,s){return a+s.qty*(s.price||0);},0);
     var avgSellP   = totSold>0 ? Math.round(totRevenue/totSold) : 0;
 
-    // NOTE (CTG_ROTATION_ENGINE): avgHold below is a blended HISTORICAL metric only —
-    // it mixes "days a sold unit sat before selling" with "current age of still-unsold batches".
+    // NOTE (CTG_ROTATION_ENGINE): avgHold below is a PURE "days-to-sell" metric —
+    // it only measures how long a SOLD unit sat in stock before it sold.
+    // (Build-13: unsold current-batch ages are no longer mixed in — see AVG DAYS SOLD.)
     // It is NOT the same as Stock Age (per-lot, current stock only) or Live Rotation Days
     // (current sellable stock ÷ recent velocity) used on the Stock Ageing Tracker page.
     // Kept as-is here for this Buy History tab's own decision engine; do not reuse it as
@@ -4478,10 +4479,6 @@ function calcModelBuyHistory(){
         });
         holdDays.push(getAge(closest.entryDate)-getAge(s.date));
       }
-    });
-    // Also include current unsold batch ages
-    batches.forEach(function(b){
-      if(Math.max(0,b.qty-b.sold)>0) holdDays.push(getAge(b.entryDate));
     });
     var avgHold = holdDays.length>0 ? Math.round(holdDays.reduce(function(a,d){return a+Math.abs(d);},0)/holdDays.length) : null;
 
@@ -4504,26 +4501,76 @@ function calcModelBuyHistory(){
     var capitalDeployed = totBought * avgCost;
     var capitalAtRisk   = unsold * avgCost;
 
-    // Decision
-    var decision,dColor,dBg,dPri;
-    if(roi===null||avgCost===0){
-      decision='\u2753 No Data';dColor='var(--text3)';dBg='rgba(15,23,42,.04)';dPri=0;
-    } else if(roi<10||retPct>10||(avgHold&&avgHold>80)){
-      decision='\u274C Avoid';dColor:'var(--red)';dColor='var(--red)';dBg='rgba(227,6,19,.1)';dPri=1;
-    } else if(roi<12||(avgHold&&avgHold>60)||retPct>8){
-      decision='\u23F8\uFE0F Hold';dColor='var(--text3)';dBg='rgba(15,23,42,.05)';dPri=2;
-    } else if(roi<15||(avgHold&&avgHold>40)||retPct>5){
-      decision='\u{1F9EA} Small Qty';dColor='var(--warn)';dBg='rgba(245,158,11,.1)';dPri=3;
-    } else if(roi<18&&(avgHold===null||avgHold<=35)){
-      decision='\u2705 Buy';dColor='var(--cyan)';dBg='rgba(34,211,238,.1)';dPri=4;
+    // Build-13: Total Profit (all-time realized profit for this model)
+    var totalProfit = profitPc!==null ? profitPc*totSold : null;
+
+    // Build-13: Rotations/Year (how many times capital cycles per year at this avgHold pace)
+    var rotationsPerYear = (avgHold&&avgHold>0) ? Math.round(365/avgHold*10)/10 : null;
+
+    // Build-13: Recent Trend Signal (last 30 days sales pace vs prior 30 days)
+    // Priority order: insufficient -> dormant -> new -> heating -> cooling -> stable
+    var last30Qty=0, prev30Qty=0, oldestSaleAge=null, newestSaleAge=null;
+    sales.forEach(function(s){
+      var age=getAge(s.date);
+      if(oldestSaleAge===null||age>oldestSaleAge) oldestSaleAge=age;
+      if(newestSaleAge===null||age<newestSaleAge) newestSaleAge=age;
+      if(age<=30) last30Qty+=s.qty;
+      else if(age<=60) prev30Qty+=s.qty;
+    });
+    var trend,trendLabel,trendColor;
+    if(totSold<2){
+      trend='insufficient';trendLabel='—';trendColor='var(--text3)';
+    } else if(newestSaleAge!==null&&newestSaleAge>=50){
+      trend='dormant';trendLabel='\u{1F634} Dormant';trendColor='var(--red)';
+    } else if(oldestSaleAge!==null&&oldestSaleAge<=30){
+      trend='new';trendLabel='\u{1F195} New';trendColor='var(--purple)';
+    } else if(prev30Qty>0&&last30Qty>=prev30Qty*1.2){
+      trend='heating';trendLabel='\u{1F525} Heating';trendColor='var(--green)';
+    } else if(prev30Qty>0&&last30Qty<=prev30Qty*0.8){
+      trend='cooling';trendLabel='❄️ Cooling';trendColor='var(--blue)';
     } else {
-      decision='\u2B50 Star Buy';dColor='var(--gold)';dBg='rgba(251,191,36,.1)';dPri=5;
+      trend='stable';trendLabel='➡️ Stable';trendColor='var(--text3)';
     }
+
+    // Decision (Build-13: TIERS array + trend-based downgrade rule)
+    var TIERS=[
+      {decision:'❓ No Data',  dColor:'var(--text3)', dBg:'rgba(15,23,42,.04)'},
+      {decision:'❌ Avoid',    dColor:'var(--red)',   dBg:'rgba(227,6,19,.1)'},
+      {decision:'⏸️ Hold', dColor:'var(--text3)', dBg:'rgba(15,23,42,.05)'},
+      {decision:'\u{1F9EA} Small Qty', dColor:'var(--warn)', dBg:'rgba(245,158,11,.1)'},
+      {decision:'✅ Buy',      dColor:'var(--cyan)',  dBg:'rgba(34,211,238,.1)'},
+      {decision:'⭐ Star Buy', dColor:'var(--gold)',  dBg:'rgba(251,191,36,.1)'}
+    ];
+    var baseTier;
+    if(roi===null||avgCost===0){
+      baseTier=0;
+    } else if(roi<10||retPct>10||(avgHold&&avgHold>80)){
+      baseTier=1;
+    } else if(roi<12||(avgHold&&avgHold>60)||retPct>8){
+      baseTier=2;
+    } else if(roi<15||(avgHold&&avgHold>40)||retPct>5){
+      baseTier=3;
+    } else if(roi<18&&(avgHold===null||avgHold<=35)){
+      baseTier=4;
+    } else {
+      baseTier=5;
+    }
+    var finalTier=baseTier, downgradeIcon='';
+    if(baseTier>0){
+      if(trend==='dormant'){ finalTier=Math.max(1,baseTier-2); downgradeIcon=' \u{1F634}'; }
+      else if(trend==='cooling'){ finalTier=Math.max(1,baseTier-1); downgradeIcon=' ❄️'; }
+    }
+    var tierInfo=TIERS[finalTier];
+    var decision=tierInfo.decision+(finalTier<baseTier?downgradeIcon:'');
+    var dColor=tierInfo.dColor, dBg=tierInfo.dBg, dPri=finalTier;
 
     return {
       model:m.model,buyCount:buyCount,totBought:totBought,totSold:totSold,
       unsold:unsold,avgCost:avgCost,avgSellP:avgSellP,profitPc:profitPc,
+      totalProfit:totalProfit,
       roi:roi,retPct:retPct,avgHold:avgHold,velocity:velocity,
+      rotationsPerYear:rotationsPerYear,
+      trend:trend,trendLabel:trendLabel,trendColor:trendColor,
       capitalDeployed:capitalDeployed,capitalAtRisk:capitalAtRisk,
       decision:decision,dColor:dColor,dBg:dBg,dPri:dPri
     };
@@ -4622,8 +4669,8 @@ return '<button onclick="window._bhSort=\x27'+v+'\x27;renderModelBuyHistory()" s
   h+='<div style="background:linear-gradient(135deg,rgba(217,119,6,.10),rgba(217,119,6,.03));border:1px solid rgba(217,119,6,.35);border-radius:10px;padding:14px"><div style="color:#B45309;font-size:11px;font-weight:700;margin-bottom:6px">⭐ Star Buy Models</div><div style="color:#D97706;font-size:24px;font-weight:800">'+starBuys.length+' <span style="font-size:12px;color:#B45309">models</span></div><div style="color:#92400E;font-size:10px;margin-top:4px">'+starBuys.slice(0,2).map(function(d){return d.model.replace('HP ','');}).join(', ')+(starBuys.length>2?'...':'')+'</div></div>';
   h+='<div style="background:linear-gradient(135deg,rgba(227,6,19,.08),rgba(227,6,19,.02));border:1px solid rgba(227,6,19,.3);border-radius:10px;padding:14px"><div style="color:#B7050F;font-size:11px;font-weight:700;margin-bottom:6px">❌ Avoid Models</div><div style="color:#E30613;font-size:24px;font-weight:800">'+avoidList.length+' <span style="font-size:12px;color:#B7050F">models</span></div><div style="color:#B7050F;font-size:10px;margin-top:4px">'+avoidList.slice(0,2).map(function(d){return d.model.replace('HP ','');}).join(', ')+(avoidList.length>2?'...':'')+'</div></div>';
   h+='<div style="background:linear-gradient(135deg,rgba(8,145,178,.08),rgba(8,145,178,.02));border:1px solid rgba(8,145,178,.3);border-radius:10px;padding:14px"><div style="color:#0E7490;font-size:11px;font-weight:700;margin-bottom:6px">⚡ Fastest Moving</div>'+(fastM?'<div style="color:#0891B2;font-size:24px;font-weight:800">'+fastM.avgHold+'d <span style="font-size:12px;color:#0E7490">avg</span></div><div style="color:#0E7490;font-size:10px;margin-top:4px">'+fastM.model+'</div>':'<div style="color:#9CA3AF">No data</div>')+'</div>';
-  h+='<div style="background:linear-gradient(135deg,rgba(16,185,129,.08),rgba(16,185,129,.02));border:1px solid rgba(16,185,129,.3);border-radius:10px;padding:14px"><div style="color:#059669;font-size:11px;font-weight:700;margin-bottom:6px">🏆 Best Performer</div>'+(bestM?'<div style="color:#10B981;font-size:22px;font-weight:800">ROI '+(bestM.roi!=null?bestM.roi+'%':'—')+'</div><div style="color:#059669;font-size:10px;margin-top:4px">'+bestM.model+' · '+bestM.totSold+' sold</div>':'<div style="color:#9CA3AF">No data</div>')+'</div>';
-  h+='<div style="background:linear-gradient(135deg,rgba(227,6,19,.08),rgba(227,6,19,.02));border:1px solid rgba(227,6,19,.3);border-radius:10px;padding:14px"><div style="color:#B7050F;font-size:11px;font-weight:700;margin-bottom:6px">💥 Worst Performer</div>'+(worstM?'<div style="color:#E30613;font-size:22px;font-weight:800">ROI '+(worstM.roi!=null?worstM.roi+'%':'—')+'</div><div style="color:#B7050F;font-size:10px;margin-top:4px">'+worstM.model+' · '+worstM.unsold+' unsold</div>':'<div style="color:#9CA3AF">No data</div>')+'</div>';
+  h+='<div style="background:linear-gradient(135deg,rgba(16,185,129,.08),rgba(16,185,129,.02));border:1px solid rgba(16,185,129,.3);border-radius:10px;padding:14px"><div style="color:#059669;font-size:11px;font-weight:700;margin-bottom:6px">🏆 Best Performer</div>'+(bestM?'<div style="color:#10B981;font-size:22px;font-weight:800">ROI '+(bestM.roi!=null?bestM.roi+'%':'—')+'</div><div style="color:#059669;font-size:10px;margin-top:4px">'+bestM.model+' · '+bestM.totSold+' sold · '+(bestM.totalProfit!=null?'৳'+Math.round(bestM.totalProfit).toLocaleString('en-IN')+' profit':'—')+'</div>':'<div style="color:#9CA3AF">No data</div>')+'</div>';
+  h+='<div style="background:linear-gradient(135deg,rgba(227,6,19,.08),rgba(227,6,19,.02));border:1px solid rgba(227,6,19,.3);border-radius:10px;padding:14px"><div style="color:#B7050F;font-size:11px;font-weight:700;margin-bottom:6px">💥 Worst Performer</div>'+(worstM?'<div style="color:#E30613;font-size:22px;font-weight:800">ROI '+(worstM.roi!=null?worstM.roi+'%':'—')+'</div><div style="color:#B7050F;font-size:10px;margin-top:4px">'+worstM.model+' · '+worstM.unsold+' unsold · '+(worstM.totalProfit!=null?'৳'+Math.round(worstM.totalProfit).toLocaleString('en-IN')+' profit':'—')+'</div>':'<div style="color:#9CA3AF">No data</div>')+'</div>';
   h+='</div>';
 
   // ROW 3 — Decision + Filters + Sort
@@ -4665,8 +4712,8 @@ h+='</div>';
   var thr='padding:8px 6px;font-size:10px;color:#6B7280;font-weight:700;letter-spacing:0.5px;text-align:right;white-space:nowrap;border-bottom:1px solid #E5E7EB;background:#F9FAFB';
   var thl='padding:8px 6px;font-size:10px;color:#6B7280;font-weight:700;letter-spacing:0.5px;text-align:left;white-space:nowrap;border-bottom:1px solid #E5E7EB;background:#F9FAFB';
   h+='<div style="background:#fff;border:1px solid #E5E7EB;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(15,23,42,0.06)"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>';
-  ['MODEL','BATCH','BUY','SOLD','UNSOLD','AVG BUY ৳','AVG SELL ৳','PROFIT/PC','ROI%','AVG HOLD (hist.)','VEL/WK','RET%','৳ CAPITAL','৳ AT RISK','DECISION'].forEach(function(col,i){
-    h+='<th style="'+(i===0||i===14?thl:thr)+'">'+col+'</th>';
+  ['MODEL','BATCH','BUY','SOLD','UNSOLD','AVG BUY ৳','AVG SELL ৳','PROFIT/PC','TOTAL PROFIT','ROI%','AVG DAYS SOLD','TREND','ROTATIONS/YR','VEL/WK','RET%','৳ CAPITAL','৳ AT RISK','DECISION'].forEach(function(col,i){
+    h+='<th style="'+(i===0||i===17?thl:thr)+'">'+col+'</th>';
   });
   h+='</tr></thead><tbody>';
 
@@ -4684,8 +4731,11 @@ h+='</div>';
     h+='<td style="'+tdr+';color:#6B7280">৳'+Math.round(d.avgCost).toLocaleString('en-IN')+'</td>';
     h+='<td style="'+tdr+';color:#6B7280">৳'+Math.round(d.avgSellP||0).toLocaleString('en-IN')+'</td>';
     h+='<td style="'+tdr+';color:'+(pc>0?'#059669':'#E30613')+';font-weight:700">'+(pc>0?'+':'')+'৳'+Math.round(pc).toLocaleString('en-IN')+'</td>';
+    h+='<td style="'+tdr+';color:'+((d.totalProfit||0)>0?'#059669':(d.totalProfit||0)<0?'#E30613':'#9CA3AF')+';font-weight:700">'+(d.totalProfit!=null?((d.totalProfit>0?'+':'')+'৳'+Math.round(d.totalProfit).toLocaleString('en-IN')):'—')+'</td>';
     h+='<td style="'+tdr+'">'+roiBadge(d.roi)+'</td>';
     h+='<td style="'+tdr+';color:#6B7280">'+(d.avgHold>0?d.avgHold+'d':'—')+'</td>';
+    h+='<td style="'+tdr+';color:'+(d.trendColor||'#9CA3AF')+';font-weight:600;white-space:nowrap">'+(d.trendLabel||'—')+'</td>';
+    h+='<td style="'+tdr+';color:#6B7280">'+(d.rotationsPerYear!=null?d.rotationsPerYear+'x':'—')+'</td>';
     h+='<td style="'+tdr+';color:#9CA3AF">'+(d.velocity>0?d.velocity:'—')+'</td>';
     h+='<td style="'+tdr+';color:'+(d.retPct>5?'#E30613':'#9CA3AF')+'">'+d.retPct+'%</td>';
     h+='<td style="'+tdr+';color:#6B7280">৳'+Math.round(d.capitalDeployed||0).toLocaleString('en-IN')+'</td>';
