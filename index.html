@@ -5255,6 +5255,108 @@ function getPushOpportunities(){
   return out;
 }
 
+// ── Monthly Sales Comparison (Build-24, owner request 2026-09-15) ──
+// Business-wide (all customers), Real Sales after return — reuses the exact
+// same Gross/Return/Real formula as the Sales Dashboard KPI row (kGrossQty -
+// kRetQty, kGrossSales - kSalesDeducted) so the numbers here always match the
+// Sales Module, never a second definition of "real sales". 3 calendar-month
+// buckets: this month (partial, till today) + last 2 full months. Trend % is
+// this-month-till-date vs LAST MONTH SAME day-range (not the full last month)
+// — comparing a partial month to a full month would silently mislead.
+function getMonthlyComparison(){
+  var now = new Date(TODAY+'T00:00:00');
+  var y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
+  var MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function shiftMonth(yy,mm,n){ mm+=n; while(mm<0){mm+=12;yy--;} while(mm>11){mm-=12;yy++;} return {y:yy,m:mm}; }
+  function daysInMonth(yy,mm){ return new Date(yy,mm+1,0).getDate(); }
+  var allInvs=[];
+  db.customers.forEach(function(c){ (c.invoices||[]).forEach(function(inv){ allInvs.push(inv); }); });
+  function realStats(yy,mm,dayFrom,dayTo){
+    var invs = allInvs.filter(function(inv){
+      if(!inv.date) return false;
+      var iy=parseInt(inv.date.slice(0,4),10), im=parseInt(inv.date.slice(5,7),10)-1, id=parseInt(inv.date.slice(8,10),10);
+      return iy===yy && im===mm && id>=dayFrom && id<=dayTo;
+    });
+    var gq = invs.reduce(function(a,i){return a+(i.items||[]).reduce(function(b,x){return b+(x.qty||0);},0);},0);
+    var ga = invs.reduce(function(a,i){return a+(i.items||[]).reduce(function(b,x){return b+(x.qty||0)*(x.price||0);},0);},0);
+    var rq = invs.reduce(function(a,i){return a+(i.returns||[]).reduce(function(b,r){return b+(r.qty||0);},0);},0);
+    var rs = invs.reduce(function(a,i){return a+(i.returns||[]).reduce(function(b,r){return b+(r.salesDeducted||r.refundAmt||0);},0);},0);
+    return { qty: Math.max(0,gq-rq), amt: Math.max(0,ga-rs) };
+  }
+  var m0 = {y:y,m:m};
+  var m1 = shiftMonth(y,m,-1);
+  var m2 = shiftMonth(y,m,-2);
+
+  var thisM = realStats(m0.y,m0.m,1,d);
+  var lastM = realStats(m1.y,m1.m,1,daysInMonth(m1.y,m1.m));
+  var prevM = realStats(m2.y,m2.m,1,daysInMonth(m2.y,m2.m));
+  var lastMTillDate = realStats(m1.y,m1.m,1,Math.min(d,daysInMonth(m1.y,m1.m)));
+
+  function pctChange(cur,base){ if(base<=0) return null; return Math.round((cur-base)/base*100); }
+  var daysCur = daysInMonth(m0.y,m0.m);
+
+  return {
+    months: [
+      {label:MN[m2.m]+' \''+String(m2.y).slice(2), qty:prevM.qty, amt:prevM.amt, isCurrent:false, sub:'full month'},
+      {label:MN[m1.m]+' \''+String(m1.y).slice(2), qty:lastM.qty, amt:lastM.amt, isCurrent:false, sub:'full month'},
+      {label:MN[m0.m]+' \''+String(m0.y).slice(2), qty:thisM.qty, amt:thisM.amt, isCurrent:true,  sub:'till '+d}
+    ],
+    trendQtyPct: pctChange(thisM.qty, lastMTillDate.qty),
+    trendAmtPct: pctChange(thisM.amt, lastMTillDate.amt),
+    paceQty: Math.round(thisM.qty/d*daysCur),
+    paceAmt: Math.round(thisM.amt/d*daysCur),
+    todayDay: d, daysInCurMonth: daysCur
+  };
+}
+
+// Renders the bar-chart card for getMonthlyComparison() — plain CSS bars
+// (no external chart library), matching the app's existing card/KPI style so
+// it stays a single self-contained offline-safe file.
+function renderMonthlyComparisonBar(){
+  var mc = getMonthlyComparison();
+  var maxQty = Math.max.apply(null, mc.months.map(function(x){return x.qty;}).concat([1]));
+  var maxAmt = Math.max.apply(null, mc.months.map(function(x){return x.amt;}).concat([1]));
+  function barCol(isCur){ return isCur ? 'var(--green)' : 'rgba(15,23,42,.18)'; }
+  function trendBadge(pct){
+    if(pct===null) return '<span style="font-family:var(--fm);font-size:9px;color:var(--text3)">— (গত মাসে ডেটা নেই)</span>';
+    var up = pct>=0;
+    return '<span style="font-family:var(--fm);font-size:11px;font-weight:700;color:'+(up?'var(--green)':'var(--red)')+'">'+(up?'▲':'▼')+' '+Math.abs(pct)+'%</span>';
+  }
+  function miniChart(field, maxV, fmt){
+    var h='<div style="display:flex;align-items:flex-end;gap:10px;height:70px;padding:0 4px">';
+    mc.months.forEach(function(x){
+      var v = x[field];
+      var hpx = maxV>0 ? Math.max(4, Math.round(v/maxV*60)) : 4;
+      h+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">';
+      h+='<div style="font-family:var(--fm);font-size:9px;font-weight:700;color:'+(x.isCurrent?'var(--green)':'var(--text2)')+';margin-bottom:3px;white-space:nowrap">'+fmt(v)+'</div>';
+      h+='<div style="width:100%;max-width:38px;height:'+hpx+'px;border-radius:4px 4px 0 0;background:'+barCol(x.isCurrent)+'"></div>';
+      h+='</div>';
+    });
+    h+='</div>';
+    h+='<div style="display:flex;gap:10px;padding:0 4px;margin-top:4px">';
+    mc.months.forEach(function(x){
+      h+='<div style="flex:1;text-align:center;font-family:var(--fd);font-size:8px;color:var(--text3)">'+x.label+(x.isCurrent?' ('+x.sub+')':'')+'</div>';
+    });
+    h+='</div>';
+    return h;
+  }
+  var out = '<div style="background:rgba(255,255,255,.7);border:1px solid var(--border);border-radius:var(--rl);padding:14px;margin-bottom:14px">';
+  out+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:10px">';
+  out+='<div style="font-family:var(--fd);font-size:12px;font-weight:800;color:var(--text)">\u{1F4CA} এই মাস vs গত ২ মাস (Real Sales)</div>';
+  out+='<div style="display:flex;gap:14px;align-items:center">';
+  out+='<div style="font-size:9px;color:var(--text3)">Qty '+trendBadge(mc.trendQtyPct)+'</div>';
+  out+='<div style="font-size:9px;color:var(--text3)">সেলস '+trendBadge(mc.trendAmtPct)+'</div>';
+  out+='</div>';
+  out+='</div>';
+  out+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">';
+  out+='<div><div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:4px">Qty (pcs)</div>'+miniChart('qty',maxQty,function(v){return v+'p';})+'</div>';
+  out+='<div><div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:4px">Sales Amount</div>'+miniChart('amt',maxAmt,function(v){return fmtMoney(v);})+'</div>';
+  out+='</div>';
+  out+='<div style="margin-top:8px;font-size:9px;color:var(--text3)">⚡ এই গতিতে চললে মাস শেষে প্রায় ≈ '+mc.paceQty+'pcs / '+fmtMoney(mc.paceAmt)+' (projection, actual নয়)</div>';
+  out+='</div>';
+  return out;
+}
+
 function renderPushOpportunities(){
   var el=document.getElementById('pushOppSection'); if(!el) return;
   var opps = getPushOpportunities();
@@ -5265,6 +5367,7 @@ function renderPushOpportunities(){
   var dueRiskCnt = opps.filter(function(o){return o.due>0;}).length;
 
   var h='<div class="card mb-14">';
+  h+=renderMonthlyComparisonBar();
   h+='<div style="margin-bottom:12px">';
   h+='<div style="font-family:var(--fd);font-size:14px;font-weight:800;color:var(--text)">\u{1F3AF} Push Opportunities \u2014 \u09B0\u09BF\u09AA\u09BF\u099F-\u09B8\u09C7\u09B2 \u0995\u09B0\u09C7 \u09A1\u09BE\u09AC\u09B2</div>';
   h+='<div style="font-size:10px;color:var(--text3);margin-top:2px">\u09AF\u09C7 model\u0997\u09C1\u09B2\u09CB \u098F\u0996\u09A8 \u099A\u09B2\u099B\u09C7 (Hot/Repeat/Regular), \u09B8\u09C7\u0997\u09C1\u09B2\u09CB\u09A4\u09C7 \u09AA\u09C1\u09B6 \u0995\u09B0\u09C7 \u0997\u09A4 90 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09B0\u09C7\u099F \u09A1\u09BE\u09AC\u09B2 \u0995\u09B0\u09BE\u09B0 \u09B2\u0995\u09CD\u09B7\u09CD\u09AF (cross-sell \u09A8\u09AF\u09BC)</div>';
