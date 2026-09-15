@@ -5318,7 +5318,7 @@ function renderPushOpportunities(){
           h+='</tr>';
         });
         eg.inStock.forEach(function(m){
-          h+='<tr style="background:rgba(52,211,153,.04)">';
+          h+='<tr style="background:rgba(52,211,153,.09)">';
           h+='<td style="text-align:left;font-family:var(--fu);font-weight:600">'+m.model+(m.source?' <span style="font-family:var(--fm);font-size:8px;color:var(--text3)">('+m.source+')</span>':'')+'</td>';
           h+='<td><span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(249,115,22,.12);color:var(--orange)">\u{1F310} External</span></td>';
           h+='<td style="font-family:var(--fm);color:var(--text3)">—</td>';
@@ -5331,7 +5331,7 @@ function renderPushOpportunities(){
           h+='</tr>';
         });
         eg.noStock.forEach(function(m){
-          h+='<tr style="background:rgba(249,115,22,.03)">';
+          h+='<tr style="background:rgba(249,115,22,.08)">';
           h+='<td style="text-align:left;font-family:var(--fu);font-weight:600">'+m.model+(m.source?' <span style="font-family:var(--fm);font-size:8px;color:var(--text3)">('+m.source+')</span>':'')+'</td>';
           h+='<td><span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(249,115,22,.12);color:var(--orange)">\u{1F310} External</span></td>';
           h+='<td style="font-family:var(--fm);color:var(--text3)">—</td>';
