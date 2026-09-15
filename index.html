@@ -5427,7 +5427,7 @@ function renderModelProfitVelocity(){
     h+='<div style="text-align:center;padding:24px;color:var(--text3);font-size:11px">\u098F\u0996\u09A8\u09CB \u0995\u09CB\u09A8\u09CB \u09AC\u09BF\u0995\u09CD\u09B0\u09AF\u09BC \u09A1\u09C7\u099F\u09BE \u09A8\u09C7\u0987</div>';
   } else {
     h+='<div class="tbl-wrap"><table style="font-size:10px"><thead><tr>';
-    h+='<th style="text-align:left">Model</th><th>7 Day</th><th>15 Day</th><th>30 Day</th><th>Total Sold</th><th>Rotation Days</th><th>Profit/pc</th><th>Total Profit</th><th>\u26A1 \u09F3/day</th>';
+    h+='<th style="text-align:left">Model</th><th>7 Day</th><th>15 Day</th><th>30 Day</th><th>Total Sold</th><th>Rotation Days</th><th>Profit/pc</th><th>Total Profit</th><th>\u26A1 \u09F3/day</th><th>Stock</th>';
     h+='</tr></thead><tbody>';
     data.forEach(function(d){
       var isFast = top5Models[d.model];
@@ -5441,6 +5441,7 @@ function renderModelProfitVelocity(){
       h+='<td style="font-family:var(--fm);color:var(--text2)">'+(d.profitPc!==null?'\u09F3'+fmtNum(d.profitPc):'\u2014')+'</td>';
       h+='<td style="font-family:var(--fm);font-weight:700;color:'+(d.totalProfit!==null&&d.totalProfit>0?'var(--green)':'var(--text3)')+'">'+(d.totalProfit!==null?'\u09F3'+fmtNum(d.totalProfit):'\u2014')+'</td>';
       h+='<td style="font-family:var(--fm);font-weight:800;color:'+(d.profitVelocity!==null?'var(--green)':'var(--text3)')+'">'+(d.profitVelocity!==null?'\u09F3'+fmtNum(d.profitVelocity):'\u2014')+'</td>';
+      h+='<td style="font-family:var(--fm);color:'+(d.unsold>0?'var(--text2)':'var(--red)')+'">'+(d.unsold>0?d.unsold+'pcs':'\u09B8\u09CD\u099F\u0995 \u09A8\u09C7\u0987')+'</td>';
       h+='</tr>';
     });
     h+='</tbody></table></div>';
