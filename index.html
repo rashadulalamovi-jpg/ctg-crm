@@ -5186,9 +5186,14 @@ function genCustOfferWA(cid){
 }
 
 // ── Push Opportunities Engine (Build-14: repeat-sell doubling, NOT cross-sell) ──
-// Scope locked with owner: only a customer's OWN currently-active models
-// (Hot / Repeat / Regular tags from getCustModelPattern) qualify — Old/Dormant/
-// Weak/Avoid are excluded (that is a separate reactivation problem, out of scope).
+// Build-23 scope change (owner audit, 2026-09-15): previously only Hot/Repeat/
+// Regular-tagged models qualified (tag depends on ALL-TIME qty/last-purchase-
+// date, not the 90-day window itself) — this silently hid real 90-day invoice
+// models that were a customer's first or second-ever order of that model
+// (e.g. Alpha Tech: 7 of 20 models actually sold in the last 90 days were
+// missing). Owner confirmed: ANY model actually sold to this customer in the
+// last 90 days (current90>0) must show here — the tag stays as an informational
+// label (Weak/Avoid included), never a gate on visibility.
 // Baseline window = last 90 days (s.q90). Target = double that. Gap = current90
 // (since target=2x current, gap always equals current90 — kept as its own
 // variable for readability, not simplified away).
@@ -5203,8 +5208,6 @@ function getPushOpportunities(){
     mStats.forEach(function(s){
       var pat=getCustModelPattern(s);
       var tag=pat.tag;
-      var qualifies = tag.indexOf('Hot')!==-1 || tag.indexOf('Repeat')!==-1 || tag.indexOf('Regular')!==-1;
-      if(!qualifies) return;
       var current90 = s.q90||0;
       if(current90<=0) return; // can't double a zero baseline
       var target90 = current90*2;
