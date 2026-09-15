@@ -521,6 +521,8 @@ body{max-width:100vw;overflow-x:hidden!important}
     <span class="md-avoid">&#x26A0;&#xFE0F; Avoid &#x2014; Dead risk</span>
   </div>
   <div id="demandCards" class="g4 mb-14"></div>
+  <div id="pushOppSection" class="mb-14"></div>
+  <div id="modelVelocitySection" class="mb-14"></div>
   <div id="demandCustOffer"></div>
   <div class="card mb-14">
     <div class="flex-between mb-14">
@@ -4510,12 +4512,18 @@ function calcModelBuyHistory(){
     // Build-13: Recent Trend Signal (last 30 days sales pace vs prior 30 days)
     // Priority order: insufficient -> dormant -> new -> heating -> cooling -> stable
     var last30Qty=0, prev30Qty=0, oldestSaleAge=null, newestSaleAge=null;
+    // Build-15: cumulative 7/15/30-day sold qty (for Model Profit Velocity table).
+    // Cumulative, unlike last30Qty/prev30Qty above which are exclusive bands for trend.
+    var q7Qty=0, q15Qty=0, q30Qty=0;
     sales.forEach(function(s){
       var age=getAge(s.date);
       if(oldestSaleAge===null||age>oldestSaleAge) oldestSaleAge=age;
       if(newestSaleAge===null||age<newestSaleAge) newestSaleAge=age;
       if(age<=30) last30Qty+=s.qty;
       else if(age<=60) prev30Qty+=s.qty;
+      if(age<=7)  q7Qty  += s.qty;
+      if(age<=15) q15Qty += s.qty;
+      if(age<=30) q30Qty += s.qty;
     });
     var trend,trendLabel,trendColor;
     if(totSold<2){
@@ -4564,18 +4572,108 @@ function calcModelBuyHistory(){
     var decision=tierInfo.decision+(finalTier<baseTier?downgradeIcon:'');
     var dColor=tierInfo.dColor, dBg=tierInfo.dBg, dPri=finalTier;
 
+    // Build-15: Profit Velocity — total realized profit per day of rotation
+    // (Total Profit ÷ Rotation Days / avgHold). Answers "which model makes the
+    // most money in the least time." Only computed when both totalProfit and
+    // avgHold exist and avgHold>0 — never fabricated when data is missing.
+    var profitVelocity = (totalProfit!==null && avgHold && avgHold>0) ? Math.round(totalProfit/avgHold) : null;
+
     return {
       model:m.model,buyCount:buyCount,totBought:totBought,totSold:totSold,
       unsold:unsold,avgCost:avgCost,avgSellP:avgSellP,profitPc:profitPc,
       totalProfit:totalProfit,
       roi:roi,retPct:retPct,avgHold:avgHold,velocity:velocity,
       rotationsPerYear:rotationsPerYear,
+      q7:q7Qty,q15:q15Qty,q30:q30Qty,profitVelocity:profitVelocity,
       trend:trend,trendLabel:trendLabel,trendColor:trendColor,
       capitalDeployed:capitalDeployed,capitalAtRisk:capitalAtRisk,
       decision:decision,dColor:dColor,dBg:dBg,dPri:dPri
     };
   }).filter(function(m){return m.buyCount>0||m.totSold>0;})
     .sort(function(a,b){return b.dPri-a.dPri||b.totSold-a.totSold;});
+}
+
+// Build-16: current unsold-stock age (EXACT model match against stockDB.batches,
+// weighted by remaining qty). This is NOT the same as avgHold in calcModelBuyHistory
+// (which measures historical days-to-SELL for units already sold) — this measures
+// how long the stock CURRENTLY sitting unsold has been sitting. Needed alongside
+// the buy-decision engine because "should I buy more" and "is my existing stock
+// aging/capital-locked" are two different questions.
+function getCurrentStockAge(modelName){
+  var k=(modelName||'').trim().toLowerCase();
+  var totUnsold=0, weightedAge=0;
+  stockDB.batches.forEach(function(b){
+    if((b.model||'').trim().toLowerCase()!==k) return;
+    var rem=Math.max(0,(b.qtyReceived||0)-(b.qtySold||0));
+    if(rem>0){ totUnsold+=rem; weightedAge+=rem*getAge(b.entryDate); }
+  });
+  return totUnsold>0 ? Math.round(weightedAge/totUnsold) : null;
+}
+
+// Build-16: single source of truth for "which models should I buy right now" —
+// re-powers the Star/Rebuy · Watch/Offer Push · Capital Lock/Stop Buy board
+// (previously driven by the separate, contradiction-prone classifyModel()+
+// getFinalAction() pair) with the SAME Buy History decision engine
+// (calcModelBuyHistory: ROI + Return% + Rotation Days + Trend). Also adds a
+// concrete Buy Qty suggestion (next-30-days demand, proxied by last 30 days
+// actual sold qty, minus stock currently in hand) and mutes the recommendation
+// to "স্টক OK" when stock already covers that demand — never a fabricated
+// "buy more" push when the shelf is already full.
+// Build-17: wholesale minimum order quantity — owner's locked rule: sourcing
+// (Dubai import) below 10pcs per model isn't practical, it's operational hassle
+// (shipping/consolidation). So any model worth buying at all gets floored to
+// at least this many pcs; the raw demand-based gap is kept alongside (rawGap)
+// so the UI can show the real number transparently when it got rounded up.
+var WHOLESALE_MOQ = 10;
+
+function getBuyNowBoard(){
+  var data = calcModelBuyHistory();
+  var buyNow=[], watch=[], stop=[];
+  data.forEach(function(d){
+    var stockAge = getCurrentStockAge(d.model);
+    if(d.dPri>=3){
+      var rawGap = Math.max(0, (d.q30||0) - (d.unsold||0));
+      var buyQty = rawGap>0 ? Math.max(WHOLESALE_MOQ, rawGap) : 0;
+      buyNow.push({
+        model:d.model, decision:d.decision, dColor:d.dColor, dBg:d.dBg, dPri:d.dPri,
+        roi:d.roi, retPct:d.retPct, avgHold:d.avgHold, totSold:d.totSold,
+        unsold:d.unsold, q30:d.q30, stockAge:stockAge,
+        trend:d.trend, trendLabel:d.trendLabel,
+        rawGap:rawGap, buyQty:buyQty, stockOk:buyQty<=0,
+        moqApplied:(buyQty>0 && rawGap<WHOLESALE_MOQ)
+      });
+    } else if(d.dPri===2){
+      watch.push({
+        model:d.model, decision:d.decision, dColor:d.dColor, dBg:d.dBg, dPri:d.dPri,
+        roi:d.roi, retPct:d.retPct, avgHold:d.avgHold, totSold:d.totSold,
+        unsold:d.unsold, q30:d.q30, stockAge:stockAge,
+        trend:d.trend, trendLabel:d.trendLabel
+      });
+    } else {
+      stop.push({
+        model:d.model, decision:d.decision, dColor:d.dColor, dBg:d.dBg, dPri:d.dPri,
+        roi:d.roi, retPct:d.retPct, avgHold:d.avgHold, totSold:d.totSold,
+        unsold:d.unsold, q30:d.q30, stockAge:stockAge,
+        trend:d.trend, trendLabel:d.trendLabel
+      });
+    }
+  });
+  // Active buy-needed models first (higher buyQty first, rawGap as tiebreak
+  // since many models will tie at the MOQ floor); stock-sufficient ("stock OK")
+  // models muted to the bottom of the same list, not hidden.
+  buyNow.sort(function(a,b){
+    if(a.stockOk!==b.stockOk) return a.stockOk?1:-1;
+    if(b.buyQty!==a.buyQty) return b.buyQty-a.buyQty;
+    return b.rawGap-a.rawGap;
+  });
+  watch.sort(function(a,b){return (b.stockAge||0)-(a.stockAge||0);});
+  stop.sort(function(a,b){
+    var ar=a.retPct||0, br=b.retPct||0;
+    if(ar!==br) return br-ar;
+    var aroi=a.roi===null?-999:a.roi, broi=b.roi===null?-999:b.roi;
+    return aroi-broi;
+  });
+  return {buyNow:buyNow, watch:watch, stop:stop};
 }
 
 function renderModelBuyHistory(){
@@ -4975,6 +5073,23 @@ function getCustomerModelStats(c){
       if(stats[rk]) stats[rk].retQty+=(r.qty||0);
     });
   });
+  // Build-14 fix: manually-tracked models (the "+ ADD" box in the customer's
+  // Models tab) used to be saved to c.modelTracking and then never read by
+  // anything — a dead button. They now count toward volume/recency (tot,
+  // q7/q30/q90, lastDate) so pattern classification and Push Opportunities
+  // see them. They carry no price, so they intentionally do NOT affect
+  // totRev/totCost/ROI — profit math stays invoice-only and honest.
+  (c.modelTracking||[]).forEach(function(mt){
+    var k=(mt.model||'').trim(); if(!k) return;
+    var age=getAge(mt.date);
+    if(!stats[k]) stats[k]={model:k,tot:0,q7:0,q30:0,q90:0,orders:0,totRev:0,totCost:0,lastDate:null,retQty:0};
+    stats[k].tot    += (mt.qty||0);
+    stats[k].orders += 1;
+    if(age<=7)  stats[k].q7  += (mt.qty||0);
+    if(age<=30) stats[k].q30 += (mt.qty||0);
+    if(age<=90) stats[k].q90 += (mt.qty||0);
+    if(!stats[k].lastDate||mt.date>stats[k].lastDate) stats[k].lastDate=mt.date;
+  });
   return Object.values(stats).map(function(s){
     var retPct  = s.tot>0 ? Math.round(s.retQty/s.tot*100) : 0;
     var avgQty  = s.orders>0 ? Math.round(s.tot/s.orders) : 0;
@@ -5070,6 +5185,270 @@ function genCustOfferWA(cid){
     .catch(function(){notify('Copy failed',true);});
 }
 
+// ── Push Opportunities Engine (Build-14: repeat-sell doubling, NOT cross-sell) ──
+// Scope locked with owner: only a customer's OWN currently-active models
+// (Hot / Repeat / Regular tags from getCustModelPattern) qualify — Old/Dormant/
+// Weak/Avoid are excluded (that is a separate reactivation problem, out of scope).
+// Baseline window = last 90 days (s.q90). Target = double that. Gap = current90
+// (since target=2x current, gap always equals current90 — kept as its own
+// variable for readability, not simplified away).
+function getPushOpportunities(){
+  var out = [];
+  db.customers.forEach(function(c){
+    var mStats = getCustomerModelStats(c);
+    var tA=(c.invoices||[]).reduce(function(a,i){return a+(i.items||[]).reduce(function(b,x){return b+x.qty*(x.price||0);},0);},0);
+    var tP=(c.invoices||[]).reduce(function(a,i){return a+(i.payments||[]).reduce(function(b,p){return b+p.amount;},0);},0);
+    var due=Math.max(0,tA-tP);
+    var models=[];
+    mStats.forEach(function(s){
+      var pat=getCustModelPattern(s);
+      var tag=pat.tag;
+      var qualifies = tag.indexOf('Hot')!==-1 || tag.indexOf('Repeat')!==-1 || tag.indexOf('Regular')!==-1;
+      if(!qualifies) return;
+      var current90 = s.q90||0;
+      if(current90<=0) return; // can't double a zero baseline
+      var target90 = current90*2;
+      var gap = target90-current90;
+      var weeklyPace = Math.round(gap/(90/7)*10)/10;
+      var avgPrice = s.tot>0 ? (s.totRev/s.tot) : 0;
+      var avgCost  = s.tot>0 ? (s.totCost/s.tot) : 0;
+      var avgProfitPc = (avgCost>0&&avgPrice>0) ? (avgPrice-avgCost) : null;
+      var incRevenue = Math.round(gap*avgPrice);
+      var incProfit  = avgProfitPc!==null ? Math.round(gap*avgProfitPc) : null;
+      var profitPc   = avgProfitPc!==null ? Math.round(avgProfitPc) : null;
+      // Total Profit = all-time realized profit from THIS customer on THIS
+      // model (s.totRev/s.totCost are all-time sums from getCustomerModelStats)
+      var totalProfitAllTime = (s.totCost>0&&s.totRev>0) ? Math.round(s.totRev-s.totCost) : null;
+      // Stock check — EXACT match (owner explicitly flagged fuzzy matching as a
+      // trust problem in Model Demand's getModelStats(); this new feature uses
+      // the same exact-match convention Buy History uses, on purpose).
+      var k=(s.model||'').trim().toLowerCase();
+      var avail = stockDB.batches.filter(function(b){return (b.model||'').trim().toLowerCase()===k;})
+        .reduce(function(a,b){return a+Math.max(0,(b.qtyReceived||0)-(b.qtySold||0));},0);
+      models.push({
+        model:s.model, tag:tag, patColor:pat.color, patBg:pat.bg,
+        current90:current90, target90:target90, gap:gap, weeklyPace:weeklyPace,
+        incRevenue:incRevenue, incProfit:incProfit, profitPc:profitPc,
+        totalProfitAllTime:totalProfitAllTime, avail:avail
+      });
+    });
+    // Build-19: a customer also qualifies here if they have logged External
+    // Selling data (owner-entered, see getCrossSellGap) even with zero
+    // qualifying internal repeat-sell models — so "what they sell elsewhere"
+    // is never silently hidden just because there's nothing to double yet.
+    var extGap = getCrossSellGap(c);
+    var hasExternalGap = (extGap.inStock.length>0 || extGap.noStock.length>0);
+    if(!models.length && !hasExternalGap) return;
+    models.sort(function(a,b){return b.incRevenue-a.incRevenue;});
+    var totalIncRevenue = models.reduce(function(a,m){return a+m.incRevenue;},0);
+    var totalIncProfit  = models.reduce(function(a,m){return a+(m.incProfit||0);},0);
+    var totalGapQty     = models.reduce(function(a,m){return a+m.gap;},0);
+    out.push({
+      customer:c, due:due, models:models, extGap:extGap,
+      totalIncRevenue:totalIncRevenue, totalIncProfit:totalIncProfit, totalGapQty:totalGapQty
+    });
+  });
+  out.sort(function(a,b){return b.totalIncRevenue-a.totalIncRevenue;});
+  return out;
+}
+
+function renderPushOpportunities(){
+  var el=document.getElementById('pushOppSection'); if(!el) return;
+  var opps = getPushOpportunities();
+
+  var totCust    = opps.length;
+  var totGapQty  = opps.reduce(function(a,o){return a+o.totalGapQty;},0);
+  var totProfit  = opps.reduce(function(a,o){return a+o.totalIncProfit;},0);
+  var dueRiskCnt = opps.filter(function(o){return o.due>0;}).length;
+
+  var h='<div class="card mb-14">';
+  h+='<div style="margin-bottom:12px">';
+  h+='<div style="font-family:var(--fd);font-size:14px;font-weight:800;color:var(--text)">\u{1F3AF} Push Opportunities \u2014 \u09B0\u09BF\u09AA\u09BF\u099F-\u09B8\u09C7\u09B2 \u0995\u09B0\u09C7 \u09A1\u09BE\u09AC\u09B2</div>';
+  h+='<div style="font-size:10px;color:var(--text3);margin-top:2px">\u09AF\u09C7 model\u0997\u09C1\u09B2\u09CB \u098F\u0996\u09A8 \u099A\u09B2\u099B\u09C7 (Hot/Repeat/Regular), \u09B8\u09C7\u0997\u09C1\u09B2\u09CB\u09A4\u09C7 \u09AA\u09C1\u09B6 \u0995\u09B0\u09C7 \u0997\u09A4 90 \u09A6\u09BF\u09A8\u09C7\u09B0 \u09B0\u09C7\u099F \u09A1\u09BE\u09AC\u09B2 \u0995\u09B0\u09BE\u09B0 \u09B2\u0995\u09CD\u09B7\u09CD\u09AF (cross-sell \u09A8\u09AF\u09BC)</div>';
+  h+='</div>';
+
+  h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">';
+  h+='<div class="kpi-card"><div class="kpi-label">Push-\u09AF\u09CB\u0997\u09CD\u09AF Customer</div><div class="kpi-val" style="color:var(--cyan);font-size:18px">'+totCust+'</div></div>';
+  h+='<div class="kpi-card"><div class="kpi-label">\u09AE\u09CB\u099F Gap Qty</div><div class="kpi-val" style="color:var(--text2);font-size:18px">'+totGapQty+'<span style="font-size:11px;color:var(--text3)">pcs</span></div></div>';
+  h+='<div class="kpi-card"><div class="kpi-label">\u09B8\u09AE\u09CD\u09AD\u09BE\u09AC\u09CD\u09AF Extra Profit</div><div class="kpi-val" style="color:var(--green);font-size:18px">\u09F3'+fmtNum(totProfit)+'</div></div>';
+  h+='<div class="kpi-card"><div class="kpi-label">\u26A0\uFE0F Due-risk Customer</div><div class="kpi-val" style="color:'+(dueRiskCnt>0?'var(--red)':'var(--text2)')+';font-size:18px">'+dueRiskCnt+'</div></div>';
+  h+='</div>';
+
+  if(!opps.length){
+    h+='<div style="text-align:center;padding:24px;color:var(--text3);font-size:11px">\u098F\u0996\u09A8\u09CB \u0995\u09CB\u09A8\u09CB push opportunity \u09A8\u09C7\u0987 \u2014 Hot/Repeat/Regular model\u09AF\u09C1\u0995\u09CD\u09A4 \u0995\u09BE\u09B8\u09CD\u099F\u09AE\u09BE\u09B0 \u09A6\u09B0\u0995\u09BE\u09B0, \u0985\u09A5\u09AC\u09BE Models tab-\u098F External Selling \u09AF\u09CB\u0997 \u0995\u09B0\u09C1\u09A8</div>';
+  } else {
+    opps.forEach(function(o){
+      var c=o.customer;
+      var hasInternal = o.models.length>0;
+      var eg = o.extGap || {inStock:[], noStock:[]};
+      var hasExternal = eg.inStock.length>0 || eg.noStock.length>0;
+      h+='<div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;background:rgba(15,23,42,.015)">';
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:8px">';
+      h+='<div style="display:flex;align-items:center;gap:8px">';
+      h+='<span style="font-family:var(--fu);font-size:12px;font-weight:700;color:var(--text)">'+c.name+'</span>';
+      if(o.due>0) h+='<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(227,6,19,.1);color:var(--red)">⚠️ Due Clear আগে (৳'+fmtNum(o.due)+')</span>';
+      h+='</div>';
+      h+='<div style="display:flex;align-items:center;gap:8px">';
+      if(hasInternal) h+='<span style="font-family:var(--fm);font-size:10px;color:var(--green);font-weight:700">+৳'+fmtNum(o.totalIncProfit)+' potential</span>';
+      if(hasInternal) h+='<button onclick="genPushOfferWA('+c.id+')" style="font-family:var(--fd);font-size:8px;font-weight:700;padding:4px 10px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.3);color:#25d366;border-radius:5px;cursor:pointer">\u{1F4F1} Push WA</button>';
+      if(eg.inStock.length) h+='<button onclick="genCrossSellWA('+c.id+')" style="font-family:var(--fd);font-size:8px;font-weight:700;padding:4px 10px;background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.3);color:var(--orange);border-radius:5px;cursor:pointer">\u{1F310} Push WA</button>';
+      h+='</div>';
+      h+='</div>';
+      // Build-20: internal repeat-sell rows AND external cross-sell gap rows now
+      // share ONE table (owner requested "পাশাপাশি" = side-by-side in the same
+      // list) instead of a separate badge block underneath — one ranked view of
+      // everything worth pushing to this customer. External rows are tagged
+      // 🌐 External and every profit/target column is "—" for them since we
+      // don't sell them these models (never fabricate a number).
+      if(hasInternal || hasExternal){
+        h+='<div class="tbl-wrap"><table style="font-size:10px"><thead><tr>';
+        h+='<th style="text-align:left">Model</th><th>Tag</th><th>গত ৯০ দিনে</th><th>Profit/pc</th><th>Total Profit</th><th>Double Target</th><th>সপ্তাহে লাগবে</th><th>Extra ৳</th><th>Stock</th>';
+        h+='</tr></thead><tbody>';
+        o.models.forEach(function(m){
+          h+='<tr>';
+          h+='<td style="text-align:left;font-family:var(--fu);font-weight:600">'+m.model+'</td>';
+          h+='<td><span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;background:'+m.patBg+';color:'+m.patColor+'">'+m.tag+'</span></td>';
+          h+='<td style="font-family:var(--fm)">'+m.current90+'pcs</td>';
+          h+='<td style="font-family:var(--fm);color:var(--text2)">'+(m.profitPc!==null?'৳'+fmtNum(m.profitPc):'—')+'</td>';
+          h+='<td style="font-family:var(--fm);font-weight:700;color:'+(m.totalProfitAllTime!==null&&m.totalProfitAllTime>0?'var(--green)':'var(--text3)')+'">'+(m.totalProfitAllTime!==null?'৳'+fmtNum(m.totalProfitAllTime):'—')+'</td>';
+          h+='<td style="font-family:var(--fm);font-weight:700;color:var(--cyan)">'+m.target90+'pcs</td>';
+          h+='<td style="font-family:var(--fm)">~'+m.weeklyPace+'pcs/wk</td>';
+          h+='<td style="font-family:var(--fm);font-weight:700;color:var(--green)">৳'+fmtNum(m.incProfit||0)+'</td>';
+          h+='<td style="font-family:var(--fm);color:'+(m.avail>0?'var(--text2)':'var(--red)')+'">'+(m.avail>0?m.avail+'pcs':'স্টক নেই')+'</td>';
+          h+='</tr>';
+        });
+        eg.inStock.forEach(function(m){
+          h+='<tr style="background:rgba(52,211,153,.04)">';
+          h+='<td style="text-align:left;font-family:var(--fu);font-weight:600">'+m.model+(m.source?' <span style="font-family:var(--fm);font-size:8px;color:var(--text3)">('+m.source+')</span>':'')+'</td>';
+          h+='<td><span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(249,115,22,.12);color:var(--orange)">\u{1F310} External</span></td>';
+          h+='<td style="font-family:var(--fm);color:var(--text3)">—</td>';
+          h+='<td style="font-family:var(--fm);color:var(--text3)">—</td>';
+          h+='<td style="font-family:var(--fm);color:var(--text3)">—</td>';
+          h+='<td style="font-family:var(--fm);color:var(--text3)">—</td>';
+          h+='<td style="font-family:var(--fm);color:var(--text3)">—</td>';
+          h+='<td style="font-family:var(--fm);color:var(--text3)">—</td>';
+          h+='<td style="font-family:var(--fd);font-size:8px;font-weight:700;color:var(--green)">\u{1F3AF} '+m.avail+'pcs আছে</td>';
+          h+='</tr>';
+        });
+        eg.noStock.forEach(function(m){
+          h+='<tr style="background:rgba(249,115,22,.03)">';
+          h+='<td style="text-align:left;font-family:var(--fu);font-weight:600">'+m.model+(m.source?' <span style="font-family:var(--fm);font-size:8px;color:var(--text3)">('+m.source+')</span>':'')+'</td>';
+          h+='<td><span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(249,115,22,.12);color:var(--orange)">\u{1F310} External</span></td>';
+          h+='<td style="font-family:var(--fm);color:var(--text3)">—</td>';
+          h+='<td style="font-family:var(--fm);color:var(--text3)">—</td>';
+          h+='<td style="font-family:var(--fm);color:var(--text3)">—</td>';
+          h+='<td style="font-family:var(--fm);color:var(--text3)">—</td>';
+          h+='<td style="font-family:var(--fm);color:var(--text3)">—</td>';
+          h+='<td style="font-family:var(--fm);color:var(--text3)">—</td>';
+          h+='<td style="font-family:var(--fm);color:var(--red)">স্টক নেই</td>';
+          h+='</tr>';
+        });
+        h+='</tbody></table></div>';
+      }
+      h+='</div>';
+    });
+  }
+  h+='</div>';
+  el.innerHTML=h;
+}
+
+function genPushOfferWA(cid){
+  var c=db.customers.find(function(x){return x.id===cid;}); if(!c) return;
+  var opps=getPushOpportunities();
+  var o=opps.find(function(x){return x.customer.id===cid;});
+  if(!o||!o.models.length){ notify('\u098F\u0987 customer-\u098F push opportunity \u09A8\u09C7\u0987',true); return; }
+  var line='\u2501'.repeat(20);
+  var msg='\u09AD\u09BE\u0987, \u0986\u09AA\u09A8\u09BE\u09B0 regular \u09A8\u09C7\u0993\u09AF\u09BC\u09BE model\u0997\u09C1\u09B2\u09CB\u09A4\u09C7 এখন আরও \u09AD\u09BE\u09B2\u09CB opportunity \u0986\u099B\u09C7:\n\n';
+  o.models.forEach(function(m,i){
+    msg+=(i+1)+'. '+m.model+' \u2014 \u0986\u0997\u09C7 90 \u09A6\u09BF\u09A8\u09C7 '+m.current90+'pcs, \u098F\u0996\u09A8 '+m.target90+'pcs \u09AA\u09B0\u09CD\u09AF\u09A8\u09CD\u09A4 \u09AF\u09C7\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\n';
+  });
+  if(o.due>0) msg+='\n\u26A0\uFE0F Due \u09F3'+fmtNum(o.due)+' \u0986\u099B\u09C7 \u2014 \u0986\u0997\u09C7 \u09B8\u09C7\u099F\u09BE clear \u0995\u09B0\u09C1\u09A8, \u09A4\u09BE\u09B0\u09AA\u09B0 \u09A8\u09A4\u09C1\u09A8 order\n';
+  msg+='\n'+line+'\nCTG Click Shop';
+  navigator.clipboard.writeText(msg)
+    .then(function(){notify('\u{1F4F1} Push offer copied!');})
+    .catch(function(){notify('Copy failed',true);});
+}
+
+// ── Model Profit Velocity Leaderboard (Build-15) ──────────────────────────────
+// "কোন মডেল সবচেয়ে কম সময়ে বেশি টাকা বানাচ্ছে" — cross-customer, all-model
+// leaderboard sourced from calcModelBuyHistory() (same engine as Buy History tab,
+// single source of truth) so numbers here never disagree with that page.
+function renderModelProfitVelocity(){
+  var el=document.getElementById('modelVelocitySection'); if(!el) return;
+  var all = calcModelBuyHistory().filter(function(d){return d.totSold>0;});
+
+  var srt = window._mpvSort||'velocity';
+  var data = all.slice();
+  if(srt==='velocity')     data.sort(function(a,b){return (b.profitVelocity===null?-Infinity:b.profitVelocity)-(a.profitVelocity===null?-Infinity:a.profitVelocity);});
+  else if(srt==='profit')  data.sort(function(a,b){return (b.totalProfit||0)-(a.totalProfit||0);});
+  else if(srt==='fast')    data.sort(function(a,b){return (a.avgHold===null?Infinity:a.avgHold)-(b.avgHold===null?Infinity:b.avgHold);});
+  else if(srt==='sold')    data.sort(function(a,b){return b.totSold-a.totSold;});
+  else if(srt==='30d')     data.sort(function(a,b){return b.q30-a.q30;});
+
+  // Top-5 fast-money models by Profit Velocity (৳ profit per rotation day) —
+  // only models with a real velocity number qualify (never a fabricated rank).
+  var ranked = all.filter(function(d){return d.profitVelocity!==null;}).sort(function(a,b){return b.profitVelocity-a.profitVelocity;});
+  var top5Models = {};
+  ranked.slice(0,5).forEach(function(d){top5Models[d.model]=true;});
+  var champion = ranked.length?ranked[0]:null;
+
+  function sBtn(v,l,active){
+    var bc=active?'var(--cyan)':'var(--border)';
+    var bg=active?'rgba(34,211,238,.1)':'rgba(15,23,42,.02)';
+    var tc=active?'var(--cyan)':'var(--text3)';
+    var fw=active?'700':'400';
+    return '<button onclick="window._mpvSort=\''+v+'\';renderModelProfitVelocity()" style="padding:4px 10px;border-radius:14px;border:1px solid '+bc+';background:'+bg+';color:'+tc+';font-size:9px;font-family:var(--fd);cursor:pointer;font-weight:'+fw+';white-space:nowrap">'+l+'</button>';
+  }
+
+  var h='<div class="card mb-14">';
+  h+='<div style="margin-bottom:12px">';
+  h+='<div style="font-family:var(--fd);font-size:14px;font-weight:800;color:var(--text)">\u26A1 Model Profit Velocity \u2014 \u0995\u09CB\u09A8 \u09AE\u09A1\u09C7\u09B2 \u0995\u09AE \u09B8\u09AE\u09AF\u09BC\u09C7 \u09AC\u09C7\u09B6\u09BF \u099F\u09BE\u0995\u09BE \u09AC\u09BE\u09A8\u09BE\u099A\u09CD\u099B\u09C7</div>';
+  h+='<div style="font-size:10px;color:var(--text3);margin-top:2px">Total Profit \u00F7 Rotation Days = \u09A6\u09C8\u09A8\u09BF\u0995 \u099F\u09BE\u0995\u09BE \u09AC\u09BE\u09A8\u09BE\u09A8\u09CB\u09B0 \u0997\u09A4\u09BF \u2014 \u09B8\u09AC \u09AE\u09A1\u09C7\u09B2 \u098F\u0995 \u099C\u09BE\u09AF\u09BC\u0997\u09BE\u09AF\u09BC, cross-customer aggregate</div>';
+  h+='</div>';
+
+  if(champion){
+    h+='<div style="background:linear-gradient(135deg,rgba(52,211,153,.1),rgba(52,211,153,.02));border:1px solid rgba(52,211,153,.35);border-radius:8px;padding:12px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">';
+    h+='<div><div style="font-family:var(--fd);font-size:9px;font-weight:700;color:var(--green)">\u{1F3C6} FASTEST MONEY-MAKER</div>';
+    h+='<div style="font-family:var(--fu);font-size:13px;font-weight:700;color:var(--text);margin-top:2px">'+champion.model+'</div></div>';
+    h+='<div style="text-align:right"><div style="font-family:var(--fm);font-size:18px;font-weight:800;color:var(--green)">\u09F3'+fmtNum(champion.profitVelocity)+'/day</div>';
+    h+='<div style="font-family:var(--fm);font-size:9px;color:var(--text3)">'+champion.avgHold+'d rotation \u00B7 \u09F3'+fmtNum(champion.totalProfit)+' total profit</div></div>';
+    h+='</div>';
+  }
+
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">';
+  h+=sBtn('velocity','\u26A1 Velocity',srt==='velocity');
+  h+=sBtn('profit','\u{1F4B0} Total Profit',srt==='profit');
+  h+=sBtn('fast','\u{1F680} Fastest Rotation',srt==='fast');
+  h+=sBtn('sold','\u{1F4E6} Most Sold',srt==='sold');
+  h+=sBtn('30d','30 Day Qty',srt==='30d');
+  h+='</div>';
+
+  if(!data.length){
+    h+='<div style="text-align:center;padding:24px;color:var(--text3);font-size:11px">\u098F\u0996\u09A8\u09CB \u0995\u09CB\u09A8\u09CB \u09AC\u09BF\u0995\u09CD\u09B0\u09AF\u09BC \u09A1\u09C7\u099F\u09BE \u09A8\u09C7\u0987</div>';
+  } else {
+    h+='<div class="tbl-wrap"><table style="font-size:10px"><thead><tr>';
+    h+='<th style="text-align:left">Model</th><th>7 Day</th><th>15 Day</th><th>30 Day</th><th>Total Sold</th><th>Rotation Days</th><th>Profit/pc</th><th>Total Profit</th><th>\u26A1 \u09F3/day</th>';
+    h+='</tr></thead><tbody>';
+    data.forEach(function(d){
+      var isFast = top5Models[d.model];
+      h+='<tr style="'+(isFast?'background:rgba(52,211,153,.05)':'')+'">';
+      h+='<td style="text-align:left;font-family:var(--fu);font-weight:600">'+d.model+(isFast?' <span style="font-family:var(--fd);font-size:7px;font-weight:700;padding:1px 6px;border-radius:3px;background:rgba(52,211,153,.15);color:var(--green)">\u26A1 Fast Money</span>':'')+'</td>';
+      h+='<td style="font-family:var(--fm);color:'+(d.q7>0?'var(--text2)':'var(--text3)')+'">'+d.q7+'pcs</td>';
+      h+='<td style="font-family:var(--fm);color:'+(d.q15>0?'var(--text2)':'var(--text3)')+'">'+d.q15+'pcs</td>';
+      h+='<td style="font-family:var(--fm);color:'+(d.q30>0?'var(--cyan)':'var(--text3)')+'">'+d.q30+'pcs</td>';
+      h+='<td style="font-family:var(--fm);font-weight:700;color:var(--text2)">'+d.totSold+'pcs</td>';
+      h+='<td style="font-family:var(--fm)">'+(d.avgHold!==null?d.avgHold+'d':'\u2014')+'</td>';
+      h+='<td style="font-family:var(--fm);color:var(--text2)">'+(d.profitPc!==null?'\u09F3'+fmtNum(d.profitPc):'\u2014')+'</td>';
+      h+='<td style="font-family:var(--fm);font-weight:700;color:'+(d.totalProfit!==null&&d.totalProfit>0?'var(--green)':'var(--text3)')+'">'+(d.totalProfit!==null?'\u09F3'+fmtNum(d.totalProfit):'\u2014')+'</td>';
+      h+='<td style="font-family:var(--fm);font-weight:800;color:'+(d.profitVelocity!==null?'var(--green)':'var(--text3)')+'">'+(d.profitVelocity!==null?'\u09F3'+fmtNum(d.profitVelocity):'\u2014')+'</td>';
+      h+='</tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  h+='</div>';
+  el.innerHTML=h;
+}
+
 // ── MODELS TAB ───────────────────────────────────────────────────────────────
 function renderTabModels(c){
   var el=document.getElementById('mtc_models'); if(!el) return;
@@ -5089,6 +5468,10 @@ function renderTabModels(c){
   h+='<button onclick="addCustModelTrack('+c.id+')" class="btn btn-r" style="font-size:9px;padding:5px 10px">+ ADD</button>';
   h+='</div></div>';
 
+  // Build-19: External Selling — separate module, shown regardless of
+  // whether this customer has any purchase history with us yet.
+  h+=renderExternalSellingBox(c);
+
   if(!mStats.length){
     h+='<div style="text-align:center;padding:30px;color:var(--text3)">Invoice \u09AF\u09CB\u0997 \u0995\u09B0\u09B2\u09C7 model history auto build \u09B9\u09AC\u09C7</div>';
     el.innerHTML=h; return;
@@ -5096,30 +5479,33 @@ function renderTabModels(c){
 
   var totQty=mStats.reduce(function(a,s){return a+s.tot;},0);
 
-  // ── Offer recommendations (top 5) ────────────────────────────────────────
-  var recs=mStats.map(function(s){return {s:s,pat:getCustModelPattern(s)};})
-    .map(function(x){x.rec=getCustModelRec(x.s,x.pat);return x;})
-    .sort(function(a,b){return b.rec.pri-a.rec.pri;});
-  var topRecs=recs.filter(function(x){return x.rec.pri>=3;}).slice(0,5);
+  // ── Offer recommendations (Build-14: single source of truth) ─────────────
+  // Was: independently-computed getCustModelRec() with fixed "3-5 pcs" bands
+  // regardless of the customer's actual scale. Now: pulls the SAME
+  // getPushOpportunities() data shown on the Model Demand Pattern page, so
+  // this tab and that page never disagree on the same customer+model again.
+  var _opps = getPushOpportunities();
+  var _myOpp = _opps.find(function(x){return x.customer.id===c.id;});
+  var pushModels = _myOpp ? _myOpp.models : [];
 
   h+='<div style="background:rgba(34,211,238,.04);border:1px solid rgba(34,211,238,.15);border-radius:8px;padding:12px;margin-bottom:12px">';
   h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
   h+='<span style="font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--cyan)">\u{1F3AF} Offer Suggestions \u2014 \u098F\u0996\u09A8 কোন model দেবেন</span>';
-  h+='<button onclick="genCustOfferWA('+c.id+')" style="font-family:var(--fd);font-size:8px;font-weight:700;padding:4px 10px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.3);color:#25d366;border-radius:5px;cursor:pointer">\u{1F4F1} WA Offer</button>';
+  h+='<button onclick="genPushOfferWA('+c.id+')" style="font-family:var(--fd);font-size:8px;font-weight:700;padding:4px 10px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.3);color:#25d366;border-radius:5px;cursor:pointer">\u{1F4F1} WA Offer</button>';
   h+='</div>';
-  if(!topRecs.length){
-    h+='<div style="font-size:10px;color:var(--text3);padding:4px">\u09AF\u09A5\u09C7\u09B7\u09CD\u099F order history \u09A8\u09C7\u0987</div>';
+  if(!pushModels.length){
+    h+='<div style="font-size:10px;color:var(--text3);padding:4px">\u098F\u0996\u09A8\u09CB push-\u09AF\u09CB\u0997\u09CD\u09AF (Hot/Repeat/Regular) model \u09A8\u09C7\u0987</div>';
   } else {
-    topRecs.forEach(function(x){
+    pushModels.forEach(function(m){
       h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(15,23,42,.03);border-radius:5px;margin-bottom:4px">';
       h+='<div style="flex:1;min-width:0">';
-      h+='<div style="font-size:10px;font-weight:600;color:var(--text);font-family:var(--fu)">'+x.s.model+'</div>';
+      h+='<div style="font-size:10px;font-weight:600;color:var(--text);font-family:var(--fu)">'+m.model+'</div>';
       h+='<div style="font-family:var(--fm);font-size:8px;color:var(--text3)">';
-      h+=(x.s.tot>0?'\u09AE\u09CB\u099F: '+x.s.tot+'pcs':'')+' \u00B7 Last: '+(x.s.lastDate?fmtDateShort(x.s.lastDate):'\u2014');
-      h+=' \u00B7 '+x.rec.angle+'</div></div>';
+      h+='\u0997\u09A4 90d: '+m.current90+'pcs \u2192 Double: '+m.target90+'pcs \u00B7 ~'+m.weeklyPace+'pcs/wk';
+      h+='</div></div>';
       h+='<div style="text-align:right;flex-shrink:0">';
-      h+='<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(15,23,42,.06);color:'+x.rec.color+'">'+x.rec.rec+'</span>';
-      h+='<div style="font-family:var(--fm);font-size:8px;color:var(--text3);margin-top:2px">'+x.rec.qty+'</div>';
+      h+='<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;background:'+m.patBg+';color:'+m.patColor+'">'+m.tag+'</span>';
+      h+='<div style="font-family:var(--fm);font-size:8px;color:var(--green);font-weight:700;margin-top:2px">+\u09F3'+fmtNum(m.incProfit||0)+'</div>';
       h+='</div>';
       h+='</div>';
     });
@@ -5264,6 +5650,110 @@ function renderCustOfferPanel(c){
     h+='<div style="font-family:var(--fu);font-size:9px;color:var(--text2);padding:2px 0">'+line+'</div>';
   });
   h+='</div>';
+  h+='</div>';
+  return h;
+}
+
+// ── Cross-Sell Gap (Build-18) ──────────────────────────────────────────────────
+// Owner's own idea: besides what a customer buys from us, what ELSE do they
+// sell (on their Facebook/Bikroy/Bdstall/Website)? A CRM with no backend can't
+// live-scrape those channels (discussed and confirmed with owner) — so the
+// owner personally checks the customer's channels and types the models in
+// here. The CRM's job is just the comparison: which of those externally-sold
+// models are (a) in OUR stock but this customer doesn't buy from us — an
+// immediate push opportunity — or (b) not in our stock at all — a sourcing
+// signal, not an immediate action.
+function getCrossSellGap(c){
+  var mStats = getCustomerModelStats(c);
+  var ourModels = {};
+  mStats.forEach(function(s){ ourModels[(s.model||'').trim().toLowerCase()]=true; });
+  var external = c.externalModels||[];
+  var inStock=[], noStock=[], seen={};
+  external.forEach(function(e){
+    var k=(e.model||'').trim().toLowerCase(); if(!k||seen[k]) return; seen[k]=true;
+    if(ourModels[k]) return; // already buys this from us -> not a gap
+    var avail = stockDB.batches.filter(function(b){return (b.model||'').trim().toLowerCase()===k;})
+      .reduce(function(a,b){return a+Math.max(0,(b.qtyReceived||0)-(b.qtySold||0));},0);
+    var item={model:e.model, source:e.source||'', date:e.date||'', avail:avail};
+    if(avail>0) inStock.push(item); else noStock.push(item);
+  });
+  inStock.sort(function(a,b){return b.avail-a.avail;});
+  return {inStock:inStock, noStock:noStock, externalList:external};
+}
+
+function addCustExternalModel(cid){
+  var inp=document.getElementById('custExtModelInput_'+cid);
+  var srcEl=document.getElementById('custExtModelSource_'+cid);
+  if(!inp) return;
+  var model=inp.value.trim();
+  if(!model){ notify('\u09AE\u09A1\u09C7\u09B2 \u09A8\u09BE\u09AE \u09A6\u09BF\u09A8',true); return; }
+  var c=db.customers.find(function(x){return x.id===cid;}); if(!c) return;
+  if(!c.externalModels) c.externalModels=[];
+  var k=model.toLowerCase();
+  var dup=c.externalModels.some(function(e){return (e.model||'').trim().toLowerCase()===k;});
+  if(dup){ notify('\u098F\u0987 model \u0986\u0997\u09C7\u0987 \u09AF\u09CB\u0997 \u0995\u09B0\u09BE \u0986\u099B\u09C7',true); return; }
+  c.externalModels.push({model:model, source:srcEl?srcEl.value:'', date:TODAY});
+  saveDB(); syncToFirebase();
+  inp.value='';
+  renderTabModels(c);
+  renderPushOpportunities();
+  notify('\u2705 '+model+' \u09AF\u09CB\u0997 \u09B9\u09AF\u09BC\u09C7\u099B\u09C7');
+}
+
+function removeCustExternalModel(cid, idx){
+  var c=db.customers.find(function(x){return x.id===cid;}); if(!c||!c.externalModels) return;
+  c.externalModels.splice(idx,1);
+  saveDB(); syncToFirebase();
+  renderTabModels(c);
+  renderPushOpportunities();
+  notify('\u09AE\u09C1\u099B\u09C7 \u09AB\u09C7\u09B2\u09BE \u09B9\u09AF\u09BC\u09C7\u099B\u09C7');
+}
+
+function genCrossSellWA(cid){
+  var c=db.customers.find(function(x){return x.id===cid;}); if(!c) return;
+  var gap=getCrossSellGap(c);
+  if(!gap.inStock.length){ notify('\u098F\u0987 customer-\u098F \u098F\u0996\u09A8 \u0995\u09CB\u09A8\u09CB cross-sell push opportunity \u09A8\u09C7\u0987',true); return; }
+  var line='\u2501'.repeat(20);
+  var msg='\u09AD\u09BE\u0987, \u0986\u09AA\u09A8\u09BF \u098F\u0987 model\u0997\u09C1\u09B2\u09CB\u0993 \u09AC\u09BF\u0995\u09CD\u09B0\u09AF\u09BC \u0995\u09B0\u09C7\u09A8 \u09A6\u09C7\u0996\u09B2\u09BE\u09AE \u2014 \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u0995\u09BE\u099B\u09C7\u0993 \u09B8\u09CD\u099F\u0995\u09C7 \u0986\u099B\u09C7:\n\n';
+  gap.inStock.forEach(function(m,i){
+    msg+=(i+1)+'. '+m.model+' \u2014 \u09B8\u09CD\u099F\u0995\u09C7 \u0986\u099B\u09C7 '+m.avail+'pcs\n';
+  });
+  msg+='\n'+line+'\nCTG Click Shop';
+  navigator.clipboard.writeText(msg)
+    .then(function(){notify('\u{1F4F1} Cross-sell offer copied!');})
+    .catch(function(){notify('Copy failed',true);});
+}
+
+// Build-19: External Selling box — lives in the customer's Models tab now
+// (moved here per owner's instruction; was a standalone Model-Demand-Pattern
+// section in Build-18). Owner personally checks the customer's Facebook/
+// Bikroy/Bdstall/Website and logs what they sell there; the gap analysis
+// itself (in-stock push vs. sourcing-signal) is now shown on the Push
+// Opportunities card for this customer instead of repeating it here — this
+// box is just the data-entry + at-a-glance logged-model list.
+function renderExternalSellingBox(c){
+  var gap=getCrossSellGap(c);
+  var h='<div style="background:rgba(249,115,22,.04);border:1px solid rgba(249,115,22,.15);border-radius:8px;padding:12px;margin-bottom:12px">';
+  h+='<div style="font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--orange);margin-bottom:6px">\u{1F310} External Selling \u2014 \u098F\u0987 customer \u09AC\u09BE\u0987\u09B0\u09C7 \u0995\u09C0 \u09AC\u09BF\u0995\u09CD\u09B0\u09AF\u09BC \u0995\u09B0\u09C7</div>';
+  h+='<div style="font-size:9px;color:var(--text3);margin-bottom:8px">Facebook/Bikroy/Bdstall/Website \u099A\u09C7\u0995 \u0995\u09B0\u09C7 \u09AE\u09A1\u09C7\u09B2 \u09AC\u09B8\u09BE\u09A8 \u2014 \u{1F3AF} Push Opportunities-\u098F\u0993 \u098F\u0987 customer-\u098F\u09B0 \u0995\u09BE\u09B0\u09CD\u09A1\u09C7 \u098F\u0987 \u09A1\u09C7\u099F\u09BE \u09A6\u09C7\u0996\u09BE\u09AC\u09C7</div>';
+  h+='<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">';
+  h+='<input id="custExtModelInput_'+c.id+'" list="mlist" placeholder="\u09AE\u09A1\u09C7\u09B2: Dell Latitude 5420" style="flex:1;min-width:140px;font-family:var(--fm);font-size:11px">';
+  h+='<select id="custExtModelSource_'+c.id+'" style="font-size:10px;padding:4px 8px">';
+  h+='<option value="Facebook">Facebook</option><option value="Bikroy">Bikroy</option><option value="Bdstall">Bdstall</option><option value="Website">Website</option><option value="Other">Other</option>';
+  h+='</select>';
+  h+='<button onclick="addCustExternalModel('+c.id+')" class="btn btn-r" style="font-size:9px;padding:5px 10px">+ ADD</button>';
+  h+='</div>';
+  if(!gap.externalList.length){
+    h+='<div style="font-size:10px;color:var(--text3)">\u098F\u0996\u09A8\u09CB \u0995\u09CB\u09A8\u09CB external model \u09AF\u09CB\u0997 \u0995\u09B0\u09BE \u09B9\u09AF\u09BC\u09A8\u09BF</div>';
+  } else {
+    h+='<div style="display:flex;flex-wrap:wrap;gap:5px">';
+    gap.externalList.forEach(function(e,idx){
+      h+='<span style="display:inline-flex;align-items:center;gap:5px;font-family:var(--fm);font-size:9px;color:var(--text2);background:rgba(15,23,42,.03);border:1px solid var(--border);border-radius:12px;padding:3px 8px">'+e.model
+        +(e.source?' <span style="color:var(--text3)">('+e.source+')</span>':'')
+        +'<span onclick="removeCustExternalModel('+c.id+','+idx+')" style="cursor:pointer;color:var(--red);font-weight:700;margin-left:2px">\u00D7</span></span>';
+    });
+    h+='</div>';
+  }
   h+='</div>';
   return h;
 }
@@ -7401,6 +7891,14 @@ function renderModelDemand(){
     cards.innerHTML=ch;
   }
 
+  // Build-14: Push Opportunities (repeat-sell doubling) — independent of the
+  // customer/model filters above, always shows the full cross-customer picture.
+  renderPushOpportunities();
+
+  // Build-15: Model Profit Velocity leaderboard — which model makes the most
+  // money in the least time. Independent of customer/model filters above.
+  renderModelProfitVelocity();
+
   // ── Filter ──────────────────────────────────────────────────────────────────
   var filtered = stats;
   if(filter==='star')   filtered = stats.filter(function(s){return classifyModel(s)==='star';});
@@ -7425,6 +7923,12 @@ function renderModelDemand(){
       tbody.innerHTML='<tr><td colspan="12" style="text-align:center;padding:30px;color:var(--text3)">Invoice-\u098F model items \u09AF\u09CB\u0997 \u0995\u09B0\u09B2\u09C7 data \u09A6\u09C7\u0996\u09BE\u09AC\u09C7</td></tr>';
     } else {
       var th='';
+      // Build-14: single source of truth — the customer-filtered "Final
+      // Action" column below used to call getCustModelRec() (fixed "2-3 pcs"
+      // bands, same problem as the old Models-tab Offer Suggestions). It now
+      // reads the same getPushOpportunities() data Push Opportunities and the
+      // customer's Models tab use, computed once here (not per row).
+      var _custOpp = custFilterId ? getPushOpportunities().find(function(x){return x.customer.id===custFilterId;}) : null;
       filtered.forEach(function(s){
         var cls = classifyModel(s);
         var fa  = getFinalAction(s);
@@ -7484,12 +7988,21 @@ function renderModelDemand(){
         th+='<td>'+getReturnBadge(s.retPct)+'</td>';
         // Sell-Out Days
         th+='<td>'+getSellOutBadge(s.sellOutDays)+'</td>';
-        // Final Action — customer rec or overall
+        // Final Action — Build-14 single source of truth: pulls the SAME
+        // getPushOpportunities() numbers as the Push Opportunities section
+        // and the customer Models-tab Offer Suggestions, instead of the old
+        // independently-computed getCustModelRec() static "2-3 pcs" bands.
         var _faH;
         if(_cmd){
-          var _cp=getCustModelPattern(_cmd),_cr=getCustModelRec(_cmd,_cp);
-          _faH='<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;color:'+_cr.color+';background:'+_cr.bg+';white-space:nowrap">'+_cr.rec+'</span>'
-            +'<div style="font-family:var(--fm);font-size:8px;color:var(--text3);margin-top:2px">'+_cr.qty+'</div>';
+          var _pushM = _custOpp ? _custOpp.models.find(function(x){return x.model.toLowerCase()===_cmd.model.toLowerCase();}) : null;
+          if(_pushM){
+            _faH='<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;color:'+_pushM.patColor+';background:'+_pushM.patBg+';white-space:nowrap">\u{1F3AF} Double: '+_pushM.target90+'pcs</span>'
+              +'<div style="font-family:var(--fm);font-size:8px;color:var(--text3);margin-top:2px">~'+_pushM.weeklyPace+'pcs/wk \u00B7 +\u09F3'+fmtNum(_pushM.incProfit||0)+'</div>';
+          } else {
+            var _cp=getCustModelPattern(_cmd);
+            _faH='<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;color:'+_cp.color+';background:'+_cp.bg+';white-space:nowrap">'+_cp.tag+'</span>'
+              +'<div style="font-family:var(--fm);font-size:8px;color:var(--text3);margin-top:2px">Push-\u09AF\u09CB\u0997\u09CD\u09AF \u09A8\u09AF\u09BC (baseline 0 \u09AC\u09BE Old/Weak)</div>';
+          }
         } else {
           _faH='<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;background:'+fa.bg+';color:'+fa.color+';border:1px solid '+fa.color+'33;white-space:nowrap">'+fa.action+'</span>'
             +(s.retPct>8?'<div style="font-size:8px;color:var(--red);margin-top:2px">\u26A0\uFE0F High Return Risk</div>':'');
@@ -7528,20 +8041,38 @@ function renderModelDemand(){
     }
   }
 
-  // ── Section 1: Star / Rebuy ──────────────────────────────────────────────────
+  // ── Build-16: Star/Buy Now · Watch/Offer Push · Capital Lock/Stop Buy ─────────
+  // Single source of truth fix — this board used to be driven by
+  // classifyModel()+getFinalAction() (sales-velocity based, stock-age based)
+  // which could show a top-selling model with a contradictory "Clearance"
+  // badge. Now driven by the SAME decision engine as the Buy History page
+  // (calcModelBuyHistory: ROI + Return% + Rotation Days + Trend), so this
+  // board and Buy History never disagree on the same model again. Also adds
+  // a concrete Buy Qty suggestion, muted to "স্টক OK" when stock in hand
+  // already covers the next ~30 days of expected demand.
+  var board = getBuyNowBoard();
+
+  // ── Section 1: Star / Buy Now ──────────────────────────────────────────────
   var starEl=document.getElementById('starList');
   if(starEl){
-    var stars=stats.filter(function(s){var p=getFinalAction(s).priority;return p==='rebuy'||p==='small'||classifyModel(s)==='star';}).slice(0,6);
+    var buyNow=board.buyNow.slice(0,8);
     var sh='';
-    if(!stars.length) sh='<div style="color:var(--text3);font-size:11px;padding:8px">এখনো Star model নেই</div>';
-    stars.forEach(function(s){
-      var fa=getFinalAction(s);
+    if(!buyNow.length) sh='<div style="color:var(--text3);font-size:11px;padding:8px">এখনো Buy-যোগ্য মডেল নেই</div>';
+    buyNow.forEach(function(d){
       sh+='<div style="display:flex;align-items:center;gap:8px;padding:9px 11px;'
-        +'background:rgba(251,191,36,.05);border:1px solid rgba(251,191,36,.15);border-radius:7px;margin-bottom:5px">';
-      sh+='<span style="font-size:14px">\u2B50</span>';
-      sh+='<div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:var(--text);font-family:var(--fu)">'+s.model+'</div>';
-      sh+='<div style="font-family:var(--fm);font-size:8px;color:var(--text3)">30d: '+s.q30+'pcs \u00B7 '+s.custCount+' custs \u00B7 ROI: '+(s.roi!==null?s.roi+'%':'\u2014')+'</div></div>';
-      sh+='<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;background:'+fa.bg+';color:'+fa.color+'">'+fa.action+'</span>';
+        +'background:rgba(251,191,36,.05);border:1px solid rgba(251,191,36,.15);border-radius:7px;margin-bottom:5px'+(d.stockOk?';opacity:.55':'')+'">';
+      sh+='<span style="font-size:14px">'+(d.dPri>=5?'\u2B50':'\u2705')+'</span>';
+      sh+='<div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:var(--text);font-family:var(--fu)">'+d.model+'</div>';
+      sh+='<div style="font-family:var(--fm);font-size:8px;color:var(--text3)">30d: '+d.q30+'pcs \u00B7 \u09B9\u09BE\u09A4\u09C7: '+d.unsold+'pcs \u00B7 ROI: '+(d.roi!==null?d.roi+'%':'\u2014')+'</div></div>';
+      if(d.stockOk){
+        sh+='<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(52,211,153,.1);color:var(--green);white-space:nowrap">\u2705 \u09B8\u09CD\u099F\u0995 OK</span>';
+      } else {
+        sh+='<div style="text-align:right">';
+        sh+='<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;background:'+d.dBg+';color:'+d.dColor+';white-space:nowrap">'+d.decision+'</span>';
+        sh+='<div style="font-family:var(--fm);font-size:9px;font-weight:800;color:var(--cyan);margin-top:2px">\u{1F6D2} '+d.buyQty+'pcs \u0995\u09BF\u09A8\u09C1\u09A8</div>';
+        if(d.moqApplied) sh+='<div style="font-family:var(--fm);font-size:7px;color:var(--text3);margin-top:1px">(\u09AA\u09CD\u09B0\u0995\u09C3\u09A4 \u099A\u09BE\u09B9\u09BF\u09A6\u09BE: '+d.rawGap+'pcs \u00B7 \u09A8\u09CD\u09AF\u09C2\u09A8\u09A4\u09AE order '+WHOLESALE_MOQ+'pcs)</div>';
+        sh+='</div>';
+      }
       sh+='</div>';
     });
     starEl.innerHTML=sh;
@@ -7550,17 +8081,16 @@ function renderModelDemand(){
   // ── Section 2: Watch / Offer Push ────────────────────────────────────────────
   var watchEl=document.getElementById('watchList');
   if(watchEl){
-    var watches=stats.filter(function(s){var p=getFinalAction(s).priority;return p==='offer'||p==='watch'||p==='monitor';}).slice(0,6);
+    var watches=board.watch.slice(0,6);
     var wh='';
-    if(!watches.length) wh='<div style="color:var(--green);font-size:11px;padding:8px">\u2705 কোনো Watch model নেই</div>';
-    watches.forEach(function(s){
-      var fa=getFinalAction(s);
+    if(!watches.length) wh='<div style="color:var(--green);font-size:11px;padding:8px">\u2705 \u0995\u09CB\u09A8\u09CB Watch model \u09A8\u09C7\u0987</div>';
+    watches.forEach(function(d){
       wh+='<div style="display:flex;align-items:center;gap:8px;padding:9px 11px;'
         +'background:rgba(249,115,22,.05);border:1px solid rgba(249,115,22,.15);border-radius:7px;margin-bottom:5px">';
       wh+='<span style="font-size:14px">\u{1F440}</span>';
-      wh+='<div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:var(--text);font-family:var(--fu)">'+s.model+'</div>';
-      wh+='<div style="font-family:var(--fm);font-size:8px;color:var(--text3)">Age: '+(s.avgAge!==null?s.avgAge+'d':'\u2014')+' \u00B7 30d: '+s.q30+'pcs \u00B7 Sell-out: '+(s.sellOutDays!==null?'~'+s.sellOutDays+'d':'?')+'</div></div>';
-      wh+='<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;background:'+fa.bg+';color:'+fa.color+'">'+fa.action+'</span>';
+      wh+='<div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:var(--text);font-family:var(--fu)">'+d.model+'</div>';
+      wh+='<div style="font-family:var(--fm);font-size:8px;color:var(--text3)">\u09B8\u09CD\u099F\u0995 \u09AC\u09AF\u09BC\u09B8: '+(d.stockAge!==null?d.stockAge+'d':'\u2014')+' \u00B7 30d: '+d.q30+'pcs \u00B7 ROI: '+(d.roi!==null?d.roi+'%':'\u2014')+'</div></div>';
+      wh+='<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;background:'+d.dBg+';color:'+d.dColor+';white-space:nowrap">'+d.decision+'</span>';
       wh+='</div>';
     });
     watchEl.innerHTML=wh;
@@ -7569,17 +8099,16 @@ function renderModelDemand(){
   // ── Section 3: Capital Lock / Stop Buy ────────────────────────────────────────
   var lockEl=document.getElementById('lockList');
   if(lockEl){
-    var locks=stats.filter(function(s){var p=getFinalAction(s).priority;return p==='stop'||p==='clear'||p==='reduce'||p==='avoid';}).slice(0,6);
+    var locks=board.stop.slice(0,6);
     var lh='';
-    if(!locks.length) lh='<div style="color:var(--green);font-size:11px;padding:8px">\u2705 কোনো Capital Lock নেই</div>';
-    locks.forEach(function(s){
-      var fa=getFinalAction(s);
+    if(!locks.length) lh='<div style="color:var(--green);font-size:11px;padding:8px">\u2705 \u0995\u09CB\u09A8\u09CB Capital Lock \u09A8\u09C7\u0987</div>';
+    locks.forEach(function(d){
       lh+='<div style="display:flex;align-items:center;gap:8px;padding:9px 11px;'
         +'background:rgba(227,6,19,.04);border:1px solid rgba(227,6,19,.15);border-radius:7px;margin-bottom:5px">';
       lh+='<span style="font-size:14px">\u{1F512}</span>';
-      lh+='<div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:var(--text);font-family:var(--fu)">'+s.model+'</div>';
-      lh+='<div style="font-family:var(--fm);font-size:8px;color:var(--text3)">Age: '+(s.avgAge!==null?s.avgAge+'d':'\u2014')+' \u00B7 Return: '+s.retPct+'% \u00B7 ROI: '+(s.roi!==null?s.roi+'%':'\u2014')+'</div></div>';
-      lh+='<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;background:'+fa.bg+';color:'+fa.color+'">'+fa.action+'</span>';
+      lh+='<div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;color:var(--text);font-family:var(--fu)">'+d.model+'</div>';
+      lh+='<div style="font-family:var(--fm);font-size:8px;color:var(--text3)">\u09B8\u09CD\u099F\u0995 \u09AC\u09AF\u09BC\u09B8: '+(d.stockAge!==null?d.stockAge+'d':'\u2014')+' \u00B7 Return: '+(d.retPct||0)+'% \u00B7 ROI: '+(d.roi!==null?d.roi+'%':'\u2014')+'</div></div>';
+      lh+='<span style="font-family:var(--fd);font-size:8px;font-weight:700;padding:2px 8px;border-radius:4px;background:'+d.dBg+';color:'+d.dColor+';white-space:nowrap">'+d.decision+'</span>';
       lh+='</div>';
     });
     lockEl.innerHTML=lh;
