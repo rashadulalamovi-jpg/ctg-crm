@@ -2852,17 +2852,41 @@ function renderInvoiceCard(c, inv, showCustInfo){
   return h;
 }
 
+// ── Duplicate-ID safe lookup (Build-25 fix, owner-reported 2026-09-16) ──
+// renderInvoiceCard() is reused by THREE live containers at once: the Sales
+// Dashboard's own invoice list (up to 50 most recent, always rendered once
+// renderSalesDashboard() has run), the Sales Module's customer-picker inline
+// view (loadInv()), and the Customer Pipeline detail modal (custModal ->
+// mtc_invoice) -- all three stamp the SAME un-namespaced ids (pa_<cid>_<invId>
+// etc.) for the same invoice. document.getElementById() always returns the
+// FIRST match in raw HTML order, which is the Sales Dashboard's copy (it sits
+// earlier in the page, before custModal) -- REGARDLESS of whether that copy is
+// even visible (display:none tabs still count for getElementById). So typing
+// into the "+ Add" box inside the Customer Pipeline modal silently read/wrote
+// a hidden, empty duplicate elsewhere, while the identical button worked fine
+// from the Sales Module (its own copy happened to be the one in front, or the
+// only one present). Fix: resolve to the element the user can actually SEE --
+// preferring one inside an open modal (topmost, always what's focused when
+// present), else the first one that's actually rendered (offsetParent set).
+function getVisibleDup(id){
+  var els = document.querySelectorAll('#'+id);
+  if(els.length<=1) return els[0]||null;
+  for(var i=0;i<els.length;i++){ if(els[i].closest('.modal-ov.open')) return els[i]; }
+  for(var i=0;i<els.length;i++){ if(els[i].offsetParent!==null) return els[i]; }
+  return els[0];
+}
+
 // ── Payment v2 (with method + reference) ─────────────────
 function addPaymentV2(cid, invId){
   const c=db.customers.find(function(x){return x.id===cid;}); if(!c) return;
   const inv=(c.invoices||[]).find(function(i){return i.id===invId;}); if(!inv) return;
-  const amtEl=document.getElementById('pa_'+cid+'_'+invId);
+  const amtEl=getVisibleDup('pa_'+cid+'_'+invId);
   const amt=parseFloat(amtEl&&amtEl.value||0);
   if(amt<=0){if(amtEl)amtEl.style.borderColor='var(--red)';notify('Amount \u09A6\u09BF\u09A8',true);return;}
-  const dateEl=document.getElementById('pd_'+cid+'_'+invId);
-  const noteEl=document.getElementById('pn_'+cid+'_'+invId);
-  const methEl=document.getElementById('pm_'+cid+'_'+invId);
-  const refEl =document.getElementById('pr_'+cid+'_'+invId);
+  const dateEl=getVisibleDup('pd_'+cid+'_'+invId);
+  const noteEl=getVisibleDup('pn_'+cid+'_'+invId);
+  const methEl=getVisibleDup('pm_'+cid+'_'+invId);
+  const refEl =getVisibleDup('pr_'+cid+'_'+invId);
   if(!inv.payments) inv.payments=[];
   inv.payments.push({
     id:Date.now(), date:(dateEl&&dateEl.value)||TODAY, amount:amt,
@@ -2910,7 +2934,7 @@ function saveCourierField(cid, invId, fieldKey){
     '_cd':'cf_cd_','_rd':'cf_rd_','_ws':'cf_ws_','_we':'cf_we_',
   };
   var prefix = idMap[fieldKey] || ('cf'+fieldKey+'_');
-  var el = document.getElementById(prefix+cid+'_'+invId); if(!el) return;
+  var el = getVisibleDup(prefix+cid+'_'+invId); if(!el) return;
   var val = el.value;
   if(fieldKey==='_cb'||fieldKey==='_cd') inv.courierBookingDate = val||null;
   else if(fieldKey==='_cr') inv.courierReachedDate = val||null;
