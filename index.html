@@ -5500,6 +5500,9 @@ function ensureBizSystemDefaults(){
   }
   // Build-27: per-engine strategy tree / notes / images, plus model-level images
   if(!bm.modelImages) bm.modelImages = [];
+  // Build-28: model-level "Business Systems" tree (systems that span all three engines)
+  if(!bm.strategyTree) bm.strategyTree = [];
+  if(!bm.images) bm.images = [];
   (bm.engines||[]).forEach(function(eng){
     if(!eng.strategyTree) eng.strategyTree = [];
     if(!eng.images) eng.images = [];
@@ -5790,6 +5793,22 @@ function renderBizDetail(key){
     h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">\u{1F3D7}️ 3 Business Engines</div>';
     h+=renderBizModelEngines(rec);
     h+='</div>';
+    // Build-28: cross-engine Business Systems tree
+    var sysSt = bizTreeStats(rec.strategyTree||[]);
+    var sysPct = sysSt.total>0 ? Math.round(sysSt.done/sysSt.total*100) : 0;
+    h+='<div style="margin-bottom:18px">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+    h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">⚙️ Business Systems <span style="text-transform:none;font-weight:500">(তিন Engine জুড়ে চলে)</span></div>';
+    h+='<div style="display:flex;align-items:center;gap:10px">';
+    if(sysSt.total>0) h+='<span style="font-family:var(--fm);font-size:9px;font-weight:700;color:'+(sysPct>=70?'var(--green)':sysPct>=30?'var(--warn)':'var(--text3)')+'">'+sysSt.done+'/'+sysSt.total+' · '+sysPct+'%</span>';
+    h+='<span onclick="addBizTreeNode(-1,\'\')" style="cursor:pointer;font-size:10px;font-weight:700;color:var(--cyan)">+ নতুন System</span>';
+    h+='</div></div>';
+    if(!(rec.strategyTree||[]).length){
+      h+='<div style="font-size:11px;color:var(--text3);padding:12px;background:rgba(15,23,42,.03);border-radius:8px">এখনো কোনো system যোগ করা হয়নি।</div>';
+    } else {
+      h+=renderBizTreeNodes(-1, rec.strategyTree, '', 0);
+    }
+    h+='</div>';
   }
 
   // Live Performance
@@ -6052,12 +6071,23 @@ function bizTreeStats(nodes){
   });
   return { total:total, done:done };
 }
+// ei === -1 means the Business-Model-level "Business Systems" tree (cross-engine systems)
 function bizEngineRec(ei){
-  var engines = db.businessSystem.functions.bizmodel.engines||[];
+  var bm = db.businessSystem.functions.bizmodel;
+  if(ei===-1){
+    if(!bm.strategyTree) bm.strategyTree=[];
+    if(!bm.images) bm.images=[];
+    return bm;
+  }
+  var engines = bm.engines||[];
   var eng = engines[ei];
   if(eng && !eng.strategyTree) eng.strategyTree=[];
   if(eng && !eng.images) eng.images=[];
   return eng;
+}
+// Model-level tree lives inline on the Business Model page; engine trees have their own page
+function renderBizTreeHost(ei){
+  if(ei===-1) renderBizDetail('bizmodel'); else renderBizEnginePage(ei);
 }
 
 // ── Engine strategy full page ──
@@ -6180,7 +6210,7 @@ function addBizTreeNode(ei, path){
     r.node.children.push(bizNewNode());
     r.node.collapsed = false;
   }
-  saveDB(); syncToFirebase(); renderBizEnginePage(ei);
+  saveDB(); syncToFirebase(); renderBizTreeHost(ei);
 }
 function deleteBizTreeNode(ei, path){
   var eng = bizEngineRec(ei); if(!eng) return;
@@ -6189,7 +6219,7 @@ function deleteBizTreeNode(ei, path){
   var msg = st.total>0 ? ('এই বিষয় ও এর ভিতরের '+st.total+'টি সাব-বিষয় মুছে যাবে। নিশ্চিত?') : 'এই বিষয়টি মুছবেন?';
   if(!confirm(msg)) return;
   r.arr.splice(r.idx,1);
-  saveDB(); syncToFirebase(); renderBizEnginePage(ei);
+  saveDB(); syncToFirebase(); renderBizTreeHost(ei);
 }
 function moveBizTreeNode(ei, path, dir){
   var eng = bizEngineRec(ei); if(!eng) return;
@@ -6197,19 +6227,19 @@ function moveBizTreeNode(ei, path, dir){
   var ni = r.idx + dir;
   if(ni<0 || ni>=r.arr.length) return;
   var tmp = r.arr[ni]; r.arr[ni]=r.arr[r.idx]; r.arr[r.idx]=tmp;
-  saveDB(); syncToFirebase(); renderBizEnginePage(ei);
+  saveDB(); syncToFirebase(); renderBizTreeHost(ei);
 }
 function toggleBizTreeCollapse(ei, path){
   var eng = bizEngineRec(ei); if(!eng) return;
   var r = bizTreeResolve(eng.strategyTree, path); if(!r.node) return;
   r.node.collapsed = !r.node.collapsed;
-  saveDB(); syncToFirebase(); renderBizEnginePage(ei);
+  saveDB(); syncToFirebase(); renderBizTreeHost(ei);
 }
 function toggleBizTreeDone(ei, path){
   var eng = bizEngineRec(ei); if(!eng) return;
   var r = bizTreeResolve(eng.strategyTree, path); if(!r.node) return;
   r.node.done = !r.node.done;
-  saveDB(); syncToFirebase(); renderBizEnginePage(ei);
+  saveDB(); syncToFirebase(); renderBizTreeHost(ei);
 }
 // Quiet saves — no re-render, so focus/typing is never disturbed
 function saveBizTreeTitle(ei, path, val){
@@ -6239,7 +6269,7 @@ function bizEngImg_add(inp){
     bizStoreImage(meta, function(id){
       var eng = bizEngineRec(ei); if(!eng) return;
       eng.images.push(id);
-      saveDB(); syncToFirebase(); renderBizEnginePage(ei);
+      saveDB(); syncToFirebase(); renderBizTreeHost(ei);
       notify('✅ ছবি যোগ হয়েছে');
     });
   });
@@ -6249,7 +6279,7 @@ function bizEngImg_remove(ix){
   var ei = _bizEngineIdx;
   var eng = bizEngineRec(ei); if(!eng) return;
   eng.images.splice(ix,1);
-  saveDB(); syncToFirebase(); renderBizEnginePage(ei);
+  saveDB(); syncToFirebase(); renderBizTreeHost(ei);
 }
 
 // ── Node-level image handlers (proxied: gallery builds bizNodeImg_<ei>_<path with $>) ──
@@ -6261,7 +6291,7 @@ function bizNodeImgAdd(ei, path, inp){
       var r = bizTreeResolve(eng.strategyTree, path); if(!r.node) return;
       if(!r.node.images) r.node.images=[];
       r.node.images.push(id);
-      saveDB(); syncToFirebase(); renderBizEnginePage(ei);
+      saveDB(); syncToFirebase(); renderBizTreeHost(ei);
       notify('✅ ছবি যোগ হয়েছে');
     });
   });
@@ -6271,7 +6301,7 @@ function bizNodeImgRemove(ei, path, ix){
   var eng = bizEngineRec(ei); if(!eng) return;
   var r = bizTreeResolve(eng.strategyTree, path); if(!r.node) return;
   (r.node.images||[]).splice(ix,1);
-  saveDB(); syncToFirebase(); renderBizEnginePage(ei);
+  saveDB(); syncToFirebase(); renderBizTreeHost(ei);
 }
 function renderPushOpportunities(){
   var el=document.getElementById('pushOppSection'); if(!el) return;
