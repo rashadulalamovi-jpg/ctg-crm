@@ -356,6 +356,7 @@ body{max-width:100vw;overflow-x:hidden!important}
   <button class="nb" onclick="goTo('returns',this)">↩️ Returns</button>
   <button class="nb" onclick="goTo('expensepage',this)">💸 Expense</button>
   <button class="nb" onclick="goTo('assetspage',this)">📈 Net Worth</button>
+  <button class="nb" onclick="goTo('bizsystem',this)">🏢 Business System</button>
 </nav>
 
 <div class="main">
@@ -764,6 +765,17 @@ body{max-width:100vw;overflow-x:hidden!important}
 </div>
 <!-- NW-MODULE-END -->
 
+<!-- ═══ BUSINESS SYSTEM (Build-26) ═══════════════ -->
+<div id="bizsystem" class="sec">
+  <div class="flex-between mb-18">
+    <div>
+      <div style="font-family:var(--fd);font-size:22px;font-weight:800">🏢 Business System</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:3px">Business Model · Function Strategy · Live Performance · Action Roadmap — সব একসাথে</div>
+    </div>
+  </div>
+  <div id="bizLanding"></div>
+  <div id="bizDetail" style="display:none"></div>
+</div>
 
 </div><!-- /main -->
 </div><!-- /app -->
@@ -1148,6 +1160,7 @@ function loadDB(){
   if(as){try{assetsDB=JSON.parse(as);}catch(e){}}
   if(!assetsDB.snapshots) assetsDB.snapshots=[];
   if(!assetsDB.emis) assetsDB.emis=[];
+  ensureBizSystemDefaults();
 }
 function saveDB(){ db._savedAt = Date.now(); localStorage.setItem(LS_KEY, JSON.stringify(db)); }
 function saveStock(){ localStorage.setItem(STOCK_KEY, JSON.stringify(stockDB)); }
@@ -1179,6 +1192,7 @@ async function syncToFirebase(){
       if(c.intel) batch.set(fsdb.collection('intel').doc(String(c.id)), sanitize(c.intel), {merge:true});
     });
     batch.set(fsdb.collection('meta').doc('tasks'), {tasks: db.tasks||[], _savedAt: Date.now()});
+    batch.set(fsdb.collection('meta').doc('businessSystem'), {businessSystem: db.businessSystem||{}, _savedAt: Date.now()});
     await batch.commit();
     // stock batches
     for(const b of stockDB.batches){
@@ -1250,6 +1264,22 @@ function startRealtimeSync(){
     _rtListeners.push(taskUnsub);
   }catch(e){}
 
+  // ── Business System real-time listener (Build-26) ──
+  try{
+    const bizUnsub = fsdb.collection('meta').doc('businessSystem').onSnapshot(function(docSnap){
+      if(docSnap.exists){
+        const data = docSnap.data();
+        if(data && data.businessSystem){
+          db.businessSystem = data.businessSystem;
+          ensureBizSystemDefaults();
+          saveDB();
+          if(document.getElementById('bizsystem')&&document.getElementById('bizsystem').classList.contains('active')) renderBizSystem();
+        }
+      }
+    }, function(err){ console.warn('BizSystem listener:', err); });
+    _rtListeners.push(bizUnsub);
+  }catch(e){}
+
   notify('📡 Real-time sync চালু হয়েছে');
 }
 
@@ -1278,6 +1308,7 @@ function importJSON(ev){
       db = crmData;
       db.customers = db.customers.map(migrate);
       if(imp.stock && imp.stock.batches){ stockDB = imp.stock; saveStock(); }
+      ensureBizSystemDefaults();
       saveDB();
       await syncToFirebase();
       renderAll();
@@ -5381,6 +5412,450 @@ function renderMonthlyComparisonBar(){
   return out;
 }
 
+// ══════════════════════════════════════════════════════════
+// BUSINESS SYSTEM MODULE (Build-26)
+// ══════════════════════════════════════════════════════════
+const BIZ_FUNCTIONS = [
+  {key:'bizmodel',   icon:'\u{1F3E2}', name:'Business Model',    defOwner:'Muhammed Rashadul Alam', kpi:null},
+  {key:'purchase',   icon:'\u{1F4E6}', name:'Purchase',          defOwner:'Nezam',                  kpi:'getBizSysPurchaseKPIs'},
+  {key:'marketing',  icon:'\u{1F4E3}', name:'Marketing',         defOwner:'Muhammed Rashadul Alam', kpi:'getBizSysMarketingKPIs'},
+  {key:'sales',      icon:'\u{1F4B0}', name:'Sales',             defOwner:'Muhammed Rashadul Alam', kpi:'getBizSysSalesKPIs'},
+  {key:'custservice',icon:'\u{1F91D}', name:'Customer Service',  defOwner:'Emon',                   kpi:'getBizSysCustServiceKPIs'},
+  {key:'operations', icon:'⚙️', name:'Operations',       defOwner:'Emon',                   kpi:'getBizSysOperationsKPIs'},
+  {key:'hr',         icon:'\u{1F465}', name:'HR',                defOwner:'Muhammed Rashadul Alam', kpi:null},
+  {key:'finance',    icon:'\u{1F4CA}', name:'Finance',           defOwner:'Muhammed Rashadul Alam', kpi:'getBizSysFinanceKPIs'},
+  {key:'legal',      icon:'⚖️', name:'Legal',            defOwner:'Unassigned',             kpi:null}
+];
+
+function ensureBizSystemDefaults(){
+  if(!db.businessSystem) db.businessSystem = {};
+  if(!db.businessSystem.functions) db.businessSystem.functions = {};
+  BIZ_FUNCTIONS.forEach(function(f){
+    if(!db.businessSystem.functions[f.key]){
+      db.businessSystem.functions[f.key] = { strategy:'', owner:f.defOwner, tasks:[] };
+    } else {
+      var rec = db.businessSystem.functions[f.key];
+      if(rec.strategy===undefined) rec.strategy='';
+      if(!rec.owner) rec.owner=f.defOwner;
+      if(!rec.tasks) rec.tasks=[];
+    }
+  });
+  // Business Model: pre-populate the 3-Engine structure from the owner's sample, only if not already set
+  var bm = db.businessSystem.functions.bizmodel;
+  if(!bm.engines){
+    bm.engines = [
+      { title:'Engine A — Chittagong Office Wholesale',
+        fields:[
+          {label:'Customer', value:'Local shop owners / resellers (Chattogram)'},
+          {label:'Model', value:'Stock ready at CTG office → QC → wholesale sale'},
+          {label:'Revenue Logic', value:'Buy in bulk from Dubai → hold ready stock → sell at wholesale margin'},
+          {label:'Primary Goal', value:'Fast stock turnover, ready-stock profit'}
+        ]},
+      { title:'Engine B — Direct Dubai Order',
+        fields:[
+          {label:'Customer', value:'Customers who pre-order specific models'},
+          {label:'Model', value:'Customer confirms order → source from Dubai → ship to BD'},
+          {label:'Payment', value:'Customer-funded (advance/full payment before sourcing)'},
+          {label:'Primary Goal', value:'Zero-capital-lock volume, customer-funded growth'}
+        ]},
+      { title:'Engine C — Dubai Shop Wholesale',
+        fields:[
+          {label:'Customer', value:'Dubai-side wholesale buyers'},
+          {label:'Model', value:'Buy/sell laptops within Dubai market'},
+          {label:'Revenue Logic', value:'AED cash rotation — quick buy-sell cycles in local currency'},
+          {label:'Primary Goal', value:'Fast AED cash rotation, currency-side liquidity'}
+        ]}
+    ];
+  }
+  if(!bm.summaryFormula){
+    bm.summaryFormula = 'Ready Stock Profit + Customer-Funded Volume + AED Cash Rotation = Scalable Business';
+  }
+}
+
+// ── KPI: Purchase (reuses getModelStats + getFinalAction — same engine as Model Demand module) ──
+function getBizSysPurchaseKPIs(){
+  if(typeof stockDB==='undefined' || !stockDB.batches || !stockDB.batches.length) return null;
+  var stats = getModelStats();
+  if(!stats.length) return null;
+  var withRoi = stats.filter(function(s){return s.roi!==null;});
+  var avgRoi = withRoi.length ? Math.round(withRoi.reduce(function(a,s){return a+s.roi;},0)/withRoi.length) : null;
+  var withRet = stats.filter(function(s){return s.totSold>0;});
+  var avgRet = withRet.length ? Math.round(withRet.reduce(function(a,s){return a+s.retPct;},0)/withRet.length) : null;
+  var actions = stats.map(function(s){return getFinalAction(s).priority;});
+  var rebuyCnt = actions.filter(function(p){return p==='rebuy'||p==='small';}).length;
+  var stopCnt  = actions.filter(function(p){return p==='stop'||p==='avoid'||p==='clear'||p==='reduce';}).length;
+  var capitalLocked = stats.reduce(function(a,s){
+    if(s.avgAge!==null && s.avgAge>60 && s.avail>0 && s.costPerPc>0) return a+(s.avail*s.costPerPc);
+    return a;
+  },0);
+  return { modelsTracked: stats.length, avgRoi:avgRoi, avgRetPct:avgRet, rebuyCnt:rebuyCnt, stopCnt:stopCnt, capitalLocked:capitalLocked };
+}
+
+// ── KPI: Sales (reuses getMonthlyComparison — same engine as Push Opportunities module) ──
+function getBizSysSalesKPIs(){
+  if(!db.customers || !db.customers.length) return null;
+  var mc = getMonthlyComparison();
+  var hasAny = mc.months.some(function(x){return x.qty>0||x.amt>0;});
+  if(!hasAny) return null;
+  return { thisMonthQty: mc.months[2].qty, thisMonthAmt: mc.months[2].amt, trendQtyPct: mc.trendQtyPct, trendAmtPct: mc.trendAmtPct, paceQty: mc.paceQty, paceAmt: mc.paceAmt };
+}
+
+// ── KPI: Finance (business-wide cashflow — invoiced / collected / due / overdue) ──
+function getBizSysFinanceKPIs(){
+  if(!db.customers || !db.customers.length) return null;
+  var totInvoiced=0, totCollected=0, overdueAmt=0, overdueCnt=0, invCount=0;
+  db.customers.forEach(function(c){
+    (c.invoices||[]).forEach(function(inv){
+      var iA=(inv.items||[]).reduce(function(a,x){return a+x.qty*(x.price||0);},0);
+      var iPd=(inv.payments||[]).reduce(function(a,p){return a+p.amount;},0);
+      invCount++;
+      totInvoiced+=iA; totCollected+=iPd;
+      var due=Math.max(0,iA-iPd);
+      if(due>0){
+        var tk=computeTracker(inv,iA,iPd,inv.payments||[]);
+        if(tk.overdueDays>0){ overdueAmt+=due; overdueCnt++; }
+      }
+    });
+  });
+  if(invCount===0) return null;
+  var totDue = Math.max(0, totInvoiced-totCollected);
+  var collectionPct = totInvoiced>0 ? Math.round(totCollected/totInvoiced*100) : null;
+  return { totInvoiced:totInvoiced, totCollected:totCollected, totDue:totDue, overdueAmt:overdueAmt, overdueCnt:overdueCnt, collectionPct:collectionPct };
+}
+
+// ── KPI: Customer Service (return rate + stage mix, business-wide) ──
+function getBizSysCustServiceKPIs(){
+  if(!db.customers || !db.customers.length) return null;
+  var totSold=0, totRetQty=0, totRetCnt=0, custCount=db.customers.length;
+  var royalCnt=0, dangerCnt=0;
+  db.customers.forEach(function(c){
+    if(c.stage===7) royalCnt++;
+    (c.invoices||[]).forEach(function(inv){
+      (inv.items||[]).forEach(function(it){ totSold+=(it.qty||0); });
+      (inv.returns||[]).forEach(function(r){ totRetQty+=(r.qty||0); totRetCnt++; });
+    });
+  });
+  if(totSold===0 && totRetCnt===0) return null;
+  var retPct = totSold>0 ? Math.round(totRetQty/totSold*1000)/10 : 0;
+  return { custCount:custCount, totSold:totSold, totRetQty:totRetQty, retPct:retPct, retCnt:totRetCnt, royalCnt:royalCnt };
+}
+
+// ── KPI: Operations (payment-tracker discipline — promise-kept %, overdue, avg pay days) ──
+function getBizSysOperationsKPIs(){
+  if(!db.customers || !db.customers.length) return null;
+  var promiseTotal=0, promiseKept=0, payDaysArr=[], overdueCnt=0, reminderTotal=0, invCount=0;
+  db.customers.forEach(function(c){
+    (c.invoices||[]).forEach(function(inv){
+      invCount++;
+      var iA=(inv.items||[]).reduce(function(a,x){return a+x.qty*(x.price||0);},0);
+      var iPd=(inv.payments||[]).reduce(function(a,p){return a+p.amount;},0);
+      var tk=computeTracker(inv,iA,iPd,inv.payments||[]);
+      if(tk.promiseMet!==null && tk.promiseMet!==undefined){ promiseTotal++; if(tk.promiseMet) promiseKept++; }
+      if(tk.payDays!==null) payDaysArr.push(tk.payDays);
+      if(tk.overdueDays>0) overdueCnt++;
+      reminderTotal += (tk.reminderCount||0);
+    });
+  });
+  if(invCount===0) return null;
+  var promiseKeptPct = promiseTotal>0 ? Math.round(promiseKept/promiseTotal*100) : null;
+  var avgPayDays = payDaysArr.length ? Math.round(payDaysArr.reduce(function(a,b){return a+b;},0)/payDaysArr.length) : null;
+  return { invCount:invCount, promiseKeptPct:promiseKeptPct, avgPayDays:avgPayDays, overdueCnt:overdueCnt, reminderTotal:reminderTotal };
+}
+
+// ── KPI: Marketing (pipeline stage mix — real data, but health is intentionally left manual) ──
+function getBizSysMarketingKPIs(){
+  if(!db.customers || !db.customers.length) return null;
+  var active = db.customers.filter(function(c){return !c.inactive;});
+  if(!active.length) return null;
+  var byStage = {};
+  STAGES.forEach(function(s){ byStage[s.id]=0; });
+  active.forEach(function(c){ if(byStage[c.stage]!==undefined) byStage[c.stage]++; });
+  var leadCnt = byStage[1]||0;
+  var beyondLead = active.length-leadCnt;
+  var convPct = active.length>0 ? Math.round(beyondLead/active.length*100) : null;
+  return { totalActive:active.length, byStage:byStage, leadCnt:leadCnt, convPct:convPct };
+}
+
+// ── Health badge helpers (my own reasonable thresholds — adjustable) ──
+function bizHealthDot(level){
+  if(level==='green') return '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--green)"></span>';
+  if(level==='yellow')return '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--warn)"></span>';
+  if(level==='red')   return '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--red)"></span>';
+  return '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--text3);opacity:.4"></span>';
+}
+function getBizHealth(key, kpi){
+  if(!kpi) return null; // no data yet -> neutral dot, never fabricated
+  if(key==='sales'){
+    if(kpi.trendQtyPct===null) return null;
+    if(kpi.trendQtyPct>=0) return 'green';
+    if(kpi.trendQtyPct>=-15) return 'yellow';
+    return 'red';
+  }
+  if(key==='purchase'){
+    if(kpi.modelsTracked===0) return null;
+    var stopRatio = kpi.stopCnt/kpi.modelsTracked;
+    if(stopRatio<=0.2) return 'green';
+    if(stopRatio<=0.4) return 'yellow';
+    return 'red';
+  }
+  if(key==='finance'){
+    if(kpi.collectionPct===null) return null;
+    if(kpi.collectionPct>=90) return 'green';
+    if(kpi.collectionPct>=75) return 'yellow';
+    return 'red';
+  }
+  if(key==='custservice'){
+    if(kpi.retPct<=5) return 'green';
+    if(kpi.retPct<=8) return 'yellow';
+    return 'red';
+  }
+  if(key==='operations'){
+    if(kpi.promiseKeptPct===null) return null;
+    if(kpi.promiseKeptPct>=80) return 'green';
+    if(kpi.promiseKeptPct>=60) return 'yellow';
+    return 'red';
+  }
+  return null; // marketing / bizmodel / hr / legal -> intentionally manual-only for now
+}
+
+function bizOpenTaskCount(key){
+  var rec = db.businessSystem.functions[key];
+  if(!rec || !rec.tasks) return 0;
+  return rec.tasks.filter(function(t){return t.status!=='done';}).length;
+}
+
+// ── Landing grid (9 function cards) ──
+function renderBizSystem(){
+  ensureBizSystemDefaults();
+  var landing=document.getElementById('bizLanding');
+  var detail=document.getElementById('bizDetail');
+  if(!landing) return;
+  detail.style.display='none';
+  landing.style.display='block';
+  var h='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px">';
+  BIZ_FUNCTIONS.forEach(function(f){
+    var rec = db.businessSystem.functions[f.key];
+    var kpi = f.kpi ? window[f.kpi]() : null;
+    var health = getBizHealth(f.key, kpi);
+    var openTasks = bizOpenTaskCount(f.key);
+    h+='<div onclick="openBizFunction(\''+f.key+'\')" style="cursor:pointer;background:rgba(255,255,255,.7);border:1px solid var(--border);border-radius:var(--rl);padding:16px;transition:.15s" onmouseover="this.style.borderColor=\'var(--red)\'" onmouseout="this.style.borderColor=\'var(--border)\'">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">';
+    h+='<div style="font-size:24px">'+f.icon+'</div>';
+    h+=bizHealthDot(health);
+    h+='</div>';
+    h+='<div style="font-family:var(--fd);font-size:13px;font-weight:800;color:var(--text);margin-bottom:3px">'+f.name+'</div>';
+    h+='<div style="font-size:9px;color:var(--text3);margin-bottom:8px">\u{1F464} '+esc(rec.owner||'Unassigned')+'</div>';
+    if(openTasks>0) h+='<div style="font-family:var(--fm);font-size:9px;font-weight:700;color:var(--orange);background:rgba(249,115,22,.1);display:inline-block;padding:2px 8px;border-radius:4px">'+openTasks+' open task'+(openTasks>1?'s':'')+'</div>';
+    else h+='<div style="font-size:9px;color:var(--text3)">—</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+  landing.innerHTML = h;
+}
+
+function openBizFunction(key){
+  _bizCurrentKey = key;
+  document.getElementById('bizLanding').style.display='none';
+  document.getElementById('bizDetail').style.display='block';
+  renderBizDetail(key);
+}
+function closeBizDetail(){
+  _bizCurrentKey = null;
+  renderBizSystem();
+}
+var _bizCurrentKey = null;
+
+function bizKpiBlockHtml(key, kpi){
+  if(!kpi) return '<div style="font-size:11px;color:var(--text3);padding:10px;background:rgba(15,23,42,.03);border-radius:8px">⚠️ এখনো পর্যাপ্ত ডেটা নেই — real KPI দেখানোর জন্য প্রাসঙ্গিক মডিউলে ডেটা এন্ট্রি লাগবে।</div>';
+  var h='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">';
+  function stat(label,val,color){
+    h+='<div style="background:rgba(15,23,42,.03);border-radius:8px;padding:10px">';
+    h+='<div style="font-size:8px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);margin-bottom:4px">'+label+'</div>';
+    h+='<div style="font-family:var(--fm);font-size:15px;font-weight:800;color:'+(color||'var(--text)')+'">'+val+'</div>';
+    h+='</div>';
+  }
+  if(key==='sales'){
+    stat('This Month Qty', kpi.thisMonthQty+' pcs');
+    stat('This Month Sales', fmtMoney(kpi.thisMonthAmt));
+    stat('Trend (Qty)', kpi.trendQtyPct===null?'—':(kpi.trendQtyPct>=0?'▲':'▼')+' '+Math.abs(kpi.trendQtyPct)+'%', kpi.trendQtyPct===null?null:(kpi.trendQtyPct>=0?'var(--green)':'var(--red)'));
+    stat('Pace (Projected)', kpi.paceQty+' pcs');
+  } else if(key==='purchase'){
+    stat('Models Tracked', kpi.modelsTracked);
+    stat('Avg ROI', kpi.avgRoi===null?'—':kpi.avgRoi+'%', kpi.avgRoi!==null&&kpi.avgRoi>=15?'var(--green)':'var(--warn)');
+    stat('Avg Return%', kpi.avgRetPct===null?'—':kpi.avgRetPct+'%');
+    stat('Rebuy-Ready', kpi.rebuyCnt, 'var(--green)');
+    stat('Stop/Reduce', kpi.stopCnt, 'var(--red)');
+    stat('Capital Locked (slow stock)', fmtMoney(kpi.capitalLocked), 'var(--red)');
+  } else if(key==='finance'){
+    stat('Total Invoiced', fmtMoney(kpi.totInvoiced));
+    stat('Total Collected', fmtMoney(kpi.totCollected), 'var(--green)');
+    stat('Total Due', fmtMoney(kpi.totDue), 'var(--warn)');
+    stat('Overdue Amount', fmtMoney(kpi.overdueAmt), 'var(--red)');
+    stat('Overdue Invoices', kpi.overdueCnt, 'var(--red)');
+    stat('Collection %', kpi.collectionPct===null?'—':kpi.collectionPct+'%');
+  } else if(key==='custservice'){
+    stat('Customers', kpi.custCount);
+    stat('Total Sold', kpi.totSold+' pcs');
+    stat('Return Rate', kpi.retPct+'%', kpi.retPct<=5?'var(--green)':'var(--red)');
+    stat('Return Count', kpi.retCnt);
+    stat('Royal Customers', kpi.royalCnt, 'var(--gold)');
+  } else if(key==='operations'){
+    stat('Total Invoices', kpi.invCount);
+    stat('Promise Kept %', kpi.promiseKeptPct===null?'—':kpi.promiseKeptPct+'%', kpi.promiseKeptPct!==null&&kpi.promiseKeptPct>=80?'var(--green)':'var(--warn)');
+    stat('Avg Pay Days', kpi.avgPayDays===null?'—':kpi.avgPayDays+'d');
+    stat('Overdue Invoices', kpi.overdueCnt, 'var(--red)');
+    stat('Reminders Sent', kpi.reminderTotal);
+  } else if(key==='marketing'){
+    STAGES.forEach(function(s){ stat(s.emoji+' '+s.name, kpi.byStage[s.id]||0); });
+    stat('Lead→Beyond Conversion', kpi.convPct===null?'—':kpi.convPct+'%');
+  }
+  h+='</div>';
+  return h;
+}
+
+function renderBizDetail(key){
+  var f = BIZ_FUNCTIONS.find(function(x){return x.key===key;});
+  if(!f) return;
+  var rec = db.businessSystem.functions[key];
+  var kpi = f.kpi ? window[f.kpi]() : null;
+  var health = getBizHealth(key, kpi);
+  var h='<div class="card">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">';
+  h+='<div style="display:flex;align-items:center;gap:10px">';
+  h+='<div style="font-size:26px">'+f.icon+'</div>';
+  h+='<div><div style="font-family:var(--fd);font-size:17px;font-weight:800;color:var(--text)">'+f.name+'</div>';
+  h+='<div style="display:flex;align-items:center;gap:5px;margin-top:2px">'+bizHealthDot(health)+'<span style="font-size:9px;color:var(--text3)">Health</span></div></div>';
+  h+='</div>';
+  h+='<button onclick="closeBizDetail()" style="background:rgba(15,23,42,.05);border:none;border-radius:6px;padding:6px 14px;font-family:var(--fd);font-size:11px;font-weight:700;color:var(--text2);cursor:pointer">← সব ফাংশন</button>';
+  h+='</div>';
+
+  // Owner
+  h+='<div style="margin-bottom:16px">';
+  h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:5px">\u{1F464} Owner / Responsible</div>';
+  h+='<input type="text" value="'+esc(rec.owner||'')+'" onblur="saveBizOwner(\''+key+'\',this.value)" style="width:260px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-family:var(--fm);font-size:12px">';
+  h+='</div>';
+
+  // Strategy Notes
+  h+='<div style="margin-bottom:18px">';
+  h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:5px">\u{1F4DD} Strategy Notes</div>';
+  h+='<textarea onblur="saveBizStrategy(\''+key+'\',this.value)" rows="4" placeholder="এই function-এর জন্য strategy / নোট লিখুন..." style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:var(--fm);font-size:12px;resize:vertical">'+esc(rec.strategy||'')+'</textarea>';
+  h+='</div>';
+
+  // Business Model special: 3 Engines
+  if(key==='bizmodel'){
+    h+='<div style="margin-bottom:18px">';
+    h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">\u{1F3D7}️ 3 Business Engines</div>';
+    h+=renderBizModelEngines(rec);
+    h+='</div>';
+  }
+
+  // Live Performance
+  h+='<div style="margin-bottom:18px">';
+  h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">\u{1F4CA} Live Performance (Real Data)</div>';
+  h+=bizKpiBlockHtml(key, kpi);
+  h+='</div>';
+
+  // Action Roadmap
+  h+='<div>';
+  h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">\u{1F5FA}️ Action Roadmap</div>';
+  h+=renderBizTasksSection(key, rec);
+  h+='</div>';
+
+  h+='</div>';
+  document.getElementById('bizDetail').innerHTML = h;
+}
+
+function renderBizModelEngines(rec){
+  var h='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px">';
+  (rec.engines||[]).forEach(function(eng,ei){
+    h+='<div style="background:rgba(15,23,42,.03);border-radius:10px;padding:12px">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+    h+='<input type="text" value="'+esc(eng.title||'')+'" onblur="saveBizEngineTitle('+ei+',this.value)" style="font-family:var(--fd);font-size:11px;font-weight:800;color:var(--text);border:none;background:transparent;width:80%">';
+    h+='<span onclick="removeBizEngine('+ei+')" style="cursor:pointer;color:var(--red);font-size:13px" title="Remove engine">✕</span>';
+    h+='</div>';
+    (eng.fields||[]).forEach(function(fld,fi){
+      h+='<div style="display:flex;gap:6px;margin-bottom:5px;align-items:flex-start">';
+      h+='<input type="text" value="'+esc(fld.label||'')+'" onblur="saveBizEngineField('+ei+','+fi+',\'label\',this.value)" style="width:80px;flex-shrink:0;font-family:var(--fd);font-size:9px;font-weight:700;color:var(--text3);border:none;background:transparent">';
+      h+='<textarea onblur="saveBizEngineField('+ei+','+fi+',\'value\',this.value)" rows="1" style="flex:1;font-family:var(--fm);font-size:10px;color:var(--text);border:1px solid var(--border);border-radius:5px;padding:3px 6px;resize:vertical">'+esc(fld.value||'')+'</textarea>';
+      h+='<span onclick="removeBizEngineField('+ei+','+fi+')" style="cursor:pointer;color:var(--text3);font-size:11px;padding-top:3px" title="Remove field">✕</span>';
+      h+='</div>';
+    });
+    h+='<div onclick="addBizEngineField('+ei+')" style="cursor:pointer;font-size:9px;color:var(--cyan);margin-top:4px">+ Field</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+  h+='<div onclick="addBizEngine()" style="cursor:pointer;font-size:10px;color:var(--cyan);margin-top:10px;font-weight:700">+ নতুন Engine যোগ করুন</div>';
+  h+='<div style="margin-top:14px;background:rgba(52,211,153,.08);border-radius:8px;padding:10px">';
+  h+='<div style="font-size:8px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:4px">∑ Summary Formula</div>';
+  h+='<textarea onblur="saveBizModelFormula(this.value)" rows="2" style="width:100%;border:none;background:transparent;font-family:var(--fm);font-size:11px;font-weight:700;color:var(--green);resize:vertical">'+esc(rec.summaryFormula||'')+'</textarea>';
+  h+='</div>';
+  return h;
+}
+
+function renderBizTasksSection(key, rec){
+  var tasks = rec.tasks||[];
+  var h='<div style="overflow-x:auto">';
+  if(tasks.length){
+    h+='<table style="width:100%;border-collapse:collapse;font-size:11px">';
+    h+='<thead><tr style="text-align:left;color:var(--text3);font-size:9px;text-transform:uppercase">';
+    h+='<th style="padding:5px 6px">Action / কী শিখব-করব</th><th style="padding:5px 6px">Owner</th><th style="padding:5px 6px">Deadline</th><th style="padding:5px 6px">Status</th><th></th></tr></thead><tbody>';
+    tasks.forEach(function(t,ti){
+      h+='<tr style="border-top:1px solid var(--border)">';
+      h+='<td style="padding:5px 6px"><input type="text" value="'+esc(t.text||'')+'" onblur="saveBizTaskField(\''+key+'\','+ti+',\'text\',this.value)" style="width:100%;border:none;background:transparent;font-family:var(--fm);font-size:11px"></td>';
+      h+='<td style="padding:5px 6px"><input type="text" value="'+esc(t.owner||'')+'" onblur="saveBizTaskField(\''+key+'\','+ti+',\'owner\',this.value)" style="width:90px;border:none;background:transparent;font-family:var(--fm);font-size:10px"></td>';
+      h+='<td style="padding:5px 6px"><input type="date" value="'+(t.deadline||'')+'" onchange="saveBizTaskField(\''+key+'\','+ti+',\'deadline\',this.value)" style="border:none;background:transparent;font-family:var(--fm);font-size:10px"></td>';
+      h+='<td style="padding:5px 6px"><select onchange="saveBizTaskField(\''+key+'\','+ti+',\'status\',this.value)" style="font-family:var(--fd);font-size:9px;font-weight:700;border:none;background:transparent;color:'+(t.status==='done'?'var(--green)':t.status==='inprogress'?'var(--warn)':'var(--text3)')+'">';
+      ['todo','inprogress','done'].forEach(function(st){
+        var lbl = st==='todo'?'⏳ To-Do':st==='inprogress'?'\u{1F504} In Progress':'✅ Done';
+        h+='<option value="'+st+'"'+(t.status===st?' selected':'')+'>'+lbl+'</option>';
+      });
+      h+='</select></td>';
+      h+='<td style="padding:5px 6px"><span onclick="deleteBizTask(\''+key+'\','+ti+')" style="cursor:pointer;color:var(--red);font-size:12px">✕</span></td>';
+      h+='</tr>';
+    });
+    h+='</tbody></table>';
+  } else {
+    h+='<div style="font-size:10px;color:var(--text3);padding:8px 0">এখনো কোনো task যোগ করা হয়নি।</div>';
+  }
+  h+='</div>';
+  h+='<div onclick="addBizTask(\''+key+'\')" style="cursor:pointer;font-size:10px;color:var(--cyan);margin-top:8px;font-weight:700">+ নতুন Task যোগ করুন</div>';
+  return h;
+}
+
+// ── Save handlers: quiet saves (persist only, no re-render — avoid kicking user back to landing) ──
+function saveBizOwner(key,val){ db.businessSystem.functions[key].owner=val; saveDB(); syncToFirebase(); }
+function saveBizStrategy(key,val){ db.businessSystem.functions[key].strategy=val; saveDB(); syncToFirebase(); }
+function saveBizModelFormula(val){ db.businessSystem.functions.bizmodel.summaryFormula=val; saveDB(); syncToFirebase(); }
+function saveBizEngineTitle(ei,val){ db.businessSystem.functions.bizmodel.engines[ei].title=val; saveDB(); syncToFirebase(); }
+function saveBizEngineField(ei,fi,prop,val){ db.businessSystem.functions.bizmodel.engines[ei].fields[fi][prop]=val; saveDB(); syncToFirebase(); }
+function saveBizTaskField(key,ti,prop,val){ db.businessSystem.functions[key].tasks[ti][prop]=val; saveDB(); syncToFirebase(); if(prop==='status') renderBizDetail(key); }
+
+// ── Structural changes: re-render the open detail view ──
+function addBizEngine(){
+  db.businessSystem.functions.bizmodel.engines.push({title:'New Engine', fields:[{label:'Customer',value:''}]});
+  saveDB(); syncToFirebase(); renderBizDetail('bizmodel');
+}
+function removeBizEngine(ei){
+  db.businessSystem.functions.bizmodel.engines.splice(ei,1);
+  saveDB(); syncToFirebase(); renderBizDetail('bizmodel');
+}
+function addBizEngineField(ei){
+  db.businessSystem.functions.bizmodel.engines[ei].fields.push({label:'Label',value:''});
+  saveDB(); syncToFirebase(); renderBizDetail('bizmodel');
+}
+function removeBizEngineField(ei,fi){
+  db.businessSystem.functions.bizmodel.engines[ei].fields.splice(fi,1);
+  saveDB(); syncToFirebase(); renderBizDetail('bizmodel');
+}
+function addBizTask(key){
+  db.businessSystem.functions[key].tasks.push({text:'',owner:'',deadline:'',status:'todo'});
+  saveDB(); syncToFirebase(); renderBizDetail(key);
+}
+function deleteBizTask(key,ti){
+  db.businessSystem.functions[key].tasks.splice(ti,1);
+  saveDB(); syncToFirebase(); renderBizDetail(key);
+}
+
 function renderPushOpportunities(){
   var el=document.getElementById('pushOppSection'); if(!el) return;
   var opps = getPushOpportunities();
@@ -8314,7 +8789,7 @@ function saveCustomer(){
 }
 
 // ── Navigation ──────────────────────────────────────────
-const NAV_SECTIONS = ['pipeline','dashboard','invoice','stockage','modeldemand','returns','expensepage','assetspage'];
+const NAV_SECTIONS = ['pipeline','dashboard','invoice','stockage','modeldemand','returns','expensepage','assetspage','bizsystem'];
 
 function goTo(sec, btn){
   if(document.getElementById('assetspage')&&document.getElementById('assetspage').classList.contains('active')&&sec!=='assetspage'){if(typeof nwUnsubscribe==='function'){nwUnsubscribe();}window._nwReady=false;}
@@ -8332,6 +8807,7 @@ function goTo(sec, btn){
   if(sec==='expensepage') renderExpenseDashboard();
   if(sec==='assetspage')  renderAssetsDashboard();
   if(sec==='assetspage')setTimeout(nwInit,0);
+  if(sec==='bizsystem')  renderBizSystem();
 }
 
 // ── renderAll (called after every data change) ──────────
