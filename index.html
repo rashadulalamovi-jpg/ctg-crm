@@ -5461,12 +5461,13 @@ function ensureBizSystemDefaults(){
   if(!db.businessSystem.functions) db.businessSystem.functions = {};
   BIZ_FUNCTIONS.forEach(function(f){
     if(!db.businessSystem.functions[f.key]){
-      db.businessSystem.functions[f.key] = { strategy:'', owner:f.defOwner, tasks:[] };
+      db.businessSystem.functions[f.key] = { strategy:'', owner:f.defOwner, tasks:[], modelImages:[] };
     } else {
       var rec = db.businessSystem.functions[f.key];
       if(rec.strategy===undefined) rec.strategy='';
       if(!rec.owner) rec.owner=f.defOwner;
       if(!rec.tasks) rec.tasks=[];
+      if(!rec.modelImages) rec.modelImages=[];   // Build-30: image for every function
     }
   });
   // Business Model: pre-populate the 3-Engine structure from the owner's sample, only if not already set
@@ -5772,6 +5773,12 @@ function renderBizDetail(key){
   h+='<button onclick="closeBizDetail()" style="background:rgba(15,23,42,.05);border:none;border-radius:6px;padding:6px 14px;font-family:var(--fd);font-size:11px;font-weight:700;color:var(--text2);cursor:pointer">← সব ফাংশন</button>';
   h+='</div>';
 
+  // Build-30: every function starts with its own image / infographic
+  h+='<div style="margin-bottom:18px">';
+  h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">\u{1F5BC}\uFE0F '+f.name+' \u099b\u09ac\u09bf</div>';
+  h+=renderBizImageGallery(rec.modelImages||[], "bizFuncImg_add('"+key+"',this)", "bizFuncImg_remove('"+key+"',{i})", '\u098f\u0987 function-\u098f\u09b0 \u099b\u09ac\u09bf / \u0987\u09a8\u09ab\u09cb\u0997\u09cd\u09b0\u09be\u09ab\u09bf\u0995 \u0986\u09aa\u09b2\u09cb\u09a1 \u0995\u09b0\u09c1\u09a8', 'big');
+  h+='</div>';
+
   // Owner
   h+='<div style="margin-bottom:16px">';
   h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:5px">\u{1F464} Owner / Responsible</div>';
@@ -5784,12 +5791,8 @@ function renderBizDetail(key){
   h+='<textarea onblur="saveBizStrategy(\''+key+'\',this.value)" rows="4" placeholder="এই function-এর জন্য strategy / নোট লিখুন..." style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:var(--fm);font-size:12px;resize:vertical">'+escHtml(rec.strategy||'')+'</textarea>';
   h+='</div>';
 
-  // Business Model special: hero image + 3 Engines (Build-27)
+  // 3 Engines (Build-27)
   if(key==='bizmodel'){
-    h+='<div style="margin-bottom:18px">';
-    h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">\u{1F5BC}️ Business Model ছবি</div>';
-    h+=renderBizImageGallery(rec.modelImages||[], 'bizmodelImg_add(this)', 'bizmodelImg_remove({i})', 'মডেলের ছবি / ইনফোগ্রাফিক আপলোড করুন', 'big');
-    h+='</div>';
     h+='<div style="margin-bottom:18px">';
     h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">\u{1F3D7}️ 3 Business Engines</div>';
     h+=renderBizModelEngines(rec);
@@ -5987,17 +5990,17 @@ function bizImgSrc(id){
 }
 
 // Generic gallery renderer.
-//   addCall       = JS call string for the file input, e.g. "bizmodelImg_add(this)"
-//   removeCallTpl = JS call string with {i} placeholder, e.g. "bizmodelImg_remove({i})"
+//   addCall       = JS call string for the file input, e.g. "bizFuncImg_add('sales',this)"
+//   removeCallTpl = JS call string with {i} placeholder, e.g. "bizFuncImg_remove('sales',{i})"
 function renderBizImageGallery(ids, addCall, removeCallTpl, placeholder, size){
   var big = size==='big';
   var h='<div>';
   if(ids && ids.length){
-    h+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">';
+    h+='<div style="display:'+(big?'block':'flex')+';flex-wrap:wrap;gap:8px;margin-bottom:8px">';
     ids.forEach(function(id,ix){
       var src = bizImgSrc(id);
-      h+='<div style="position:relative;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff">';
-      if(src) h+='<img src="'+src+'" onclick="bizOpenImageViewer(\''+id+'\')" style="display:block;max-width:'+(big?'100%':'160px')+';max-height:'+(big?'420px':'120px')+';cursor:zoom-in">';
+      h+='<div style="position:relative;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff'+(big?';margin-bottom:8px':'')+'">';
+      if(src) h+='<img src="'+src+'" onclick="bizOpenImageViewer(\''+id+'\')" style="display:block;'+(big?'width:100%;height:auto;':'max-width:160px;max-height:120px;')+'cursor:zoom-in">';
       else    h+='<div style="padding:18px 22px;font-size:10px;color:var(--text3)">⏳ ছবি load হচ্ছে…</div>';
       h+='<span onclick="'+removeCallTpl.split('{i}').join(ix)+'" title="Remove" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer">✕</span>';
       h+='</div>';
@@ -6027,24 +6030,24 @@ function bizOpenImageViewer(id){
   ov.style.display='flex';
 }
 
-// ── Business Model hero image handlers ──
-function bizmodelImg_add(inp){
+// ── Per-function image handlers (Build-30: every function, not just Business Model) ──
+function bizFuncImg_add(key, inp){
   var f = inp.files && inp.files[0]; inp.value='';
   bizCompressImage(f, function(meta){
     bizStoreImage(meta, function(id){
-      var rec = db.businessSystem.functions.bizmodel;
+      var rec = db.businessSystem.functions[key]; if(!rec) return;
       if(!rec.modelImages) rec.modelImages=[];
       rec.modelImages.push(id);
-      saveDB(); syncToFirebase(); renderBizDetail('bizmodel');
-      notify('✅ ছবি যোগ হয়েছে');
+      saveDB(); syncToFirebase(); renderBizDetail(key);
+      notify('\u2705 ছবি যোগ হয়েছে');
     });
   });
 }
-function bizmodelImg_remove(ix){
+function bizFuncImg_remove(key, ix){
   if(!confirm('ছবিটি সরাবেন?')) return;
-  var rec = db.businessSystem.functions.bizmodel;
+  var rec = db.businessSystem.functions[key]; if(!rec) return;
   (rec.modelImages||[]).splice(ix,1);
-  saveDB(); syncToFirebase(); renderBizDetail('bizmodel');
+  saveDB(); syncToFirebase(); renderBizDetail(key);
 }
 
 // ── Tree helpers ──
