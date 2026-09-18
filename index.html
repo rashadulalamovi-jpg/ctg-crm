@@ -1273,7 +1273,9 @@ function startRealtimeSync(){
           db.businessSystem = data.businessSystem;
           ensureBizSystemDefaults();
           saveDB();
-          if(document.getElementById('bizsystem')&&document.getElementById('bizsystem').classList.contains('active')) renderBizSystem();
+          if(document.getElementById('bizsystem')&&document.getElementById('bizsystem').classList.contains('active')){
+            if(_bizCurrentKey) renderBizDetail(_bizCurrentKey); else renderBizSystem();
+          }
         }
       }
     }, function(err){ console.warn('BizSystem listener:', err); });
