@@ -1053,6 +1053,7 @@ body{max-width:100vw;overflow-x:hidden!important}
 // ════════════════════════════════════════════════════════
 const LS_KEY    = 'ctgcrm_v18';
 const STOCK_KEY = 'ctgstock_v2';
+const BIZIMG_KEY = 'ctgbizimg_v1';
 const TODAY     = new Date().toISOString().split('T')[0];
 const FB_CFG = {
   apiKey:"AIzaSyB6BZuchGQ-i87jHhVHtgiS0bohsXXufhk",
@@ -1078,6 +1079,7 @@ let db = { customers:[], tasks:[] };
 let stockDB = { batches:[] };
 let expDB   = { expenses:[] };
 let assetsDB = { snapshots:[] };
+let bizImgDB = { images:{} };   // Build-27: Business System images (separate store — keeps main db small)
 let invItems = {};
 let retTarget = {};
 let _detailId = null;
@@ -1160,8 +1162,13 @@ function loadDB(){
   if(as){try{assetsDB=JSON.parse(as);}catch(e){}}
   if(!assetsDB.snapshots) assetsDB.snapshots=[];
   if(!assetsDB.emis) assetsDB.emis=[];
+  // Business System images (Build-27) — own key so main db/localStorage stays light
+  var bi=localStorage.getItem(BIZIMG_KEY);
+  if(bi){try{bizImgDB=JSON.parse(bi);}catch(e){}}
+  if(!bizImgDB.images) bizImgDB.images={};
   ensureBizSystemDefaults();
 }
+function saveBizImgLocal(){ try{ localStorage.setItem(BIZIMG_KEY, JSON.stringify(bizImgDB)); }catch(e){ console.warn('bizImg local save:',e); } }
 function saveDB(){ db._savedAt = Date.now(); localStorage.setItem(LS_KEY, JSON.stringify(db)); }
 function saveStock(){ localStorage.setItem(STOCK_KEY, JSON.stringify(stockDB)); }
 
@@ -1282,6 +1289,24 @@ function startRealtimeSync(){
     _rtListeners.push(bizUnsub);
   }catch(e){}
 
+  // ── Business System images real-time listener (Build-27) ──
+  try{
+    const bizImgUnsub = fsdb.collection('bizImages').onSnapshot(function(snap){
+      var changed=false;
+      snap.docChanges().forEach(function(ch){
+        if(ch.type==='removed'){ delete bizImgDB.images[ch.doc.id]; changed=true; }
+        else { bizImgDB.images[ch.doc.id] = Object.assign({id:ch.doc.id}, ch.doc.data()); changed=true; }
+      });
+      if(changed){
+        saveBizImgLocal();
+        if(document.getElementById('bizsystem')&&document.getElementById('bizsystem').classList.contains('active')){
+          if(_bizCurrentKey) renderBizDetail(_bizCurrentKey); else renderBizSystem();
+        }
+      }
+    }, function(err){ console.warn('BizImages listener:', err); });
+    _rtListeners.push(bizImgUnsub);
+  }catch(e){}
+
   notify('📡 Real-time sync চালু হয়েছে');
 }
 
@@ -1290,7 +1315,7 @@ async function loadFromFirebase(){
 }
 
 function exportJSON(){
-  const payload = { crm: db, stock: stockDB, exportedAt: TODAY };
+  const payload = { crm: db, stock: stockDB, bizImages: bizImgDB, exportedAt: TODAY };
   const blob = new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -1310,6 +1335,7 @@ function importJSON(ev){
       db = crmData;
       db.customers = db.customers.map(migrate);
       if(imp.stock && imp.stock.batches){ stockDB = imp.stock; saveStock(); }
+      if(imp.bizImages && imp.bizImages.images){ bizImgDB = imp.bizImages; saveBizImgLocal(); }
       ensureBizSystemDefaults();
       saveDB();
       await syncToFirebase();
@@ -5472,6 +5498,13 @@ function ensureBizSystemDefaults(){
   if(!bm.summaryFormula){
     bm.summaryFormula = 'Ready Stock Profit + Customer-Funded Volume + AED Cash Rotation = Scalable Business';
   }
+  // Build-27: per-engine strategy tree / notes / images, plus model-level images
+  if(!bm.modelImages) bm.modelImages = [];
+  (bm.engines||[]).forEach(function(eng){
+    if(!eng.strategyTree) eng.strategyTree = [];
+    if(!eng.images) eng.images = [];
+    if(eng.notes===undefined) eng.notes = '';
+  });
 }
 
 // ── KPI: Purchase (reuses getModelStats + getFinalAction — same engine as Model Demand module) ──
@@ -5657,12 +5690,14 @@ function renderBizSystem(){
 
 function openBizFunction(key){
   _bizCurrentKey = key;
+  _bizEngineIdx = null;
   document.getElementById('bizLanding').style.display='none';
   document.getElementById('bizDetail').style.display='block';
   renderBizDetail(key);
 }
 function closeBizDetail(){
   _bizCurrentKey = null;
+  _bizEngineIdx = null;
   renderBizSystem();
 }
 var _bizCurrentKey = null;
@@ -5718,6 +5753,8 @@ function bizKpiBlockHtml(key, kpi){
 function renderBizDetail(key){
   var f = BIZ_FUNCTIONS.find(function(x){return x.key===key;});
   if(!f) return;
+  // Build-27: engine strategy full page takes over the detail container
+  if(key==='bizmodel' && _bizEngineIdx!==null){ renderBizEnginePage(_bizEngineIdx); return; }
   var rec = db.businessSystem.functions[key];
   var kpi = f.kpi ? window[f.kpi]() : null;
   var health = getBizHealth(key, kpi);
@@ -5743,8 +5780,12 @@ function renderBizDetail(key){
   h+='<textarea onblur="saveBizStrategy(\''+key+'\',this.value)" rows="4" placeholder="এই function-এর জন্য strategy / নোট লিখুন..." style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:var(--fm);font-size:12px;resize:vertical">'+esc(rec.strategy||'')+'</textarea>';
   h+='</div>';
 
-  // Business Model special: 3 Engines
+  // Business Model special: hero image + 3 Engines (Build-27)
   if(key==='bizmodel'){
+    h+='<div style="margin-bottom:18px">';
+    h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">\u{1F5BC}️ Business Model ছবি</div>';
+    h+=renderBizImageGallery(rec.modelImages||[], 'bizmodelImg_add(this)', 'bizmodelImg_remove({i})', 'মডেলের ছবি / ইনফোগ্রাফিক আপলোড করুন', 'big');
+    h+='</div>';
     h+='<div style="margin-bottom:18px">';
     h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">\u{1F3D7}️ 3 Business Engines</div>';
     h+=renderBizModelEngines(rec);
@@ -5783,6 +5824,13 @@ function renderBizModelEngines(rec){
       h+='</div>';
     });
     h+='<div onclick="addBizEngineField('+ei+')" style="cursor:pointer;font-size:9px;color:var(--cyan);margin-top:4px">+ Field</div>';
+    // Build-27: open this engine's own full strategy page
+    var st = bizTreeStats(eng.strategyTree||[]);
+    var pct = st.total>0 ? Math.round(st.done/st.total*100) : 0;
+    h+='<div onclick="openBizEngine('+ei+')" style="cursor:pointer;margin-top:10px;background:var(--red);border-radius:7px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center">';
+    h+='<span style="font-family:var(--fd);font-size:10px;font-weight:800;color:#fff">\u{1F5FA}️ Strategy খুলুন</span>';
+    h+='<span style="font-family:var(--fm);font-size:9px;font-weight:700;color:rgba(255,255,255,.9)">'+(st.total>0?(st.total+' item · '+pct+'%'):'শুরু করুন')+' →</span>';
+    h+='</div>';
     h+='</div>';
   });
   h+='</div>';
@@ -5858,6 +5906,373 @@ function deleteBizTask(key,ti){
   saveDB(); syncToFirebase(); renderBizDetail(key);
 }
 
+// ══════════════════════════════════════════════════════════
+// BUILD-27 — Engine Strategy Tree + Image upload
+// ══════════════════════════════════════════════════════════
+var _bizEngineIdx = null;   // null = function detail view; number = that engine's full strategy page
+
+// ── Image store: compress client-side, one Firestore doc per image ──
+// Firestore hard limit is 1MiB per document, so images NEVER go inside db.businessSystem —
+// only their ids do. Each image lives in its own bizImages/<id> doc.
+var BIZ_IMG_MAX_DIM = 1400;        // longest side, px
+var BIZ_IMG_TARGET  = 200 * 1024;  // ~200KB target after compression
+var BIZ_IMG_HARD    = 900 * 1024;  // refuse above this (Firestore doc limit safety)
+
+function bizCompressImage(file, cb){
+  if(!file) return;
+  if(!/^image\//.test(file.type)){ notify('শুধু ছবি আপলোড করা যাবে', true); return; }
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var img = new Image();
+    img.onload = function(){
+      var w=img.width, h=img.height;
+      var scale = Math.min(1, BIZ_IMG_MAX_DIM/Math.max(w,h));
+      var cw = Math.max(1, Math.round(w*scale)), chh = Math.max(1, Math.round(h*scale));
+      var cv = document.createElement('canvas');
+      cv.width=cw; cv.height=chh;
+      var ctx = cv.getContext('2d');
+      ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,cw,chh); // flatten transparency (JPEG has none)
+      ctx.drawImage(img,0,0,cw,chh);
+      var q = 0.85, out = cv.toDataURL('image/jpeg', q);
+      while(out.length > BIZ_IMG_TARGET*1.37 && q > 0.45){ q -= 0.1; out = cv.toDataURL('image/jpeg', q); }
+      if(out.length > BIZ_IMG_HARD*1.37){
+        notify('ছবিটি খুব বড় — আরও ছোট ছবি দিন', true);
+        return;
+      }
+      cb({ data: out, name: file.name||'image', w: cw, h: chh, bytes: Math.round(out.length*0.75) });
+    };
+    img.onerror = function(){ notify('ছবি পড়া যায়নি', true); };
+    img.src = e.target.result;
+  };
+  reader.onerror = function(){ notify('ফাইল পড়া যায়নি', true); };
+  reader.readAsDataURL(file);
+}
+
+function bizStoreImage(meta, cb){
+  var id = 'img'+Date.now()+Math.floor(Math.random()*1000);
+  bizImgDB.images[id] = { id:id, data:meta.data, name:meta.name, w:meta.w, h:meta.h, addedAt:Date.now() };
+  saveBizImgLocal();
+  try{
+    if(typeof fsdb!=='undefined' && fsdb){
+      fsdb.collection('bizImages').doc(id).set({ data:meta.data, name:meta.name, w:meta.w, h:meta.h, addedAt:Date.now() })
+        .catch(function(err){ console.warn('bizImage upload:',err); notify('ছবি cloud-এ যায়নি (লোকালে আছে)', true); });
+    }
+  }catch(e){}
+  cb(id);
+}
+
+function bizImgSrc(id){
+  var im = bizImgDB.images[id];
+  return im && im.data ? im.data : '';
+}
+
+// Generic gallery renderer.
+//   addCall       = JS call string for the file input, e.g. "bizmodelImg_add(this)"
+//   removeCallTpl = JS call string with {i} placeholder, e.g. "bizmodelImg_remove({i})"
+function renderBizImageGallery(ids, addCall, removeCallTpl, placeholder, size){
+  var big = size==='big';
+  var h='<div>';
+  if(ids && ids.length){
+    h+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">';
+    ids.forEach(function(id,ix){
+      var src = bizImgSrc(id);
+      h+='<div style="position:relative;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff">';
+      if(src) h+='<img src="'+src+'" onclick="bizOpenImageViewer(\''+id+'\')" style="display:block;max-width:'+(big?'100%':'160px')+';max-height:'+(big?'420px':'120px')+';cursor:zoom-in">';
+      else    h+='<div style="padding:18px 22px;font-size:10px;color:var(--text3)">⏳ ছবি load হচ্ছে…</div>';
+      h+='<span onclick="'+removeCallTpl.split('{i}').join(ix)+'" title="Remove" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer">✕</span>';
+      h+='</div>';
+    });
+    h+='</div>';
+  }
+  h+='<label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-size:10px;font-weight:700;color:var(--cyan)">';
+  h+='<input type="file" accept="image/*" style="display:none" onchange="'+addCall+'">';
+  h+='\u{1F4F7} '+(placeholder||'ছবি আপলোড');
+  h+='</label>';
+  h+='</div>';
+  return h;
+}
+
+function bizOpenImageViewer(id){
+  var src = bizImgSrc(id); if(!src) return;
+  var ov = document.getElementById('bizImgViewer');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id='bizImgViewer';
+    ov.onclick=function(){ ov.style.display='none'; };
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;cursor:zoom-out';
+    ov.innerHTML='<img style="max-width:100%;max-height:100%;border-radius:8px">';
+    document.body.appendChild(ov);
+  }
+  ov.querySelector('img').src = src;
+  ov.style.display='flex';
+}
+
+// ── Business Model hero image handlers ──
+function bizmodelImg_add(inp){
+  var f = inp.files && inp.files[0]; inp.value='';
+  bizCompressImage(f, function(meta){
+    bizStoreImage(meta, function(id){
+      var rec = db.businessSystem.functions.bizmodel;
+      if(!rec.modelImages) rec.modelImages=[];
+      rec.modelImages.push(id);
+      saveDB(); syncToFirebase(); renderBizDetail('bizmodel');
+      notify('✅ ছবি যোগ হয়েছে');
+    });
+  });
+}
+function bizmodelImg_remove(ix){
+  if(!confirm('ছবিটি সরাবেন?')) return;
+  var rec = db.businessSystem.functions.bizmodel;
+  (rec.modelImages||[]).splice(ix,1);
+  saveDB(); syncToFirebase(); renderBizDetail('bizmodel');
+}
+
+// ── Tree helpers ──
+function bizNewNode(){ return { id:'n'+Date.now()+Math.floor(Math.random()*1000), title:'', notes:'', images:[], children:[], done:false, collapsed:false }; }
+
+// path = '' (root) or '0.2.1' index chain
+function bizTreeResolve(tree, path){
+  if(path===''||path===null||path===undefined) return { arr: tree, node: null };
+  var parts = String(path).split('.').map(Number);
+  var arr = tree, node = null;
+  for(var i=0;i<parts.length;i++){
+    if(!arr || !arr[parts[i]]) return { arr:null, node:null };
+    node = arr[parts[i]];
+    if(i<parts.length-1){ arr = node.children||[]; }
+    else { return { arr: arr, idx: parts[i], node: node }; }
+  }
+  return { arr:arr, node:node };
+}
+function bizTreeStats(nodes){
+  var total=0, done=0;
+  (nodes||[]).forEach(function(n){
+    total++; if(n.done) done++;
+    var s = bizTreeStats(n.children||[]);
+    total+=s.total; done+=s.done;
+  });
+  return { total:total, done:done };
+}
+function bizEngineRec(ei){
+  var engines = db.businessSystem.functions.bizmodel.engines||[];
+  var eng = engines[ei];
+  if(eng && !eng.strategyTree) eng.strategyTree=[];
+  if(eng && !eng.images) eng.images=[];
+  return eng;
+}
+
+// ── Engine strategy full page ──
+function openBizEngine(ei){
+  _bizEngineIdx = ei;
+  document.getElementById('bizLanding').style.display='none';
+  document.getElementById('bizDetail').style.display='block';
+  renderBizEnginePage(ei);
+  window.scrollTo(0,0);
+}
+function closeBizEngine(){
+  _bizEngineIdx = null;
+  renderBizDetail('bizmodel');
+  window.scrollTo(0,0);
+}
+
+function renderBizEnginePage(ei){
+  var eng = bizEngineRec(ei);
+  if(!eng){ _bizEngineIdx=null; renderBizDetail('bizmodel'); return; }
+  var st = bizTreeStats(eng.strategyTree);
+  var pct = st.total>0 ? Math.round(st.done/st.total*100) : 0;
+  var h='<div class="card">';
+  // Header
+  h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px;flex-wrap:wrap">';
+  h+='<div style="flex:1;min-width:220px">';
+  h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:3px">\u{1F3D7}️ Engine Strategy</div>';
+  h+='<input type="text" value="'+esc(eng.title||'')+'" onblur="saveBizEngineTitleFromPage('+ei+',this.value)" style="font-family:var(--fd);font-size:19px;font-weight:800;color:var(--text);border:none;background:transparent;width:100%">';
+  h+='</div>';
+  h+='<button onclick="closeBizEngine()" style="background:rgba(15,23,42,.05);border:none;border-radius:6px;padding:6px 14px;font-family:var(--fd);font-size:11px;font-weight:700;color:var(--text2);cursor:pointer">← Business Model</button>';
+  h+='</div>';
+  // Progress bar
+  h+='<div style="margin-bottom:16px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">';
+  h+='<span style="font-family:var(--fm);font-size:10px;color:var(--text3)">'+st.done+' / '+st.total+' item সম্পন্ন</span>';
+  h+='<span style="font-family:var(--fm);font-size:12px;font-weight:800;color:'+(pct>=70?'var(--green)':pct>=30?'var(--warn)':'var(--text3)')+'">'+pct+'%</span>';
+  h+='</div>';
+  h+='<div style="height:7px;border-radius:4px;background:rgba(15,23,42,.07);overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+(pct>=70?'var(--green)':pct>=30?'var(--warn)':'var(--red)')+'"></div></div>';
+  h+='</div>';
+  // Engine-level images
+  h+='<div style="margin-bottom:16px">';
+  h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">\u{1F5BC}️ Engine ছবি</div>';
+  h+=renderBizImageGallery(eng.images||[], 'bizEngImg_add(this)', 'bizEngImg_remove({i})', 'এই Engine-এর ছবি যোগ করুন');
+  h+='</div>';
+  // Engine-level notes
+  h+='<div style="margin-bottom:18px">';
+  h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:5px">\u{1F4DD} Engine Overview Note</div>';
+  h+='<textarea onblur="saveBizEngineNote('+ei+',this.value)" rows="3" placeholder="এই Engine সম্পর্কে সামগ্রিক নোট..." style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:var(--fm);font-size:12px;resize:vertical">'+esc(eng.notes||'')+'</textarea>';
+  h+='</div>';
+  // Tree
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+  h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">\u{1F333} Strategy Tree</div>';
+  h+='<span onclick="addBizTreeNode('+ei+',\'\')" style="cursor:pointer;font-size:10px;font-weight:700;color:var(--cyan)">+ মূল বিষয় যোগ</span>';
+  h+='</div>';
+  if(!eng.strategyTree.length){
+    h+='<div style="font-size:11px;color:var(--text3);padding:14px;background:rgba(15,23,42,.03);border-radius:8px">এখনো কোনো strategy যোগ করা হয়নি। “+ মূল বিষয় যোগ” দিয়ে শুরু করুন — প্রতিটি বিষয়ের ভিতরে আরও সাব-বিষয়, নোট ও ছবি রাখতে পারবেন।</div>';
+  } else {
+    h+='<div>'+renderBizTreeNodes(ei, eng.strategyTree, '', 0)+'</div>';
+  }
+  h+='</div>';
+  document.getElementById('bizDetail').innerHTML = h;
+}
+
+function renderBizTreeNodes(ei, nodes, parentPath, depth){
+  var h='';
+  nodes.forEach(function(n, ix){
+    var path = parentPath===''? String(ix) : parentPath+'.'+ix;
+    var kids = n.children||[];
+    var st = bizTreeStats(kids);
+    var pct = st.total>0 ? Math.round(st.done/st.total*100) : 0;
+    var hasNotes = !!(n.notes && n.notes.trim());
+    var imgCount = (n.images||[]).length;
+    h+='<div style="margin-left:'+(depth>0?18:0)+'px;border-left:'+(depth>0?'1px solid var(--border)':'none')+';padding-left:'+(depth>0?10:0)+'px">';
+    // Row
+    h+='<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:7px;background:'+(depth===0?'rgba(15,23,42,.04)':'transparent')+';margin-bottom:4px">';
+    // collapse arrow / leaf marker
+    if(kids.length) h+='<span onclick="toggleBizTreeCollapse('+ei+',\''+path+'\')" style="cursor:pointer;font-size:10px;color:var(--text3);width:12px;flex-shrink:0">'+(n.collapsed?'▶':'▼')+'</span>';
+    else h+='<span style="width:12px;flex-shrink:0"></span>';
+    // done toggle
+    h+='<span onclick="toggleBizTreeDone('+ei+',\''+path+'\')" title="Done" style="cursor:pointer;flex-shrink:0;width:16px;height:16px;border-radius:50%;border:1.5px solid '+(n.done?'var(--green)':'var(--border)')+';background:'+(n.done?'var(--green)':'transparent')+';display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff">'+(n.done?'✓':'')+'</span>';
+    // title
+    h+='<input type="text" value="'+esc(n.title||'')+'" placeholder="বিষয় লিখুন..." onblur="saveBizTreeTitle('+ei+',\''+path+'\',this.value)" style="flex:1;min-width:60px;border:none;background:transparent;font-family:'+(depth===0?'var(--fd)':'var(--fm)')+';font-size:'+(depth===0?12:11)+'px;font-weight:'+(depth===0?800:500)+';color:'+(n.done?'var(--text3)':'var(--text)')+';text-decoration:'+(n.done?'line-through':'none')+'">';
+    // badges
+    if(kids.length){
+      h+='<span style="flex-shrink:0;font-family:var(--fm);font-size:8px;font-weight:700;color:var(--text3);background:rgba(15,23,42,.06);padding:2px 6px;border-radius:9px">'+st.total+'</span>';
+      h+='<span style="flex-shrink:0;font-family:var(--fm);font-size:8px;font-weight:700;color:'+(pct>=70?'var(--green)':pct>=30?'var(--warn)':'var(--text3)')+'">'+pct+'%</span>';
+    }
+    // actions
+    h+='<span onclick="toggleBizNodePanel(\''+ei+'_'+path.replace(/\./g,'_')+'\')" title="Note / ছবি" style="cursor:pointer;flex-shrink:0;font-size:12px;opacity:'+((hasNotes||imgCount)?'1':'.35')+'">\u{1F4C4}</span>';
+    if(imgCount) h+='<span style="flex-shrink:0;font-family:var(--fm);font-size:8px;color:var(--cyan)">'+imgCount+'</span>';
+    h+='<span onclick="addBizTreeNode('+ei+',\''+path+'\')" title="সাব-বিষয় যোগ" style="cursor:pointer;flex-shrink:0;font-size:13px;color:var(--cyan);font-weight:700">+</span>';
+    h+='<span onclick="moveBizTreeNode('+ei+',\''+path+'\',-1)" title="উপরে" style="cursor:pointer;flex-shrink:0;font-size:9px;color:var(--text3)">▲</span>';
+    h+='<span onclick="moveBizTreeNode('+ei+',\''+path+'\',1)" title="নিচে" style="cursor:pointer;flex-shrink:0;font-size:9px;color:var(--text3)">▼</span>';
+    h+='<span onclick="deleteBizTreeNode('+ei+',\''+path+'\')" title="মুছুন" style="cursor:pointer;flex-shrink:0;font-size:11px;color:var(--red)">✕</span>';
+    h+='</div>';
+    // Note + image panel (hidden by default; toggled without re-render so typing is never interrupted)
+    var pid = ei+'_'+path.replace(/\./g,'_');
+    h+='<div id="bizPanel_'+pid+'" style="display:'+((hasNotes||imgCount)?'block':'none')+';margin:0 0 8px 34px;padding:10px;background:rgba(15,23,42,.03);border-radius:8px">';
+    h+='<textarea onblur="saveBizTreeNotes('+ei+',\''+path+'\',this.value)" rows="3" placeholder="এই বিষয়ে বিস্তারিত নোট লিখুন..." style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-family:var(--fm);font-size:11px;resize:vertical;background:#fff">'+esc(n.notes||'')+'</textarea>';
+    h+='<div style="margin-top:8px">'+renderBizImageGallery(n.images||[], "bizNodeImgAdd("+ei+",'"+path+"',this)", "bizNodeImgRemove("+ei+",'"+path+"',{i})", 'ছবি যোগ')+'</div>';
+    h+='</div>';
+    // Children
+    if(kids.length && !n.collapsed){ h+=renderBizTreeNodes(ei, kids, path, depth+1); }
+    h+='</div>';
+  });
+  return h;
+}
+
+function toggleBizNodePanel(pid){
+  var el = document.getElementById('bizPanel_'+pid);
+  if(el) el.style.display = (el.style.display==='none') ? 'block' : 'none';
+}
+
+// ── Tree handlers ──
+function addBizTreeNode(ei, path){
+  var eng = bizEngineRec(ei); if(!eng) return;
+  if(path===''){ eng.strategyTree.push(bizNewNode()); }
+  else {
+    var r = bizTreeResolve(eng.strategyTree, path); if(!r.node) return;
+    if(!r.node.children) r.node.children=[];
+    r.node.children.push(bizNewNode());
+    r.node.collapsed = false;
+  }
+  saveDB(); syncToFirebase(); renderBizEnginePage(ei);
+}
+function deleteBizTreeNode(ei, path){
+  var eng = bizEngineRec(ei); if(!eng) return;
+  var r = bizTreeResolve(eng.strategyTree, path); if(!r.node) return;
+  var st = bizTreeStats(r.node.children||[]);
+  var msg = st.total>0 ? ('এই বিষয় ও এর ভিতরের '+st.total+'টি সাব-বিষয় মুছে যাবে। নিশ্চিত?') : 'এই বিষয়টি মুছবেন?';
+  if(!confirm(msg)) return;
+  r.arr.splice(r.idx,1);
+  saveDB(); syncToFirebase(); renderBizEnginePage(ei);
+}
+function moveBizTreeNode(ei, path, dir){
+  var eng = bizEngineRec(ei); if(!eng) return;
+  var r = bizTreeResolve(eng.strategyTree, path); if(!r.node) return;
+  var ni = r.idx + dir;
+  if(ni<0 || ni>=r.arr.length) return;
+  var tmp = r.arr[ni]; r.arr[ni]=r.arr[r.idx]; r.arr[r.idx]=tmp;
+  saveDB(); syncToFirebase(); renderBizEnginePage(ei);
+}
+function toggleBizTreeCollapse(ei, path){
+  var eng = bizEngineRec(ei); if(!eng) return;
+  var r = bizTreeResolve(eng.strategyTree, path); if(!r.node) return;
+  r.node.collapsed = !r.node.collapsed;
+  saveDB(); syncToFirebase(); renderBizEnginePage(ei);
+}
+function toggleBizTreeDone(ei, path){
+  var eng = bizEngineRec(ei); if(!eng) return;
+  var r = bizTreeResolve(eng.strategyTree, path); if(!r.node) return;
+  r.node.done = !r.node.done;
+  saveDB(); syncToFirebase(); renderBizEnginePage(ei);
+}
+// Quiet saves — no re-render, so focus/typing is never disturbed
+function saveBizTreeTitle(ei, path, val){
+  var eng = bizEngineRec(ei); if(!eng) return;
+  var r = bizTreeResolve(eng.strategyTree, path); if(!r.node) return;
+  r.node.title = val; saveDB(); syncToFirebase();
+}
+function saveBizTreeNotes(ei, path, val){
+  var eng = bizEngineRec(ei); if(!eng) return;
+  var r = bizTreeResolve(eng.strategyTree, path); if(!r.node) return;
+  r.node.notes = val; saveDB(); syncToFirebase();
+}
+function saveBizEngineNote(ei, val){
+  var eng = bizEngineRec(ei); if(!eng) return;
+  eng.notes = val; saveDB(); syncToFirebase();
+}
+function saveBizEngineTitleFromPage(ei, val){
+  var eng = bizEngineRec(ei); if(!eng) return;
+  eng.title = val; saveDB(); syncToFirebase();
+}
+
+// ── Engine-level image handlers ──
+function bizEngImg_add(inp){
+  var f = inp.files && inp.files[0]; inp.value='';
+  var ei = _bizEngineIdx;
+  bizCompressImage(f, function(meta){
+    bizStoreImage(meta, function(id){
+      var eng = bizEngineRec(ei); if(!eng) return;
+      eng.images.push(id);
+      saveDB(); syncToFirebase(); renderBizEnginePage(ei);
+      notify('✅ ছবি যোগ হয়েছে');
+    });
+  });
+}
+function bizEngImg_remove(ix){
+  if(!confirm('ছবিটি সরাবেন?')) return;
+  var ei = _bizEngineIdx;
+  var eng = bizEngineRec(ei); if(!eng) return;
+  eng.images.splice(ix,1);
+  saveDB(); syncToFirebase(); renderBizEnginePage(ei);
+}
+
+// ── Node-level image handlers (proxied: gallery builds bizNodeImg_<ei>_<path with $>) ──
+function bizNodeImgAdd(ei, path, inp){
+  var f = inp.files && inp.files[0]; inp.value='';
+  bizCompressImage(f, function(meta){
+    bizStoreImage(meta, function(id){
+      var eng = bizEngineRec(ei); if(!eng) return;
+      var r = bizTreeResolve(eng.strategyTree, path); if(!r.node) return;
+      if(!r.node.images) r.node.images=[];
+      r.node.images.push(id);
+      saveDB(); syncToFirebase(); renderBizEnginePage(ei);
+      notify('✅ ছবি যোগ হয়েছে');
+    });
+  });
+}
+function bizNodeImgRemove(ei, path, ix){
+  if(!confirm('ছবিটি সরাবেন?')) return;
+  var eng = bizEngineRec(ei); if(!eng) return;
+  var r = bizTreeResolve(eng.strategyTree, path); if(!r.node) return;
+  (r.node.images||[]).splice(ix,1);
+  saveDB(); syncToFirebase(); renderBizEnginePage(ei);
+}
 function renderPushOpportunities(){
   var el=document.getElementById('pushOppSection'); if(!el) return;
   var opps = getPushOpportunities();
