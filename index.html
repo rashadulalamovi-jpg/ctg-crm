@@ -1109,6 +1109,7 @@ function getScoreColor(s){ return s>=85?'#fbbf24':s>=70?'var(--green)':s>=55?'va
 function invCls(s){ return {completed:'i-comp',transit:'i-tran',due:'i-due',cancelled:'i-canc'}[s]||'i-canc'; }
 function invLabel(s){ return {completed:'\u2705 Completed',transit:'\u{1F69A} In Transit',due:'\u{1F4B3} Payment Due',cancelled:'\u274C Cancelled'}[s]||s; }
 function esc(s){ return String(s||'').replace(/'/g,"\\'"); }
+function escHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function notify(msg,err){
   const n=document.getElementById('notif'); if(!n) return;
   n.textContent=msg;
@@ -5682,7 +5683,7 @@ function renderBizSystem(){
     h+=bizHealthDot(health);
     h+='</div>';
     h+='<div style="font-family:var(--fd);font-size:13px;font-weight:800;color:var(--text);margin-bottom:3px">'+f.name+'</div>';
-    h+='<div style="font-size:9px;color:var(--text3);margin-bottom:8px">\u{1F464} '+esc(rec.owner||'Unassigned')+'</div>';
+    h+='<div style="font-size:9px;color:var(--text3);margin-bottom:8px">\u{1F464} '+escHtml(rec.owner||'Unassigned')+'</div>';
     if(openTasks>0) h+='<div style="font-family:var(--fm);font-size:9px;font-weight:700;color:var(--orange);background:rgba(249,115,22,.1);display:inline-block;padding:2px 8px;border-radius:4px">'+openTasks+' open task'+(openTasks>1?'s':'')+'</div>';
     else h+='<div style="font-size:9px;color:var(--text3)">—</div>';
     h+='</div>';
@@ -5774,13 +5775,13 @@ function renderBizDetail(key){
   // Owner
   h+='<div style="margin-bottom:16px">';
   h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:5px">\u{1F464} Owner / Responsible</div>';
-  h+='<input type="text" value="'+esc(rec.owner||'')+'" onblur="saveBizOwner(\''+key+'\',this.value)" style="width:260px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-family:var(--fm);font-size:12px">';
+  h+='<input type="text" value="'+escHtml(rec.owner||'')+'" onblur="saveBizOwner(\''+key+'\',this.value)" style="width:260px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-family:var(--fm);font-size:12px">';
   h+='</div>';
 
   // Strategy Notes
   h+='<div style="margin-bottom:18px">';
   h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:5px">\u{1F4DD} Strategy Notes</div>';
-  h+='<textarea onblur="saveBizStrategy(\''+key+'\',this.value)" rows="4" placeholder="এই function-এর জন্য strategy / নোট লিখুন..." style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:var(--fm);font-size:12px;resize:vertical">'+esc(rec.strategy||'')+'</textarea>';
+  h+='<textarea onblur="saveBizStrategy(\''+key+'\',this.value)" rows="4" placeholder="এই function-এর জন্য strategy / নোট লিখুন..." style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:var(--fm);font-size:12px;resize:vertical">'+escHtml(rec.strategy||'')+'</textarea>';
   h+='</div>';
 
   // Business Model special: hero image + 3 Engines (Build-27)
@@ -5832,13 +5833,13 @@ function renderBizModelEngines(rec){
   (rec.engines||[]).forEach(function(eng,ei){
     h+='<div style="background:rgba(15,23,42,.03);border-radius:10px;padding:12px">';
     h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
-    h+='<input type="text" value="'+esc(eng.title||'')+'" onblur="saveBizEngineTitle('+ei+',this.value)" style="font-family:var(--fd);font-size:11px;font-weight:800;color:var(--text);border:none;background:transparent;width:80%">';
+    h+='<input type="text" value="'+escHtml(eng.title||'')+'" onblur="saveBizEngineTitle('+ei+',this.value)" style="font-family:var(--fd);font-size:11px;font-weight:800;color:var(--text);border:none;background:transparent;width:80%">';
     h+='<span onclick="removeBizEngine('+ei+')" style="cursor:pointer;color:var(--red);font-size:13px" title="Remove engine">✕</span>';
     h+='</div>';
     (eng.fields||[]).forEach(function(fld,fi){
       h+='<div style="display:flex;gap:6px;margin-bottom:5px;align-items:flex-start">';
-      h+='<input type="text" value="'+esc(fld.label||'')+'" onblur="saveBizEngineField('+ei+','+fi+',\'label\',this.value)" style="width:80px;flex-shrink:0;font-family:var(--fd);font-size:9px;font-weight:700;color:var(--text3);border:none;background:transparent">';
-      h+='<textarea onblur="saveBizEngineField('+ei+','+fi+',\'value\',this.value)" rows="1" style="flex:1;font-family:var(--fm);font-size:10px;color:var(--text);border:1px solid var(--border);border-radius:5px;padding:3px 6px;resize:vertical">'+esc(fld.value||'')+'</textarea>';
+      h+='<input type="text" value="'+escHtml(fld.label||'')+'" onblur="saveBizEngineField('+ei+','+fi+',\'label\',this.value)" style="width:80px;flex-shrink:0;font-family:var(--fd);font-size:9px;font-weight:700;color:var(--text3);border:none;background:transparent">';
+      h+='<textarea onblur="saveBizEngineField('+ei+','+fi+',\'value\',this.value)" rows="1" style="flex:1;font-family:var(--fm);font-size:10px;color:var(--text);border:1px solid var(--border);border-radius:5px;padding:3px 6px;resize:vertical">'+escHtml(fld.value||'')+'</textarea>';
       h+='<span onclick="removeBizEngineField('+ei+','+fi+')" style="cursor:pointer;color:var(--text3);font-size:11px;padding-top:3px" title="Remove field">✕</span>';
       h+='</div>';
     });
@@ -5856,7 +5857,7 @@ function renderBizModelEngines(rec){
   h+='<div onclick="addBizEngine()" style="cursor:pointer;font-size:10px;color:var(--cyan);margin-top:10px;font-weight:700">+ নতুন Engine যোগ করুন</div>';
   h+='<div style="margin-top:14px;background:rgba(52,211,153,.08);border-radius:8px;padding:10px">';
   h+='<div style="font-size:8px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:4px">∑ Summary Formula</div>';
-  h+='<textarea onblur="saveBizModelFormula(this.value)" rows="2" style="width:100%;border:none;background:transparent;font-family:var(--fm);font-size:11px;font-weight:700;color:var(--green);resize:vertical">'+esc(rec.summaryFormula||'')+'</textarea>';
+  h+='<textarea onblur="saveBizModelFormula(this.value)" rows="2" style="width:100%;border:none;background:transparent;font-family:var(--fm);font-size:11px;font-weight:700;color:var(--green);resize:vertical">'+escHtml(rec.summaryFormula||'')+'</textarea>';
   h+='</div>';
   return h;
 }
@@ -5870,8 +5871,8 @@ function renderBizTasksSection(key, rec){
     h+='<th style="padding:5px 6px">Action / কী শিখব-করব</th><th style="padding:5px 6px">Owner</th><th style="padding:5px 6px">Deadline</th><th style="padding:5px 6px">Status</th><th></th></tr></thead><tbody>';
     tasks.forEach(function(t,ti){
       h+='<tr style="border-top:1px solid var(--border)">';
-      h+='<td style="padding:5px 6px"><input type="text" value="'+esc(t.text||'')+'" onblur="saveBizTaskField(\''+key+'\','+ti+',\'text\',this.value)" style="width:100%;border:none;background:transparent;font-family:var(--fm);font-size:11px"></td>';
-      h+='<td style="padding:5px 6px"><input type="text" value="'+esc(t.owner||'')+'" onblur="saveBizTaskField(\''+key+'\','+ti+',\'owner\',this.value)" style="width:90px;border:none;background:transparent;font-family:var(--fm);font-size:10px"></td>';
+      h+='<td style="padding:5px 6px"><input type="text" value="'+escHtml(t.text||'')+'" onblur="saveBizTaskField(\''+key+'\','+ti+',\'text\',this.value)" style="width:100%;border:none;background:transparent;font-family:var(--fm);font-size:11px"></td>';
+      h+='<td style="padding:5px 6px"><input type="text" value="'+escHtml(t.owner||'')+'" onblur="saveBizTaskField(\''+key+'\','+ti+',\'owner\',this.value)" style="width:90px;border:none;background:transparent;font-family:var(--fm);font-size:10px"></td>';
       h+='<td style="padding:5px 6px"><input type="date" value="'+(t.deadline||'')+'" onchange="saveBizTaskField(\''+key+'\','+ti+',\'deadline\',this.value)" style="border:none;background:transparent;font-family:var(--fm);font-size:10px"></td>';
       h+='<td style="padding:5px 6px"><select onchange="saveBizTaskField(\''+key+'\','+ti+',\'status\',this.value)" style="font-family:var(--fd);font-size:9px;font-weight:700;border:none;background:transparent;color:'+(t.status==='done'?'var(--green)':t.status==='inprogress'?'var(--warn)':'var(--text3)')+'">';
       ['todo','inprogress','done'].forEach(function(st){
@@ -6114,7 +6115,7 @@ function renderBizEnginePage(ei){
   h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px;flex-wrap:wrap">';
   h+='<div style="flex:1;min-width:220px">';
   h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:3px">\u{1F3D7}️ Engine Strategy</div>';
-  h+='<input type="text" value="'+esc(eng.title||'')+'" onblur="saveBizEngineTitleFromPage('+ei+',this.value)" style="font-family:var(--fd);font-size:19px;font-weight:800;color:var(--text);border:none;background:transparent;width:100%">';
+  h+='<input type="text" value="'+escHtml(eng.title||'')+'" onblur="saveBizEngineTitleFromPage('+ei+',this.value)" style="font-family:var(--fd);font-size:19px;font-weight:800;color:var(--text);border:none;background:transparent;width:100%">';
   h+='</div>';
   h+='<button onclick="closeBizEngine()" style="background:rgba(15,23,42,.05);border:none;border-radius:6px;padding:6px 14px;font-family:var(--fd);font-size:11px;font-weight:700;color:var(--text2);cursor:pointer">← Business Model</button>';
   h+='</div>';
@@ -6134,7 +6135,7 @@ function renderBizEnginePage(ei){
   // Engine-level notes
   h+='<div style="margin-bottom:18px">';
   h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:5px">\u{1F4DD} Engine Overview Note</div>';
-  h+='<textarea onblur="saveBizEngineNote('+ei+',this.value)" rows="3" placeholder="এই Engine সম্পর্কে সামগ্রিক নোট..." style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:var(--fm);font-size:12px;resize:vertical">'+esc(eng.notes||'')+'</textarea>';
+  h+='<textarea onblur="saveBizEngineNote('+ei+',this.value)" rows="3" placeholder="এই Engine সম্পর্কে সামগ্রিক নোট..." style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:var(--fm);font-size:12px;resize:vertical">'+escHtml(eng.notes||'')+'</textarea>';
   h+='</div>';
   // Tree
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
@@ -6168,14 +6169,14 @@ function renderBizTreeNodes(ei, nodes, parentPath, depth){
     // done toggle
     h+='<span onclick="toggleBizTreeDone('+ei+',\''+path+'\')" title="Done" style="cursor:pointer;flex-shrink:0;width:16px;height:16px;border-radius:50%;border:1.5px solid '+(n.done?'var(--green)':'var(--border)')+';background:'+(n.done?'var(--green)':'transparent')+';display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff">'+(n.done?'✓':'')+'</span>';
     // title
-    h+='<input type="text" value="'+esc(n.title||'')+'" placeholder="বিষয় লিখুন..." onblur="saveBizTreeTitle('+ei+',\''+path+'\',this.value)" style="flex:1;min-width:60px;border:none;background:transparent;font-family:'+(depth===0?'var(--fd)':'var(--fm)')+';font-size:'+(depth===0?12:11)+'px;font-weight:'+(depth===0?800:500)+';color:'+(n.done?'var(--text3)':'var(--text)')+';text-decoration:'+(n.done?'line-through':'none')+'">';
+    h+='<input type="text" value="'+escHtml(n.title||'')+'" placeholder="বিষয় লিখুন..." onblur="saveBizTreeTitle('+ei+',\''+path+'\',this.value)" style="flex:1;min-width:60px;border:none;background:transparent;font-family:'+(depth===0?'var(--fd)':'var(--fm)')+';font-size:'+(depth===0?12:11)+'px;font-weight:'+(depth===0?800:500)+';color:'+(n.done?'var(--text3)':'var(--text)')+';text-decoration:'+(n.done?'line-through':'none')+'">';
     // badges
     if(kids.length){
       h+='<span style="flex-shrink:0;font-family:var(--fm);font-size:8px;font-weight:700;color:var(--text3);background:rgba(15,23,42,.06);padding:2px 6px;border-radius:9px">'+st.total+'</span>';
       h+='<span style="flex-shrink:0;font-family:var(--fm);font-size:8px;font-weight:700;color:'+(pct>=70?'var(--green)':pct>=30?'var(--warn)':'var(--text3)')+'">'+pct+'%</span>';
     }
     // actions
-    h+='<span onclick="toggleBizNodePanel(\''+ei+'_'+path.replace(/\./g,'_')+'\')" title="Note / ছবি" style="cursor:pointer;flex-shrink:0;font-size:12px;opacity:'+((hasNotes||imgCount)?'1':'.35')+'">\u{1F4C4}</span>';
+    h+='<span onclick="toggleBizNodePanel(\''+ei+'_'+path.replace(/\./g,'_')+'\')" title="Note / ছবি" style="cursor:pointer;flex-shrink:0;font-size:12px;opacity:'+((hasNotes||imgCount)?'1':'.3')+';'+((hasNotes||imgCount)?'filter:none':'filter:grayscale(1)')+'">\u{1F4C4}</span>';
     if(imgCount) h+='<span style="flex-shrink:0;font-family:var(--fm);font-size:8px;color:var(--cyan)">'+imgCount+'</span>';
     h+='<span onclick="addBizTreeNode('+ei+',\''+path+'\')" title="সাব-বিষয় যোগ" style="cursor:pointer;flex-shrink:0;font-size:13px;color:var(--cyan);font-weight:700">+</span>';
     h+='<span onclick="moveBizTreeNode('+ei+',\''+path+'\',-1)" title="উপরে" style="cursor:pointer;flex-shrink:0;font-size:9px;color:var(--text3)">▲</span>';
@@ -6184,8 +6185,8 @@ function renderBizTreeNodes(ei, nodes, parentPath, depth){
     h+='</div>';
     // Note + image panel (hidden by default; toggled without re-render so typing is never interrupted)
     var pid = ei+'_'+path.replace(/\./g,'_');
-    h+='<div id="bizPanel_'+pid+'" style="display:'+((hasNotes||imgCount)?'block':'none')+';margin:0 0 8px 34px;padding:10px;background:rgba(15,23,42,.03);border-radius:8px">';
-    h+='<textarea onblur="saveBizTreeNotes('+ei+',\''+path+'\',this.value)" rows="3" placeholder="এই বিষয়ে বিস্তারিত নোট লিখুন..." style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-family:var(--fm);font-size:11px;resize:vertical;background:#fff">'+esc(n.notes||'')+'</textarea>';
+    h+='<div id="bizPanel_'+pid+'" style="display:none;margin:0 0 8px 34px;padding:10px;background:rgba(15,23,42,.03);border-radius:8px">';
+    h+='<textarea onblur="saveBizTreeNotes('+ei+',\''+path+'\',this.value)" rows="3" placeholder="এই বিষয়ে বিস্তারিত নোট লিখুন..." style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-family:var(--fm);font-size:11px;resize:vertical;background:#fff">'+escHtml(n.notes||'')+'</textarea>';
     h+='<div style="margin-top:8px">'+renderBizImageGallery(n.images||[], "bizNodeImgAdd("+ei+",'"+path+"',this)", "bizNodeImgRemove("+ei+",'"+path+"',{i})", 'ছবি যোগ')+'</div>';
     h+='</div>';
     // Children
