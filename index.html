@@ -6023,11 +6023,11 @@ function renderBizImageGallery(ids, addCall, removeCallTpl, placeholder, size){
   var note = size==='note';
   var h='<div>';
   if(ids && ids.length){
-    h+='<div style="display:'+((big||note)?'block':'flex')+';flex-wrap:wrap;gap:8px;margin-bottom:8px">';
+    h+='<div style="'+(big?'width:100%;text-align:center;background:rgba(15,23,42,.03);border-radius:10px;padding:8px;':'')+'display:'+((big||note)?'block':'flex')+';flex-wrap:wrap;gap:8px;margin-bottom:8px">';
     ids.forEach(function(id,ix){
       var src = bizImgSrc(id);
-      h+='<div style="position:relative;display:inline-block;vertical-align:top;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff'+((big||note)?';margin-bottom:8px':'')+'">';
-      if(src) h+='<img src="'+src+'" onclick="bizOpenImageViewer(\''+id+'\')" style="display:block;'+(big?'max-width:100%;max-height:300px;':note?'max-width:100%;max-height:260px;':'max-width:160px;max-height:120px;')+'cursor:zoom-in" title="\u0995\u09cd\u09b2\u09bf\u0995 \u0995\u09b0\u09c7 \u09ac\u09a1\u09bc \u0995\u09b0\u09c1\u09a8">';
+      h+='<div style="position:relative;display:inline-block;vertical-align:top;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff'+((big||note)?';margin-bottom:8px':'')+(big?';max-width:100%':'')+'">';
+      if(src) h+='<img src="'+src+'" onclick="bizOpenImageViewer(\''+id+'\')" style="display:block;'+(big?'max-width:100%;max-height:420px;':note?'max-width:100%;max-height:260px;':'max-width:160px;max-height:120px;')+'cursor:zoom-in" title="\u0995\u09cd\u09b2\u09bf\u0995 \u0995\u09b0\u09c7 \u09aa\u09c1\u09b0\u09cb \u09b8\u09cd\u0995\u09cd\u09b0\u09bf\u09a8\u09c7 \u09a6\u09c7\u0996\u09c1\u09a8">';
       else    h+='<div style="padding:18px 22px;font-size:10px;color:var(--text3)">⏳ ছবি load হচ্ছে…</div>';
       h+='<span onclick="'+removeCallTpl.split('{i}').join(ix)+'" title="Remove" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer">✕</span>';
       h+='</div>';
