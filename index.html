@@ -3831,6 +3831,7 @@ function getCashRotationDays(windowDays){
     });
   });
   var dhbsWeightedSum=0, dhbsQty=0;
+  var _dhbsB = {d21:0, d45:0, d60:0, over:0};
   Object.keys(byModelItems).forEach(function(key){
     var queue = byModelBatches[key]||[];
     var items = byModelItems[key].slice().sort(function(a,b){return new Date(a.invDate||'')-new Date(b.invDate||'');});
@@ -3850,6 +3851,11 @@ function getCashRotationDays(windowDays){
             var dhbs = Math.max(0, Math.round((invTime-batchTime)/86400000));
             dhbsWeightedSum += dhbs*chunk;
             dhbsQty += chunk;
+            // Build-34: bucket each unit by how long it sat, so the 21-day target can be scored
+            if(dhbs<=21) _dhbsB.d21+=chunk;
+            else if(dhbs<=45) _dhbsB.d45+=chunk;
+            else if(dhbs<=60) _dhbsB.d60+=chunk;
+            else _dhbsB.over+=chunk;
           }
         }
         if(batch.remaining<=0) qi++;
@@ -3876,7 +3882,9 @@ function getCashRotationDays(windowDays){
   var avgDSO = dsoCount>0 ? Math.round((dsoSum/dsoCount)*10)/10 : null;
 
   var cashRotation = (avgDHBS!==null && avgDSO!==null) ? Math.round((avgDHBS+avgDSO)*10)/10 : null;
-  return {avgDHBS:avgDHBS, avgDSO:avgDSO, cashRotation:cashRotation, dhbsSampleQty:dhbsQty, dsoSampleInvoices:dsoCount, windowDays:windowDays};
+  var within21Pct = dhbsQty>0 ? Math.round(_dhbsB.d21/dhbsQty*100) : null;
+  return {avgDHBS:avgDHBS, avgDSO:avgDSO, cashRotation:cashRotation, dhbsSampleQty:dhbsQty, dsoSampleInvoices:dsoCount, windowDays:windowDays,
+          dhbsBuckets:_dhbsB, within21Pct:within21Pct};
 }
 
 function renderStockTable(){
@@ -5460,16 +5468,16 @@ function ensureBizSystemDefaults(){
   if(!db.businessSystem) db.businessSystem = {};
   if(!db.businessSystem.functions) db.businessSystem.functions = {};
   BIZ_FUNCTIONS.forEach(function(f){
-    if(!db.businessSystem.functions[f.key]){
-      db.businessSystem.functions[f.key] = { strategy:'', owner:f.defOwner, tasks:[], modelImages:[], learningTree:[] };
-    } else {
-      var rec = db.businessSystem.functions[f.key];
-      if(rec.strategy===undefined) rec.strategy='';
-      if(!rec.owner) rec.owner=f.defOwner;
-      if(!rec.tasks) rec.tasks=[];
-      if(!rec.modelImages) rec.modelImages=[];   // Build-30: image for every function
-      if(!rec.learningTree) rec.learningTree=[]; // Build-31: Learning Zone for every function
-    }
+    if(!db.businessSystem.functions[f.key]) db.businessSystem.functions[f.key] = {};
+    // these run for BOTH a brand-new record and an existing one, so a fresh install is
+    // never missing an array the UI expects
+    var rec = db.businessSystem.functions[f.key];
+    if(rec.strategy===undefined) rec.strategy='';
+    if(!rec.owner) rec.owner=f.defOwner;
+    if(!rec.tasks) rec.tasks=[];
+    if(!rec.modelImages) rec.modelImages=[];   // Build-30: image for every function
+    if(!rec.learningTree) rec.learningTree=[]; // Build-31: Learning Zone for every function
+    if(!rec.strategyTree) rec.strategyTree=[]; // Build-34: Systems tree for every function
   });
   // Business Model: pre-populate the 3-Engine structure from the owner's sample, only if not already set
   var bm = db.businessSystem.functions.bizmodel;
@@ -5812,6 +5820,165 @@ function getBizPurchaseQtyGuide(){
   return rows.length ? rows : null;
 }
 
+
+// ══════════════════════════════════════════════════════════
+// BUILD-34 — Stock & Cash Intelligence (real data only)
+// Answers two questions the owner asked: how many days does our stock ACTUALLY take to
+// sell, and how much of the 21-day target are we hitting? Sourced from the same Stock
+// Ageing batches and invoice history the Stock Ageing Tracker uses.
+// ══════════════════════════════════════════════════════════
+function getBizStockCashIntel(){
+  if(typeof stockDB==='undefined' || !stockDB.batches || !stockDB.batches.length) return null;
+  var rot = getCashRotationDays(60);
+  var fifo = computeBatchFifoSold();
+  var TARGET = 21;
+
+  // Current stock on hand, bucketed by how long it has been sitting
+  var defs = [
+    {key:'onTarget', label:'২১ দিনের ভিতরে', days:'0–21', color:'var(--green)', f:function(a){return a<=21;}},
+    {key:'late',     label:'লক্ষ্য ছাড়িয়েছে', days:'22–45', color:'var(--warn)', f:function(a){return a>21&&a<=45;}},
+    {key:'slow',     label:'ধীর', days:'46–60', color:'var(--orange)', f:function(a){return a>45&&a<=60;}},
+    {key:'locked',   label:'Capital Lock', days:'60+', color:'var(--red)', f:function(a){return a>60;}}
+  ];
+  var buckets = defs.map(function(d){
+    var bs = stockDB.batches.filter(function(b){ return d.f(getAge(b.entryDate)) && sellableAvail(b,fifo)>0; });
+    var pcs = bs.reduce(function(a,b){ return a+sellableAvail(b,fifo); },0);
+    var cap = bs.reduce(function(a,b){ return a+sellableAvail(b,fifo)*(b.costPerPc||0); },0);
+    return {key:d.key, label:d.label, days:d.days, color:d.color, pcs:pcs, capital:cap};
+  });
+  var totalPcs = buckets.reduce(function(a,b){return a+b.pcs;},0);
+  var totalCap = buckets.reduce(function(a,b){return a+b.capital;},0);
+  if(totalPcs===0 && rot.avgDHBS===null) return null;
+
+  var onTargetPcs = buckets[0].pcs;
+  var stockOnTargetPct = totalPcs>0 ? Math.round(onTargetPcs/totalPcs*100) : null;
+  var lockedCapital = buckets[2].capital + buckets[3].capital;
+
+  // Verdict against the 21-day rule
+  var sold21 = rot.within21Pct;
+  var verdict, vColor;
+  if(sold21===null){ verdict='ডেটা অপর্যাপ্ত'; vColor='var(--text3)'; }
+  else if(sold21>=70){ verdict='লক্ষ্য পূরণ হচ্ছে'; vColor='var(--green)'; }
+  else if(sold21>=40){ verdict='আংশিক — গতি বাড়াতে হবে'; vColor='var(--warn)'; }
+  else { verdict='লক্ষ্য পূরণ হচ্ছে না'; vColor='var(--red)'; }
+
+  return {
+    target: TARGET,
+    avgDHBS: rot.avgDHBS, avgDSO: rot.avgDSO, cashRotation: rot.cashRotation,
+    within21Pct: sold21, dhbsBuckets: rot.dhbsBuckets, sampleQty: rot.dhbsSampleQty,
+    windowDays: rot.windowDays,
+    buckets: buckets, totalPcs: totalPcs, totalCapital: totalCap,
+    stockOnTargetPct: stockOnTargetPct, lockedCapital: lockedCapital,
+    gapDays: rot.avgDHBS===null ? null : Math.round((rot.avgDHBS-TARGET)*10)/10,
+    verdict: verdict, verdictColor: vColor
+  };
+}
+
+
+// Build-34: the cross-pillar "Systems" tree, available on every function page
+function renderBizSystemsTree(key, rec){
+  if(!rec.strategyTree) rec.strategyTree = [];
+  var st = bizTreeStats(rec.strategyTree);
+  var pct = st.total>0 ? Math.round(st.done/st.total*100) : 0;
+  var spanLabel = (key==='purchase') ? 'চার Gate জুড়ে চলে'
+                : (key==='bizmodel') ? 'তিন Engine জুড়ে চলে'
+                : 'এই function জুড়ে চলে';
+  var h='<div style="margin-bottom:22px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">';
+  h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">⚙️ Business Systems <span style="text-transform:none;font-weight:500">('+spanLabel+')</span></div>';
+  h+='<div style="display:flex;align-items:center;gap:12px">';
+  if(st.total>0) h+='<span style="font-family:var(--fm);font-size:11px;font-weight:700;color:'+(pct>=70?'var(--green)':pct>=30?'var(--warn)':'var(--text3)')+'">'+st.done+'/'+st.total+' · '+pct+'%</span>';
+  h+='<span onclick="addBizTreeNode(-1,\'\')" style="cursor:pointer;font-size:12px;font-weight:700;color:var(--cyan)">+ নতুন System</span>';
+  h+='</div></div>';
+  if(!rec.strategyTree.length){
+    h+='<div style="font-size:12px;color:var(--text3);padding:12px;background:rgba(15,23,42,.03);border-radius:8px">এখনো কোনো system যোগ করা হয়নি।</div>';
+  } else {
+    h+=renderBizTreeNodes(-1, rec.strategyTree, '', 0);
+  }
+  h+='</div>';
+  return h;
+}
+
+function renderBizStockCashIntel(){
+  var d = getBizStockCashIntel();
+  var h='<div style="margin-bottom:22px">';
+  h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px">\u{1F4E6} Stock & Cash Intelligence</div>';
+  h+='<div style="font-size:11px;color:var(--text3);margin-bottom:12px">Stock Ageing Tracker ও Invoice history থেকে সরাসরি — স্টক সত্যিকারে কত দিনে বিক্রি হচ্ছে, আর ২১ দিনের লক্ষ্য কতটুকু পূরণ হচ্ছে</div>';
+  if(!d){
+    h+='<div style="font-size:12px;color:var(--text3);padding:14px;background:rgba(15,23,42,.03);border-radius:10px">⚠️ Stock বা Invoice ডেটা এখনো নেই — এন্ট্রি হলে হিসাব দেখাবে।</div></div>';
+    return h;
+  }
+  // Hero: the one number that matters
+  var pct = d.within21Pct;
+  h+='<div style="background:linear-gradient(135deg,rgba(15,23,42,.96),rgba(30,41,59,.96));border-radius:14px;padding:20px;margin-bottom:12px">';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:space-between">';
+  h+='<div style="min-width:210px">';
+  h+='<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gold);margin-bottom:6px">\u{1F3AF} ২১ দিনের লক্ষ্য</div>';
+  h+='<div style="font-family:var(--fm);font-size:44px;font-weight:800;line-height:1;color:'+d.verdictColor+'">'+(pct===null?'—':pct+'%')+'</div>';
+  h+='<div style="font-size:12px;color:rgba(255,255,255,.75);margin-top:6px">স্টক ২১ দিনের মধ্যেই বিক্রি হয়েছে</div>';
+  h+='<div style="font-family:var(--fd);font-size:13px;font-weight:800;color:'+d.verdictColor+';margin-top:8px">'+d.verdict+'</div>';
+  h+='</div>';
+  // the day numbers
+  function dayCard(label, val, unit, color, sub){
+    var x='<div style="min-width:130px">';
+    x+='<div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:rgba(255,255,255,.55);margin-bottom:4px">'+label+'</div>';
+    x+='<div style="font-family:var(--fm);font-size:26px;font-weight:800;color:'+(color||'#fff')+'">'+(val===null?'—':val)+'<span style="font-size:13px;font-weight:600;color:rgba(255,255,255,.6)"> '+unit+'</span></div>';
+    if(sub) x+='<div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:3px">'+sub+'</div>';
+    x+='</div>';
+    return x;
+  }
+  h+=dayCard('বাস্তব বিক্রয়', d.avgDHBS, 'দিন', d.avgDHBS===null?null:(d.avgDHBS<=21?'var(--green)':'var(--red)'), 'স্টক আসা → বিক্রি');
+  h+=dayCard('টাকা ফেরত', d.avgDSO, 'দিন', null, 'ইনভয়স → প্রথম পেমেন্ট');
+  h+=dayCard('Cash Rotation', d.cashRotation, 'দিন', null, 'মোট চক্র');
+  h+=dayCard('লক্ষ্যের থেকে', d.gapDays===null?null:((d.gapDays>0?'+':'')+d.gapDays), 'দিন', d.gapDays===null?null:(d.gapDays<=0?'var(--green)':'var(--red)'), d.gapDays===null?'':(d.gapDays>0?'দেরি':'এগিয়ে'));
+  h+='</div>';
+  if(d.sampleQty) h+='<div style="font-size:10px;color:rgba(255,255,255,.45);margin-top:14px">গত '+d.windowDays+' দিনের '+d.sampleQty+' pcs বিক্রয়ের হিসাব</div>';
+  h+='</div>';
+
+  // How the sold units split across the target
+  var b = d.dhbsBuckets, tot = d.sampleQty;
+  if(tot>0){
+    h+='<div style="background:rgba(255,255,255,.7);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">';
+    h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:10px">যে pcs বিক্রি হয়েছে — কত দিন বসে ছিল</div>';
+    h+='<div style="display:flex;height:26px;border-radius:6px;overflow:hidden;margin-bottom:8px">';
+    var segs=[{v:b.d21,c:'var(--green)',l:'0–21'},{v:b.d45,c:'var(--warn)',l:'22–45'},{v:b.d60,c:'var(--orange)',l:'46–60'},{v:b.over,c:'var(--red)',l:'60+'}];
+    segs.forEach(function(sg){
+      if(sg.v<=0) return;
+      var w=Math.round(sg.v/tot*100);
+      h+='<div title="'+sg.l+' দিন: '+sg.v+' pcs" style="width:'+w+'%;background:'+sg.c+';display:flex;align-items:center;justify-content:center;font-family:var(--fm);font-size:10px;font-weight:700;color:#fff">'+(w>=8?w+'%':'')+'</div>';
+    });
+    h+='</div>';
+    h+='<div style="display:flex;flex-wrap:wrap;gap:14px">';
+    segs.forEach(function(sg){
+      h+='<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><span style="width:10px;height:10px;border-radius:2px;background:'+sg.c+'"></span>'+sg.l+' দিন · <b style="font-family:var(--fm)">'+sg.v+' pcs</b></div>';
+    });
+    h+='</div></div>';
+  }
+
+  // What is sitting in the warehouse right now
+  h+='<div style="background:rgba(255,255,255,.7);border:1px solid var(--border);border-radius:12px;padding:14px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">';
+  h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">এখন হাতে যা আছে — কত দিন বসে আছে</div>';
+  h+='<div style="font-family:var(--fm);font-size:11px;color:var(--text3)">মোট <b>'+d.totalPcs+' pcs</b> · '+fmtMoney(d.totalCapital)+'</div>';
+  h+='</div>';
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">';
+  d.buckets.forEach(function(bk){
+    var share = d.totalPcs>0 ? Math.round(bk.pcs/d.totalPcs*100) : 0;
+    h+='<div style="border-top:3px solid '+bk.color+';background:rgba(15,23,42,.03);border-radius:0 0 8px 8px;padding:10px">';
+    h+='<div style="font-family:var(--fd);font-size:10px;font-weight:700;color:'+bk.color+'">'+bk.label+'</div>';
+    h+='<div style="font-size:9px;color:var(--text3);margin-bottom:6px">'+bk.days+' দিন</div>';
+    h+='<div style="font-family:var(--fm);font-size:20px;font-weight:800;color:var(--text)">'+bk.pcs+'<span style="font-size:11px;font-weight:600;color:var(--text3)"> pcs · '+share+'%</span></div>';
+    h+='<div style="font-family:var(--fm);font-size:11px;color:var(--text2);margin-top:2px">'+fmtMoney(bk.capital)+'</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+  if(d.lockedCapital>0){
+    h+='<div style="margin-top:10px;font-size:12px;color:var(--red);font-weight:700">⚠️ '+fmtMoney(d.lockedCapital)+' ৪৬ দিনের বেশি পুরনো স্টকে আটকে আছে</div>';
+  }
+  h+='</div></div>';
+  return h;
+}
+
 function renderBizPurchaseQtyGuide(){
   var rows = getBizPurchaseQtyGuide();
   var h='<div style="margin-bottom:22px">';
@@ -5932,25 +6099,11 @@ function renderBizDetail(key){
     h+=renderBizModelEngines(rec);
     h+='</div>';
     h+=renderBizPillarFooter(key, rec);
-    if(key==='purchase') h+=renderBizPurchaseQtyGuide();
-  }
-  if(key==='bizmodel'){
-    // Build-28: cross-engine Business Systems tree
-    var sysSt = bizTreeStats(rec.strategyTree||[]);
-    var sysPct = sysSt.total>0 ? Math.round(sysSt.done/sysSt.total*100) : 0;
-    h+='<div style="margin-bottom:18px">';
-    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
-    h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">⚙️ Business Systems <span style="text-transform:none;font-weight:500">(তিন Engine জুড়ে চলে)</span></div>';
-    h+='<div style="display:flex;align-items:center;gap:10px">';
-    if(sysSt.total>0) h+='<span style="font-family:var(--fm);font-size:9px;font-weight:700;color:'+(sysPct>=70?'var(--green)':sysPct>=30?'var(--warn)':'var(--text3)')+'">'+sysSt.done+'/'+sysSt.total+' · '+sysPct+'%</span>';
-    h+='<span onclick="addBizTreeNode(-1,\'\')" style="cursor:pointer;font-size:10px;font-weight:700;color:var(--cyan)">+ নতুন System</span>';
-    h+='</div></div>';
-    if(!(rec.strategyTree||[]).length){
-      h+='<div style="font-size:11px;color:var(--text3);padding:12px;background:rgba(15,23,42,.03);border-radius:8px">এখনো কোনো system যোগ করা হয়নি।</div>';
-    } else {
-      h+=renderBizTreeNodes(-1, rec.strategyTree, '', 0);
+    h+=renderBizSystemsTree(key, rec);
+    if(key==='purchase'){
+      h+=renderBizStockCashIntel();
+      h+=renderBizPurchaseQtyGuide();
     }
-    h+='</div>';
   }
 
   // Live Performance
@@ -6268,9 +6421,10 @@ function bizEngineRec(ei){
              get images(){ if(!frec.learnImages) frec.learnImages=[]; return frec.learnImages; } };
   }
   if(ei===-1){
-    if(!bm.strategyTree) bm.strategyTree=[];
-    if(!bm.images) bm.images=[];
-    return bm;
+    var sysOwner = db.businessSystem.functions[_bizCurrentKey||'bizmodel'] || bm;
+    if(!sysOwner.strategyTree) sysOwner.strategyTree=[];
+    if(!sysOwner.images) sysOwner.images=[];
+    return sysOwner;
   }
   var owner = bizPillarOwner();
   var engines = (owner && owner.engines) || [];
@@ -6283,7 +6437,7 @@ function bizEngineRec(ei){
 function renderBizTreeHost(ei){
   var lk = bizLearnKey(ei);
   if(lk) renderBizDetail(lk);
-  else if(ei===-1) renderBizDetail('bizmodel');
+  else if(ei===-1) renderBizDetail(_bizCurrentKey||'bizmodel');
   else renderBizEnginePage(ei);
 }
 
