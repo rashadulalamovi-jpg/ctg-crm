@@ -5511,6 +5511,41 @@ function ensureBizSystemDefaults(){
     if(!eng.images) eng.images = [];
     if(eng.notes===undefined) eng.notes = '';
   });
+
+  // Build-33: Purchase Function — the 4-Gate blueprint
+  var pu = db.businessSystem.functions.purchase;
+  if(pu && !pu.engines){
+    pu.coreRule = 'DEMAND CONFIRM BEFORE BUY';
+    pu.engines = [
+      { title:'1. Right Model', fields:[
+          {label:'প্রশ্ন', value:'Which model is selling? — কোন মডেল আসলে বিক্রি হচ্ছে?'},
+          {label:'প্রমাণ', value:''} ], strategyTree:[], images:[], notes:'' },
+      { title:'2. Right Price Point', fields:[
+          {label:'প্রশ্ন', value:"Customer's acceptable resale range — কাস্টমার যে দামে রিসেল করতে পারবে"},
+          {label:'প্রমাণ', value:''} ], strategyTree:[], images:[], notes:'' },
+      { title:'3. Right Quantity', fields:[
+          {label:'প্রশ্ন', value:'Expected 21-day sales — ২১ দিনে কত বিক্রি হবে?'},
+          {label:'প্রমাণ', value:''} ], strategyTree:[], images:[], notes:'' },
+      { title:'4. Buyer Evidence', fields:[
+          {label:'প্রশ্ন', value:'Relevant customers + buying interest — কোন কাস্টমার কিনতে আগ্রহী?'},
+          {label:'প্রমাণ', value:''} ], strategyTree:[], images:[], notes:'' }
+    ];
+    pu.stopRules = [
+      'No Demand Proof = No Purchase — চাহিদার প্রমাণ নেই তো কেনা নেই',
+      'Slow / High-Return Model = Stop Rebuy — ধীর বা বেশি return-এর মডেল আর কিনবেন না'
+    ];
+    pu.targetLine = 'Sell CTG Stock Within 21 Days — ২১ দিনের মধ্যে CTG stock বিক্রয় (Fast Rotation)';
+    pu.summaryFormula = 'Right Model × Right Price × Right Quantity × Buyer Evidence = Fast Rotation';
+  }
+  // every function's pillars get the tree/notes/image fields
+  BIZ_FUNCTIONS.forEach(function(f){
+    var r = db.businessSystem.functions[f.key];
+    (r && r.engines || []).forEach(function(eng){
+      if(!eng.strategyTree) eng.strategyTree = [];
+      if(!eng.images) eng.images = [];
+      if(eng.notes===undefined) eng.notes = '';
+    });
+  });
 }
 
 // ── KPI: Purchase (reuses getModelStats + getFinalAction — same engine as Model Demand module) ──
@@ -5756,6 +5791,98 @@ function bizKpiBlockHtml(key, kpi){
   return h;
 }
 
+
+// Build-33: Gate 3 answered with real data — how many pcs of each model can be sold in 21 days
+function getBizPurchaseQtyGuide(){
+  if(typeof stockDB==='undefined' || !stockDB.batches || !stockDB.batches.length) return null;
+  var stats = getModelStats();
+  var rows = stats.filter(function(s){ return s.q30>0; }).map(function(s){
+    var daily = s.q30/30;
+    var max21 = Math.floor(daily*21);
+    var have  = s.avail||0;
+    var room  = Math.max(0, max21-have);
+    var gate1 = s.q30>=4;
+    var gate2 = s.roi!==null && s.roi>=15;
+    var gate3 = room>0;
+    return { model:s.model, q30:s.q30, daily:Math.round(daily*10)/10, max21:max21,
+             avail:have, room:room, roi:s.roi, retPct:s.retPct, sellOut:s.sellOutDays,
+             gate1:gate1, gate2:gate2, gate3:gate3, passCount:(gate1?1:0)+(gate2?1:0)+(gate3?1:0) };
+  });
+  rows.sort(function(a,b){ return (b.passCount-a.passCount) || (b.q30-a.q30); });
+  return rows.length ? rows : null;
+}
+
+function renderBizPurchaseQtyGuide(){
+  var rows = getBizPurchaseQtyGuide();
+  var h='<div style="margin-bottom:22px">';
+  h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px">\u{1F4CF} Right Quantity — ২১ দিনের হিসাব (রিয়েল ডেটা)</div>';
+  h+='<div style="font-size:11px;color:var(--text3);margin-bottom:10px">গত ৩০ দিনের গতি × ২১ দিন = সর্বোচ্চ কত pcs রাখা নিরাপদ। হাতে যত আছে বাদ দিয়ে “আর কত কেনা যায়” দেখানো হলো।</div>';
+  if(!rows){
+    h+='<div style="font-size:11px;color:var(--text3);padding:12px;background:rgba(15,23,42,.03);border-radius:8px">⚠️ এখনো পর্যাপ্ত বিক্রয় ডেটা নেই — Stock ও Invoice এন্ট্রি হলে হিসাব দেখাবে।</div>';
+    h+='</div>'; return h;
+  }
+  h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+  h+='<thead><tr style="text-align:left;color:var(--text3);font-size:10px;text-transform:uppercase">';
+  h+='<th style="padding:6px 8px">Model</th><th style="padding:6px 8px;text-align:right">৩০দিন</th><th style="padding:6px 8px;text-align:right">সর্বোচ্চ ২১দিন</th><th style="padding:6px 8px;text-align:right">হাতে</th><th style="padding:6px 8px;text-align:right">আর কেনা যায়</th><th style="padding:6px 8px;text-align:right">ROI</th><th style="padding:6px 8px;text-align:right">Return</th><th style="padding:6px 8px">Gate</th></tr></thead><tbody>';
+  rows.slice(0,25).forEach(function(r){
+    var allPass = r.passCount===3;
+    h+='<tr style="border-top:1px solid var(--border);background:'+(allPass?'rgba(52,211,153,.07)':'transparent')+'">';
+    h+='<td style="padding:6px 8px;font-family:var(--fm);font-weight:'+(allPass?700:500)+'">'+escHtml(r.model)+'</td>';
+    h+='<td style="padding:6px 8px;text-align:right;font-family:var(--fm)">'+r.q30+'</td>';
+    h+='<td style="padding:6px 8px;text-align:right;font-family:var(--fm);font-weight:700">'+r.max21+'</td>';
+    h+='<td style="padding:6px 8px;text-align:right;font-family:var(--fm)">'+r.avail+'</td>';
+    h+='<td style="padding:6px 8px;text-align:right;font-family:var(--fm);font-weight:800;color:'+(r.room>0?'var(--green)':'var(--text3)')+'">'+(r.room>0?('+'+r.room):'\u2014')+'</td>';
+    h+='<td style="padding:6px 8px;text-align:right;font-family:var(--fm);color:'+(r.roi===null?'var(--text3)':r.roi>=15?'var(--green)':r.roi>=10?'var(--warn)':'var(--red)')+'">'+(r.roi===null?'\u2014':r.roi+'%')+'</td>';
+    h+='<td style="padding:6px 8px;text-align:right;font-family:var(--fm);color:'+(r.retPct<=5?'var(--green)':'var(--red)')+'">'+r.retPct+'%</td>';
+    h+='<td style="padding:6px 8px;font-family:var(--fm);font-size:11px">'+(r.gate1?'\u2705':'\u2716\uFE0F')+(r.gate2?'\u2705':'\u2716\uFE0F')+(r.gate3?'\u2705':'\u2716\uFE0F')+'</td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+  h+='<div style="font-size:10px;color:var(--text3);margin-top:8px">Gate কলাম = Right Model (৩০ দিনে ৪+) · Right Price (ROI ≥15%) · Right Quantity (জায়গা আছে)। Buyer Evidence এখনও হাতে যাচাই করতে হবে।</div>';
+  h+='</div>';
+  return h;
+}
+
+function renderBizPillarExtras(key, rec){
+  var h='';
+  if(rec.coreRule){
+    h+='<div style="margin-bottom:16px;background:var(--red);border-radius:10px;padding:14px 18px;text-align:center">';
+    h+='<div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.75);margin-bottom:4px">\u{1F3AF} Core Rule</div>';
+    h+='<input type="text" value="'+escHtml(rec.coreRule)+'" onblur="saveBizCoreRule(\''+key+'\',this.value)" style="width:100%;text-align:center;background:transparent;border:none;font-family:var(--fd);font-size:19px;font-weight:800;color:#fff">';
+    h+='</div>';
+  }
+  return h;
+}
+
+function renderBizPillarFooter(key, rec){
+  var h='';
+  if(rec.stopRules && rec.stopRules.length){
+    h+='<div style="margin-bottom:16px;background:rgba(227,6,19,.07);border:1px solid rgba(227,6,19,.25);border-radius:10px;padding:12px 16px">';
+    h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--red);margin-bottom:8px">\u26A0\uFE0F Stop Rules</div>';
+    rec.stopRules.forEach(function(r,i){
+      h+='<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:6px">';
+      h+='<textarea onblur="saveBizStopRule(\''+key+'\','+i+',this.value)" rows="1" style="flex:1;font-family:var(--fm);font-size:13px;font-weight:700;color:var(--red);border:none;background:transparent;resize:vertical">'+escHtml(r)+'</textarea>';
+      h+='<span onclick="removeBizStopRule(\''+key+'\','+i+')" style="cursor:pointer;color:var(--text3);font-size:12px;padding-top:4px">\u2715</span>';
+      h+='</div>';
+    });
+    h+='<span onclick="addBizStopRule(\''+key+'\')" style="cursor:pointer;font-size:11px;font-weight:700;color:var(--cyan)">+ নতুন Stop Rule</span>';
+    h+='</div>';
+  }
+  if(rec.targetLine!==undefined){
+    h+='<div style="margin-bottom:16px;background:rgba(15,23,42,.92);border-radius:10px;padding:14px 18px">';
+    h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:4px">\u{1F3AF} Target</div>';
+    h+='<textarea onblur="saveBizTargetLine(\''+key+'\',this.value)" rows="2" style="width:100%;background:transparent;border:none;font-family:var(--fm);font-size:14px;font-weight:700;color:#fff;resize:vertical">'+escHtml(rec.targetLine)+'</textarea>';
+    h+='</div>';
+  }
+  return h;
+}
+
+function saveBizCoreRule(key,val){ db.businessSystem.functions[key].coreRule=val; saveDB(); syncToFirebase(); bizFlashSaved(); }
+function saveBizTargetLine(key,val){ db.businessSystem.functions[key].targetLine=val; saveDB(); syncToFirebase(); bizFlashSaved(); }
+function saveBizStopRule(key,i,val){ var r=db.businessSystem.functions[key]; if(!r.stopRules||!r.stopRules.length>i)return; r.stopRules[i]=val; saveDB(); syncToFirebase(); bizFlashSaved(); }
+function addBizStopRule(key){ var r=db.businessSystem.functions[key]; if(!r.stopRules)r.stopRules=[]; r.stopRules.push(''); saveDB(); syncToFirebase(); renderBizDetail(key); }
+function removeBizStopRule(key,i){ var r=db.businessSystem.functions[key]; (r.stopRules||[]).splice(i,1); saveDB(); syncToFirebase(); renderBizDetail(key); }
+
 function renderBizDetail(key){
   var f = BIZ_FUNCTIONS.find(function(x){return x.key===key;});
   if(!f) return;
@@ -5780,6 +5907,9 @@ function renderBizDetail(key){
   h+=renderBizImageGallery(rec.modelImages||[], "bizFuncImg_add('"+key+"',this)", "bizFuncImg_remove('"+key+"',{i})", '\u098f\u0987 function-\u098f\u09b0 \u099b\u09ac\u09bf / \u0987\u09a8\u09ab\u09cb\u0997\u09cd\u09b0\u09be\u09ab\u09bf\u0995 \u0986\u09aa\u09b2\u09cb\u09a1 \u0995\u09b0\u09c1\u09a8', 'big');
   h+='</div>';
 
+  // Build-33: Core Rule banner (functions that have one)
+  h+=renderBizPillarExtras(key, rec);
+
   // Owner
   h+='<div style="margin-bottom:16px">';
   h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:5px">\u{1F464} Owner / Responsible</div>';
@@ -5793,12 +5923,18 @@ function renderBizDetail(key){
   h+='<div style="margin-top:8px"><button onclick="saveBizStrategyBtn(\''+key+'\',this)" style="background:var(--green);border:none;border-radius:6px;padding:7px 16px;font-family:var(--fd);font-size:12px;font-weight:700;color:#fff;cursor:pointer">\u{1F4BE} সেভ করুন</button></div>';
   h+='</div>';
 
-  // 3 Engines (Build-27)
-  if(key==='bizmodel'){
+  // Pillars — Engines on Business Model, Gates on Purchase (Build-27 / Build-33)
+  if((rec.engines||[]).length){
+    var pillarLabel = (key==='purchase') ? '\u{1F6A6} '+rec.engines.length+' Purchase Gates — চারটিই পাস করলে তবেই কেনা'
+                    : '\u{1F3D7}️ '+rec.engines.length+' Business Engines';
     h+='<div style="margin-bottom:18px">';
-    h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">\u{1F3D7}️ 3 Business Engines</div>';
+    h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">'+pillarLabel+'</div>';
     h+=renderBizModelEngines(rec);
     h+='</div>';
+    h+=renderBizPillarFooter(key, rec);
+    if(key==='purchase') h+=renderBizPurchaseQtyGuide();
+  }
+  if(key==='bizmodel'){
     // Build-28: cross-engine Business Systems tree
     var sysSt = bizTreeStats(rec.strategyTree||[]);
     var sysPct = sysSt.total>0 ? Math.round(sysSt.done/sysSt.total*100) : 0;
@@ -5883,7 +6019,8 @@ function renderBizModelEngines(rec){
     h+='</div>';
   });
   h+='</div>';
-  h+='<div onclick="addBizEngine()" style="cursor:pointer;font-size:10px;color:var(--cyan);margin-top:10px;font-weight:700">+ নতুন Engine যোগ করুন</div>';
+  var _pn = (_bizCurrentKey==='purchase') ? 'Gate' : 'Engine';
+  h+='<div onclick="addBizEngine()" style="cursor:pointer;font-size:11px;color:var(--cyan);margin-top:10px;font-weight:700">+ নতুন '+_pn+' যোগ করুন</div>';
   h+='<div style="margin-top:14px;background:rgba(52,211,153,.08);border-radius:8px;padding:10px">';
   h+='<div style="font-size:8px;font-weight:700;text-transform:uppercase;color:var(--text3);margin-bottom:4px">∑ Summary Formula</div>';
   h+='<textarea onblur="saveBizModelFormula(this.value)" rows="2" style="width:100%;border:none;background:transparent;font-family:var(--fm);font-size:11px;font-weight:700;color:var(--green);resize:vertical">'+escHtml(rec.summaryFormula||'')+'</textarea>';
@@ -5924,27 +6061,27 @@ function renderBizTasksSection(key, rec){
 // ── Save handlers: quiet saves (persist only, no re-render — avoid kicking user back to landing) ──
 function saveBizOwner(key,val){ db.businessSystem.functions[key].owner=val; saveDB(); syncToFirebase(); }
 function saveBizStrategy(key,val){ db.businessSystem.functions[key].strategy=val; saveDB(); syncToFirebase(); bizFlashSaved(); }
-function saveBizModelFormula(val){ db.businessSystem.functions.bizmodel.summaryFormula=val; saveDB(); syncToFirebase(); }
-function saveBizEngineTitle(ei,val){ db.businessSystem.functions.bizmodel.engines[ei].title=val; saveDB(); syncToFirebase(); }
-function saveBizEngineField(ei,fi,prop,val){ db.businessSystem.functions.bizmodel.engines[ei].fields[fi][prop]=val; saveDB(); syncToFirebase(); bizFlashSaved(); }
+function saveBizModelFormula(val){ bizPillarOwner().summaryFormula=val; saveDB(); syncToFirebase(); bizFlashSaved(); }
+function saveBizEngineTitle(ei,val){ var o=bizPillarOwner(); if(!o.engines[ei])return; o.engines[ei].title=val; saveDB(); syncToFirebase(); }
+function saveBizEngineField(ei,fi,prop,val){ var o=bizPillarOwner(); if(!o.engines[ei]||!o.engines[ei].fields[fi])return; o.engines[ei].fields[fi][prop]=val; saveDB(); syncToFirebase(); bizFlashSaved(); }
 function saveBizTaskField(key,ti,prop,val){ db.businessSystem.functions[key].tasks[ti][prop]=val; saveDB(); syncToFirebase(); if(prop==='status') renderBizDetail(key); }
 
 // ── Structural changes: re-render the open detail view ──
 function addBizEngine(){
-  db.businessSystem.functions.bizmodel.engines.push({title:'New Engine', fields:[{label:'Customer',value:''}]});
-  saveDB(); syncToFirebase(); renderBizDetail('bizmodel');
+  bizPillarOwner().engines.push({title:'New', fields:[{label:'Label',value:''}], strategyTree:[], images:[], notes:''});
+  saveDB(); syncToFirebase(); renderBizDetail(_bizCurrentKey||'bizmodel');
 }
 function removeBizEngine(ei){
-  db.businessSystem.functions.bizmodel.engines.splice(ei,1);
-  saveDB(); syncToFirebase(); renderBizDetail('bizmodel');
+  bizPillarOwner().engines.splice(ei,1);
+  saveDB(); syncToFirebase(); renderBizDetail(_bizCurrentKey||'bizmodel');
 }
 function addBizEngineField(ei){
-  db.businessSystem.functions.bizmodel.engines[ei].fields.push({label:'Label',value:''});
-  saveDB(); syncToFirebase(); renderBizDetail('bizmodel');
+  bizPillarOwner().engines[ei].fields.push({label:'Label',value:''});
+  saveDB(); syncToFirebase(); renderBizDetail(_bizCurrentKey||'bizmodel');
 }
 function removeBizEngineField(ei,fi){
-  db.businessSystem.functions.bizmodel.engines[ei].fields.splice(fi,1);
-  saveDB(); syncToFirebase(); renderBizDetail('bizmodel');
+  bizPillarOwner().engines[ei].fields.splice(fi,1);
+  saveDB(); syncToFirebase(); renderBizDetail(_bizCurrentKey||'bizmodel');
 }
 function addBizTask(key){
   db.businessSystem.functions[key].tasks.push({text:'',owner:'',deadline:'',status:'todo'});
@@ -6107,6 +6244,14 @@ function bizTreeStats(nodes){
 //   0,1,2...      an engine, on its own full page
 //   -1            the Business Model cross-engine "Business Systems" tree
 //   'learn:<key>' a function's Learning Zone tree (Build-31)
+// Build-33: "pillars" (Business Model calls them Engines, Purchase calls them Gates) can
+// belong to ANY function. Numeric ei always means an index into the open function's pillars.
+function bizPillarOwner(){
+  var key = _bizCurrentKey || 'bizmodel';
+  var rec = db.businessSystem.functions[key];
+  if(rec && !rec.engines) rec.engines = [];
+  return rec;
+}
 function bizEiArg(ei){ return (typeof ei==='string') ? "'"+ei+"'" : String(ei); }
 function bizLearnKey(ei){ return (typeof ei==='string' && ei.indexOf('learn:')===0) ? ei.slice(6) : null; }
 
@@ -6127,7 +6272,8 @@ function bizEngineRec(ei){
     if(!bm.images) bm.images=[];
     return bm;
   }
-  var engines = bm.engines||[];
+  var owner = bizPillarOwner();
+  var engines = (owner && owner.engines) || [];
   var eng = engines[ei];
   if(eng && !eng.strategyTree) eng.strategyTree=[];
   if(eng && !eng.images) eng.images=[];
