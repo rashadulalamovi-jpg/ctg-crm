@@ -6303,7 +6303,8 @@ function renderBizDetail(key){
 
   // Pillars — Engines on Business Model, Gates on Purchase (Build-27 / Build-33)
   if((rec.engines||[]).length){
-    var pillarLabel = (key==='purchase') ? '\u{1F6A6} '+rec.engines.length+' Purchase Gates — চারটিই পাস করলে তবেই কেনা'
+    var pillarLabel = (key==='purchase')  ? '\u{1F6A6} '+rec.engines.length+' Purchase Gates — চারটিই পাস করলে তবেই কেনা'
+                    : (key==='marketing') ? '\u{1F4E3} '+rec.engines.length+' Marketing Rules — Sell Before Stock'
                     : '\u{1F3D7}️ '+rec.engines.length+' Business Engines';
     h+='<div style="margin-bottom:18px">';
     h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">'+pillarLabel+'</div>';
