@@ -5481,6 +5481,11 @@ function ensureBizSystemDefaults(){
     if(!rec.learningTree) rec.learningTree=[]; // Build-31: Learning Zone for every function
     if(!rec.strategyTree) rec.strategyTree=[]; // Build-34: Systems tree for every function
     if(f.key==='marketing' && !rec.leads) rec.leads=[];   // Build-37: manual Lead Box
+    if(f.key==='sales'){                                    // Build-38: Sales Function
+      if(!rec.bookings) rec.bookings=[];
+      if(!rec.accounts) rec.accounts={};
+      if(!rec.minOrderQty) rec.minOrderQty=5;
+    }
   });
   // Business Model: pre-populate the 3-Engine structure from the owner's sample, only if not already set
   var bm = db.businessSystem.functions.bizmodel;
@@ -5574,6 +5579,51 @@ function ensureBizSystemDefaults(){
     mk.summaryFormula = 'Education → Dubai Proof → Model Opportunity → Trial Offer → Booking → QC Proof → Delivery Proof → Repeat Order';
   }
   if(mk && !mk.campaigns) mk.campaigns = [];
+
+  // ── Build-38: Sales Function — 4 Strategy + Customer Success Roadmap ──
+  var sl = db.businessSystem.functions.sales;
+  if(sl && !sl.engines){
+    sl.coreRule = 'ADVANCE ছাড়া কোনো Order নয় · PREVIOUS DUE = NEW BOOKING BLOCKED';
+    sl.engines = [
+      { title:'Strategy 1 — Dubai Pre-Selling (Stock আসার আগেই Customer তৈরি)', fields:[
+          {label:'Sales Process', value:'Dubai Stock Video/Photo → Customer Requirement যাচাই → Model ও Quantity মৌখিক নির্বাচন → Price ও Condition পরিষ্কার → Booking Advance → Confirmed Order → QC Video → Cargo/Delivery Update'},
+          {label:'Core Rule', value:'Advance ছাড়া কোনো মৌখিক Order-কে Final Sale বা Confirmed Booking হিসেবে ধরা যাবে না'},
+          {label:'Target', value:'Arrival-এর আগে stock-এর ৩০–৪০% confirmed booking · প্রতি incoming model ১০–১৫ relevant customer-কে দেখানো · Verbal → Advance ≥৫০%'} ],
+        strategyTree:[], images:[], notes:'' },
+      { title:'Strategy 2 — Push Opportunities (Repeat Sale করে Sales Double)', fields:[
+          {label:'A. Repeat Selling', value:'কাস্টমার আগে যে model নিয়েছে — কত pcs, কতদিনে বিক্রি, return হয়েছে কি না, আবার requirement আছে কি না — দেখে একই model পুনরায় offer'},
+          {label:'B. Demand Discovery', value:'কাস্টমার আমাদের কাছ থেকে না নিলেও তার দোকান, Facebook page বা WhatsApp Status-এ যে model বিক্রি করছে তা CRM-এ record করা, পরে সেই model পেলে আগে offer দেওয়া'},
+          {label:'ফল', value:'Dubai থেকে Stock আসার আগেই Buyer তৈরি + কাস্টমার যা দ্রুত বিক্রি করে সেটিই পুনরায় Offer = Faster Rotation, Higher Sales'} ],
+        strategyTree:[], images:[], notes:'' },
+      { title:'Strategy 3 — Strategic Account Expansion (Share of Wallet)', fields:[
+          {label:'CRM-এ যা রাখবো', value:'Fast-selling models · Monthly potential · Current purchase · Competitor purchase · Opportunity gap · Next order (তারিখ ও quantity)'},
+          {label:'উদাহরণ', value:'কাস্টমার মাসে ৫০ pcs বিক্রি করে, আমার কাছ থেকে নেয় ১৫ pcs। নতুন কাস্টমার না খুঁজেও বাকি ৩৫ pcs-এর অংশ দখল করাই সুযোগ।'},
+          {label:'লক্ষ্য', value:'কাস্টমারের মোট purchasing-এর বেশি অংশ আমার কাছে আনা — Share of Wallet Growth'} ],
+        strategyTree:[], images:[], notes:'' },
+      { title:'Strategy 4 — Average Order Size বাড়ানো (৩–৫ → ৫–৭ pcs)', fields:[
+          {label:'কঠিন সত্য', value:'"Wholesale" বলা হলেও বাস্তবে বেশিরভাগ order small-volume retailer order — মোট order-এর ~৭৭% হলো ১–৫ pcs'},
+          {label:'লক্ষ্য', value:'বর্তমান typical order size ৩–৫ pcs → ৫–৭ pcs; Minimum Order ৫ pcs'},
+          {label:'কেন', value:'নতুন কাস্টমার আনার চেয়ে existing কাস্টমারের প্রতি invoice-এ মাত্র ১ pc বাড়ানো সস্তা — একই invoice সংখ্যা থেকেই বড় বিক্রি'} ],
+        strategyTree:[], images:[], notes:'' },
+      { title:'Customer Success Roadmap — Trial → Regular → Trusted → Strategic', fields:[
+          {label:'01 TRIAL', value:'প্রথম ৩–৫ Invoice · ১০০% Advance / Cash · লক্ষ্য: Trust তৈরি'},
+          {label:'02 REGULAR', value:'৩–১০ Clean Invoice · Delivery-এর আগে Payment · Relevant Stock Update'},
+          {label:'03 TRUSTED', value:'১০–২০ Clean Invoice · Selected ২০–৩০% Credit · Early Stock Access'},
+          {label:'04 STRATEGIC', value:'High Volume + Fast Payment · Return ≤৫% · Priority Allocation + Approved Terms'},
+          {label:'Core Rule', value:'Previous Due = New Booking Blocked। Performance দিয়ে Level অর্জন করতে হবে — শুধু Relationship দিয়ে নয়।'} ],
+        strategyTree:[], images:[], notes:'' }
+    ];
+    sl.stopRules = [
+      'Advance ছাড়া কোনো মৌখিক Order-কে Confirmed Booking ধরা যাবে না',
+      'Previous Due থাকলে নতুন Booking নেওয়া যাবে না',
+      'Performance ছাড়া শুধু Relationship দিয়ে কাউকে উপরের Level দেওয়া যাবে না'
+    ];
+    sl.targetLine = 'Stock দ্রুত Cash-এ · Cash দ্রুত নতুন profitable Stock-এ · Trial Customer দ্রুত Repeat Customer-এ';
+    sl.summaryFormula = 'Right Model × Right Customer × Right Price × Fast Payment × Repeat Order';
+  }
+  if(sl && !sl.bookings) sl.bookings = [];
+  if(sl && !sl.accounts) sl.accounts = {};
+  if(sl && !sl.minOrderQty) sl.minOrderQty = 5;
 
   // every function's pillars get the tree/notes/image fields
   BIZ_FUNCTIONS.forEach(function(f){
@@ -5921,6 +5971,280 @@ var MKT_STEPS = ['Dubai Warehouse Proof','Model Education','Demand & Selling Opp
                  'Customer Feedback','Repeat Stock Opportunity'];
 
 // ══════════════════════════════════════════════════════════════════════════
+// BUILD-38 — SALES FUNCTION (real data only, nothing invented)
+//
+// একটি invoice-এর আসল হিসাব: net = (items) − (returns থেকে কাটা টাকা),
+// paid = সব payment। মালিকের সিদ্ধান্ত অনুযায়ী "Clean Invoice" = পুরো
+// পেমেন্ট হয়েছে (return থাকলেও clean ধরা হবে)। Return আলাদা গেট হিসেবে
+// শুধু STRATEGIC লেভেলে দেখা হয় (Roadmap-এ Return ≤5% সেখানেই লেখা)।
+// ══════════════════════════════════════════════════════════════════════════
+var SALES_LEVELS = [
+  {id:1, key:'trial',     name:'TRIAL',     emoji:'\u{1F9EA}', color:'var(--red)'},
+  {id:2, key:'regular',   name:'REGULAR',   emoji:'\u{1F504}', color:'var(--blue)'},
+  {id:3, key:'trusted',   name:'TRUSTED',   emoji:'\u{1F6E1}️', color:'var(--green)'},
+  {id:4, key:'strategic', name:'STRATEGIC', emoji:'\u{1F451}', color:'var(--gold)'}
+];
+var SALES_CLEAN_FOR_REGULAR   = 3;
+var SALES_CLEAN_FOR_TRUSTED   = 10;
+var SALES_CLEAN_FOR_STRATEGIC = 20;
+var SALES_MAX_RETURN_PCT      = 5;
+
+function bizSalesRec(){ return db.businessSystem.functions.sales; }
+
+// এক invoice-এর টাকা-পয়সার সত্য
+function bizInvMoney(inv){
+  var gross = (inv.items||[]).reduce(function(a,x){ return a + (x.qty||0)*(x.price||0); },0);
+  var qty   = (inv.items||[]).reduce(function(a,x){ return a + (x.qty||0); },0);
+  var cost  = (inv.items||[]).reduce(function(a,x){ return a + (x.qty||0)*(x.purchasePrice||0); },0);
+  var retQty= (inv.returns||[]).reduce(function(a,r){ return a + (r.qty||0); },0);
+  var retAmt= (inv.returns||[]).reduce(function(a,r){ return a + (r.salesDeducted||r.refundAmt||0); },0);
+  var paid  = (inv.payments||[]).reduce(function(a,x){ return a + (x.amount||0); },0);
+  var net   = gross - retAmt;
+  return { gross:gross, qty:qty, cost:cost, retQty:retQty, retAmt:retAmt, paid:paid,
+           net:net, due: Math.max(0, Math.round(net - paid)),
+           clean: (net - paid) <= 1 };   // ১ টাকার rounding ছাড় — এর বেশি নয়
+}
+
+// কাস্টমারের অর্জিত Level — invoice থেকে, হাতে বসানো stage থেকে নয়
+function bizCustomerLevel(c){
+  var invs = (c.invoices||[]).slice().sort(function(a,b){ return new Date(a.date)-new Date(b.date); });
+  var m = { invCount:invs.length, clean:0, qty:0, retQty:0, revenue:0, cost:0, due:0, first:null, last:null };
+  invs.forEach(function(inv){
+    var v = bizInvMoney(inv);
+    if(v.clean) m.clean++;
+    m.qty += v.qty; m.retQty += v.retQty; m.revenue += v.net; m.cost += v.cost; m.due += v.due;
+    if(inv.date){ if(!m.first||inv.date<m.first) m.first=inv.date; if(!m.last||inv.date>m.last) m.last=inv.date; }
+  });
+  m.returnPct = m.qty>0 ? Math.round(m.retQty/m.qty*1000)/10 : null;
+  m.avgOrder  = m.invCount>0 ? Math.round(m.qty/m.invCount*100)/100 : null;
+  m.profit    = (m.cost>0) ? Math.round(m.revenue-m.cost) : null;
+  m.profitPc  = (m.profit!==null && m.qty>0) ? Math.round(m.profit/m.qty) : null;
+
+  // অর্জিত Level + কেন, এবং পরের Level-এর জন্য কী বাকি
+  var lvl=1, why='', next='';
+  if(m.invCount===0){
+    lvl=0; why='এখনো কোনো ইনভয়েস নেই'; next='প্রথম অর্ডার হলেই TRIAL';
+  } else if(m.clean>=SALES_CLEAN_FOR_STRATEGIC && m.returnPct!==null && m.returnPct<=SALES_MAX_RETURN_PCT && m.due===0){
+    lvl=4; why=m.clean+' clean invoice · Return '+m.returnPct+'% · কোনো due নেই'; next='সর্বোচ্চ লেভেল';
+  } else if(m.clean>=SALES_CLEAN_FOR_TRUSTED){
+    lvl=3; why=m.clean+' clean invoice';
+    var miss=[];
+    if(m.clean<SALES_CLEAN_FOR_STRATEGIC) miss.push('আরও '+(SALES_CLEAN_FOR_STRATEGIC-m.clean)+'টি clean invoice');
+    if(m.returnPct===null||m.returnPct>SALES_MAX_RETURN_PCT) miss.push('Return ≤'+SALES_MAX_RETURN_PCT+'% (এখন '+(m.returnPct===null?'—':m.returnPct+'%')+')');
+    if(m.due>0) miss.push('due ক্লিয়ার');
+    next='STRATEGIC-এর জন্য: '+miss.join(' · ');
+  } else if(m.clean>=SALES_CLEAN_FOR_REGULAR){
+    lvl=2; why=m.clean+' clean invoice';
+    next='TRUSTED-এর জন্য আরও '+(SALES_CLEAN_FOR_TRUSTED-m.clean)+'টি clean invoice';
+  } else {
+    lvl=1; why=m.invCount+' invoice · '+m.clean+' clean';
+    next='REGULAR-এর জন্য আরও '+Math.max(0,SALES_CLEAN_FOR_REGULAR-m.clean)+'টি clean invoice';
+  }
+  // হাতে বসানো stage → Level (তুলনার জন্য; pipeline-এ হাত দেওয়া হয় না)
+  var assigned = 0;
+  if(c.stage===3) assigned=1; else if(c.stage===4) assigned=2;
+  else if(c.stage===5) assigned=3; else if(c.stage===6||c.stage===7) assigned=4;
+  return { id:c.id, name:c.name, stage:c.stage, inactive:!!c.inactive,
+           earned:lvl, assigned:assigned, why:why, next:next, m:m,
+           gap: assigned-lvl };   // +ve = উপরে বসানো, -ve = নিচে পড়ে আছে
+}
+
+function getBizSalesLevels(){
+  if(!db.customers || !db.customers.length) return null;
+  var rows = db.customers.map(bizCustomerLevel);
+  var buyers = rows.filter(function(r){ return r.m.invCount>0; });
+  if(!buyers.length) return null;
+  var byLevel = {1:0,2:0,3:0,4:0};
+  buyers.forEach(function(r){ if(byLevel[r.earned]!==undefined) byLevel[r.earned]++; });
+  var over  = rows.filter(function(r){ return r.gap>0; }).sort(function(a,b){ return b.gap-a.gap; });
+  var under = rows.filter(function(r){ return r.gap<0; }).sort(function(a,b){ return a.gap-b.gap; });
+  var withDue = buyers.filter(function(r){ return r.m.due>0; }).sort(function(a,b){ return b.m.due-a.m.due; });
+  return { rows:rows, buyers:buyers, byLevel:byLevel, over:over, under:under, withDue:withDue,
+           totalDue: withDue.reduce(function(a,r){ return a+r.m.due; },0) };
+}
+
+// ── Strategy 4: Order Size — আসল বণ্টন ও "minimum N pcs হলে কী হতো" ──
+function getBizOrderSizeIntel(){
+  if(!db.customers || !db.customers.length) return null;
+  var sizes=[], revenue=0, cost=0, qtyTot=0;
+  db.customers.forEach(function(c){
+    (c.invoices||[]).forEach(function(inv){
+      var v=bizInvMoney(inv);
+      if(v.qty<=0) return;
+      sizes.push({qty:v.qty, cust:c.name, date:inv.date||''});
+      revenue += v.net; cost += v.cost; qtyTot += v.qty;
+    });
+  });
+  if(!sizes.length) return null;
+  var n=sizes.length;
+  var arr=sizes.map(function(x){return x.qty;}).sort(function(a,b){return a-b;});
+  var median = n%2 ? arr[(n-1)/2] : (arr[n/2-1]+arr[n/2])/2;
+  var avg = Math.round(qtyTot/n*100)/100;
+  var buckets=[{label:'১–২ pcs',lo:1,hi:2},{label:'৩–৫ pcs',lo:3,hi:5},
+               {label:'৬–১০ pcs',lo:6,hi:10},{label:'১০ pcs-এর বেশি',lo:11,hi:Infinity}];
+  buckets.forEach(function(b){
+    b.count = arr.filter(function(q){ return q>=b.lo && q<=b.hi; }).length;
+    b.pct = Math.round(b.count/n*1000)/10;
+  });
+  var freq={}; arr.forEach(function(q){ freq[q]=(freq[q]||0)+1; });
+  var topQty=null, topCnt=0;
+  Object.keys(freq).forEach(function(q){ if(freq[q]>topCnt){ topCnt=freq[q]; topQty=parseInt(q); } });
+  var avgPrice = qtyTot>0 ? Math.round(revenue/qtyTot) : null;
+  var realProfitPc = (cost>0 && qtyTot>0) ? Math.round((revenue-cost)/qtyTot) : null;
+
+  // সিমুলেশন — শুধু যেগুলো minimum-এর নিচে সেগুলোই তোলা হয়
+  var minQ = (bizSalesRec().minOrderQty)||5;
+  var lift=[], extra=0;
+  for(var q=1;q<minQ;q++){
+    var cnt = freq[q]||0; if(!cnt) continue;
+    var add = cnt*(minQ-q); extra += add;
+    lift.push({from:q, invoices:cnt, add:add});
+  }
+  var newQty = qtyTot + extra;
+  var scen = [1500,2000,2500].map(function(pp){ return {pp:pp, profit: extra*pp}; });
+
+  // কোন কাস্টমারের গড় সবচেয়ে কম — তাদেরই আগে ধরতে হবে
+  var perCust = {};
+  sizes.forEach(function(x){ if(!perCust[x.cust]) perCust[x.cust]={name:x.cust,inv:0,qty:0}; perCust[x.cust].inv++; perCust[x.cust].qty+=x.qty; });
+  var custRows = Object.keys(perCust).map(function(k){
+    var r=perCust[k]; r.avg=Math.round(r.qty/r.inv*100)/100;
+    r.upside = r.inv * Math.max(0, minQ - r.avg);
+    return r;
+  }).filter(function(r){ return r.inv>=2; })
+    .sort(function(a,b){ return b.upside-a.upside; });
+
+  return { invoices:n, totalQty:qtyTot, avg:avg, median:median, buckets:buckets,
+           topQty:topQty, topCount:topCnt, avgPrice:avgPrice, realProfitPc:realProfitPc,
+           minQ:minQ, lift:lift, extraQty:extra, newTotalQty:newQty,
+           newAvg: Math.round(newQty/n*100)/100,
+           growthPct: qtyTot>0 ? Math.round(extra/qtyTot*1000)/10 : null,
+           extraRevenue: avgPrice!==null ? extra*avgPrice : null,
+           extraProfitReal: realProfitPc!==null ? extra*realProfitPc : null,
+           scenarios:scen, custRows:custRows };
+}
+
+// ── Strategy 3: Share of Wallet — auto অংশ CRM থেকে, potential মালিক লেখেন ──
+function getBizAccountPlans(){
+  if(!db.customers || !db.customers.length) return null;
+  var store = bizSalesRec().accounts || {};
+  var osi = getBizOrderSizeIntel();
+  var profitPc = osi ? osi.realProfitPc : null;
+  var rows = db.customers.filter(function(c){ return (c.invoices||[]).length>0; }).map(function(c){
+    var lv = bizCustomerLevel(c);
+    var ms = (typeof getCustomerModelStats==='function') ? getCustomerModelStats(c) : [];
+    if(!Array.isArray(ms)) ms = Object.keys(ms).map(function(k){ return ms[k]; });
+    var fast = ms.slice().sort(function(a,b){ return b.tot-a.tot; }).slice(0,3)
+                 .map(function(x){ return x.model+' ('+x.tot+')'; });
+    var q90 = ms.reduce(function(a,x){ return a+(x.q90||0); },0);
+    var ourMonthly = Math.round(q90/3*10)/10;
+    // কেনার ছন্দ → সম্ভাব্য পরের অর্ডারের তারিখ
+    var ds = (c.invoices||[]).map(function(i){ return i.date; }).filter(Boolean).sort();
+    var gap=null, nextLikely=null;
+    if(ds.length>=2){
+      var tot=0; for(var i=1;i<ds.length;i++) tot += (new Date(ds[i])-new Date(ds[i-1]))/86400000;
+      gap = Math.round(tot/(ds.length-1));
+      var nd = new Date(new Date(ds[ds.length-1]).getTime()+gap*86400000);
+      nextLikely = nd.toISOString().slice(0,10);
+    }
+    var a = store[c.id] || {};
+    var potential = parseFloat(a.potential)||0;
+    var sow = potential>0 ? Math.round(ourMonthly/potential*1000)/10 : null;
+    var gapPcs = potential>0 ? Math.round(Math.max(0, potential-ourMonthly)*10)/10 : null;
+    return { id:c.id, name:c.name, level:lv.earned, inactive:!!c.inactive,
+             fast:fast, ourMonthly:ourMonthly, q90:q90, invCount:lv.m.invCount, due:lv.m.due,
+             lastDate:lv.m.last, avgGapDays:gap, nextLikely:nextLikely,
+             potential:potential, competitor:(a.competitor||''), note:(a.note||''),
+             nextDate:(a.nextDate||''), nextQty:(a.nextQty||''),
+             sow:sow, gapPcs:gapPcs,
+             gapProfit: (gapPcs!==null && profitPc!==null) ? Math.round(gapPcs*profitPc) : null };
+  });
+  rows.sort(function(a,b){ return (b.gapPcs||-1)-(a.gapPcs||-1) || b.ourMonthly-a.ourMonthly; });
+  var filled = rows.filter(function(r){ return r.potential>0; });
+  return { rows:rows, filled:filled.length,
+           totalGapPcs: filled.reduce(function(a,r){ return a+(r.gapPcs||0); },0),
+           totalGapProfit: filled.reduce(function(a,r){ return a+(r.gapProfit||0); },0),
+           avgSow: filled.length ? Math.round(filled.reduce(function(a,r){ return a+(r.sow||0); },0)/filled.length*10)/10 : null,
+           profitPc: profitPc };
+}
+
+// ── Strategy 1: Dubai Pre-Selling Board (ম্যানুয়াল, ৫ ধাপ) ──
+var BOOK_STAGES = [
+  {id:1, name:'Interested',        hint:'Model পছন্দ করেছে'},
+  {id:2, name:'Verbal Commitment', hint:'Quantity মৌখিকভাবে বলেছে'},
+  {id:3, name:'Booking Pending',   hint:'Price ও condition মেনে নিয়েছে'},
+  {id:4, name:'Confirmed Booking', hint:'১০% বা ন্যূনতম ৳১০,০০০ advance দিয়েছে'},
+  {id:5, name:'Payment Confirmed', hint:'Final payment দিয়েছে'}
+];
+var BOOK_MIN_ADVANCE = 10000;
+
+function getBizBookingIntel(){
+  var B = (bizSalesRec().bookings)||[];
+  if(!B.length) return null;
+  var byStage={1:0,2:0,3:0,4:0,5:0};
+  B.forEach(function(b){ var st=b.stage||1; if(byStage[st]!==undefined) byStage[st]++; });
+  var verbalPlus  = B.filter(function(b){ return (b.stage||1)>=2; }).length;
+  var advancePlus = B.filter(function(b){ return (b.stage||1)>=4; }).length;
+  var conv = verbalPlus>0 ? Math.round(advancePlus/verbalPlus*100) : null;
+  // প্রতি model কতজন relevant customer-কে দেখানো হয়েছে (টার্গেট ১০–১৫)
+  var perModel={};
+  B.forEach(function(b){
+    var k=(b.model||'').trim(); if(!k) return;
+    if(!perModel[k]) perModel[k]={model:k, shown:{}, confirmedQty:0, advance:0, stages:[]};
+    if(b.customer) perModel[k].shown[(b.customer||'').trim().toLowerCase()]=true;
+    if((b.stage||1)>=4){ perModel[k].confirmedQty += (parseFloat(b.qty)||0); perModel[k].advance += (parseFloat(b.advance)||0); }
+  });
+  var models = Object.keys(perModel).map(function(k){
+    var m=perModel[k]; m.shownCount=Object.keys(m.shown).length;
+    // স্টকে থাকলে coverage — না থাকলে জানানো হয় "অজানা", অনুমান করা হয় না
+    var mk=k.toLowerCase();
+    var avail = (typeof stockDB!=='undefined' && stockDB.batches) ?
+      stockDB.batches.filter(function(b){ return (b.model||'').trim().toLowerCase()===mk; })
+        .reduce(function(a,b){ return a+Math.max(0,(b.qtyReceived||0)-(b.qtySold||0)); },0) : 0;
+    m.avail = avail;
+    m.coverage = avail>0 ? Math.round(m.confirmedQty/avail*100) : null;
+    return m;
+  }).sort(function(a,b){ return b.confirmedQty-a.confirmedQty; });
+  var lowAdvance = B.filter(function(b){ return (b.stage||1)>=4 && (parseFloat(b.advance)||0) < BOOK_MIN_ADVANCE; });
+  return { total:B.length, byStage:byStage, verbalPlus:verbalPlus, advancePlus:advancePlus,
+           conv:conv, models:models,
+           totalAdvance: B.reduce(function(a,b){ return a+(parseFloat(b.advance)||0); },0),
+           lowAdvance: lowAdvance.map(function(b){ return (b.customer||'?')+' / '+(b.model||'?'); }) };
+}
+
+function addBizBooking(){
+  var r=bizSalesRec(); if(!r.bookings) r.bookings=[];
+  r.bookings.unshift({ id:Date.now(), model:'', customer:'', qty:'', advance:'', stage:1, date:TODAY, note:'' });
+  saveDB(); syncToFirebase(); renderBizDetail('sales');
+}
+function saveBizBooking(i, prop, val){
+  var B=bizSalesRec().bookings||[]; if(!B[i]) return;
+  B[i][prop]=val; saveDB(); syncToFirebase(); bizFlashSaved();
+}
+function setBizBookingStage(i, st){
+  var B=bizSalesRec().bookings||[]; var b=B[i]; if(!b) return;
+  if(st>=4){
+    var adv=parseFloat(b.advance)||0;
+    if(adv<=0){ notify('Core Rule: Advance ছাড়া Confirmed Booking ধরা যাবে না', true); return; }
+    if(adv<BOOK_MIN_ADVANCE && !confirm('Advance ৳'+adv+' — নিয়ম বলছে ১০% বা ন্যূনতম ৳'+BOOK_MIN_ADVANCE+'।\n\nতবুও Confirmed Booking করবেন?')) return;
+  }
+  b.stage=st; saveDB(); syncToFirebase(); renderBizDetail('sales');
+}
+function deleteBizBooking(i){
+  var B=bizSalesRec().bookings||[]; if(!B[i]) return;
+  if(!confirm((B[i].customer||'এই booking')+' — মুছবেন?')) return;
+  B.splice(i,1); saveDB(); syncToFirebase(); renderBizDetail('sales');
+}
+function saveBizAccount(cid, prop, val){
+  var r=bizSalesRec(); if(!r.accounts) r.accounts={};
+  if(!r.accounts[cid]) r.accounts[cid]={};
+  r.accounts[cid][prop]=val; saveDB(); syncToFirebase(); bizFlashSaved();
+}
+function saveBizMinOrder(val){
+  var v=parseInt(val)||5; if(v<1) v=1;
+  bizSalesRec().minOrderQty=v; saveDB(); syncToFirebase(); renderBizDetail('sales');
+}
+
+// ══════════════════════════════════════════════════════════════════════════
 // Build-37 — 📇 Lead Box (ম্যানুয়াল লিড রেজিস্টার)
 // মালিক নিজে হাতে Name + WhatsApp লিখে রাখেন। যখন লিড প্রথম অর্ডার দেয়,
 // "Trial-এ নিন" চাপলে সেই লিড Customer Pipeline-এ 🧪 Trial স্টেজে আসল
@@ -5978,6 +6302,344 @@ function bizLeadToTrial(i){
   if(typeof renderPipeline==='function') renderPipeline();
   renderBizDetail('marketing');
   notify('✅ '+nm+' Customer Pipeline-এ Trial স্টেজে যোগ হলো');
+}
+
+// ── Build-38 renderers ───────────────────────────────────────────────────
+function bizSalesCard(label, val, sub, color){
+  return '<div style="background:rgba(15,23,42,.03);border-radius:10px;padding:12px">'+
+    '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:5px">'+label+'</div>'+
+    '<div style="font-family:var(--fm);font-size:22px;font-weight:800;color:'+(color||'var(--text)')+'">'+val+'</div>'+
+    (sub?'<div style="font-size:10px;color:var(--text3);margin-top:3px">'+sub+'</div>':'')+'</div>';
+}
+function bizSalesHead(title, sub){
+  return '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px">'+title+'</div>'+
+    (sub?'<div style="font-size:11px;color:var(--text3);margin-bottom:12px">'+sub+'</div>':'');
+}
+function bizLevelChip(id){
+  var L = SALES_LEVELS.filter(function(x){ return x.id===id; })[0];
+  if(!L) return '<span style="font-size:10px;color:var(--text3)">—</span>';
+  return '<span style="display:inline-block;padding:2px 8px;border-radius:5px;font-family:var(--fd);font-size:10px;font-weight:800;color:#fff;background:'+L.color+'">'+L.emoji+' '+L.name+'</span>';
+}
+
+// 🏆 Customer Level Engine — অর্জিত বনাম হাতে বসানো
+function renderBizSalesLevels(){
+  var d = getBizSalesLevels();
+  var h='<div style="margin-bottom:22px">';
+  h+=bizSalesHead('\u{1F3C6} Customer Level Engine (অর্জিত — Invoice থেকে)',
+      'Roadmap বলছে Performance দিয়ে Level অর্জন করতে হবে। এখানে প্রতিটি কাস্টমারের Level ইনভয়েস থেকে হিসাব হয়েছে — Clean Invoice মানে পুরো পেমেন্ট হয়েছে। Pipeline-এর হাতে বসানো stage আলাদা রাখা হয়েছে, কিছুই বদলানো হয়নি।');
+  if(!d){ h+='<div style="font-size:12px;color:var(--text3);padding:14px;background:rgba(15,23,42,.03);border-radius:10px">⚠️ ইনভয়েস ডেটা নেই — Level হিসাব করা যাচ্ছে না।</div></div>'; return h; }
+
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px">';
+  SALES_LEVELS.forEach(function(L){
+    h+=bizSalesCard(L.emoji+' '+L.name, d.byLevel[L.id]||0,
+      L.id===1?'প্রথম দিকের ক্রেতা':L.id===2?(SALES_CLEAN_FOR_REGULAR+'+ clean invoice'):
+      L.id===3?(SALES_CLEAN_FOR_TRUSTED+'+ clean invoice'):(SALES_CLEAN_FOR_STRATEGIC+'+ clean · Return ≤'+SALES_MAX_RETURN_PCT+'% · due নেই'), L.color);
+  });
+  h+='</div>';
+
+  if(d.over.length){
+    h+='<div style="background:rgba(227,6,19,.06);border:1px solid rgba(227,6,19,.3);border-radius:12px;padding:14px;margin-bottom:12px">';
+    h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--red);margin-bottom:4px">\u{1F6A8} '+d.over.length+' জন প্রাপ্যের চেয়ে উপরে বসানো</div>';
+    h+='<div style="font-size:11px;color:var(--text2);margin-bottom:10px">এঁদের Pipeline stage যা বলছে, ইনভয়েস তা সমর্থন করছে না। Credit বা Early Access দেওয়ার আগে এটাই দেখার জায়গা।</div>';
+    h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:520px">';
+    h+='<tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3)">কাস্টমার</th><th style="text-align:left;padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3)">বসানো</th><th style="text-align:left;padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3)">অর্জিত</th><th style="text-align:left;padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3)">কারণ</th></tr>';
+    d.over.forEach(function(r){
+      h+='<tr style="border-bottom:1px solid rgba(15,23,42,.05)">';
+      h+='<td style="padding:7px 6px;font-weight:700">'+escHtml(r.name)+'</td>';
+      h+='<td style="padding:7px 6px">'+bizLevelChip(r.assigned)+'</td>';
+      h+='<td style="padding:7px 6px">'+(r.earned?bizLevelChip(r.earned):'<span style="font-size:10px;color:var(--red);font-weight:700">ইনভয়েস নেই</span>')+'</td>';
+      h+='<td style="padding:7px 6px;font-size:11px;color:var(--text2)">'+escHtml(r.why)+'</td>';
+      h+='</tr>';
+    });
+    h+='</table></div></div>';
+  }
+  if(d.under.length){
+    h+='<div style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.3);border-radius:12px;padding:14px;margin-bottom:12px">';
+    h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin-bottom:4px">⬆️ '+d.under.length+' জন প্রাপ্যের চেয়ে নিচে পড়ে আছেন</div>';
+    h+='<div style="font-size:11px;color:var(--text2);margin-bottom:8px">এঁরা কাজ দিয়ে উপরের Level অর্জন করেছেন কিন্তু Pipeline-এ নিচে বসে আছেন — এঁদের সুবিধা না দিলে অন্য supplier-এর কাছে চলে যেতে পারেন।</div>';
+    d.under.forEach(function(r){
+      h+='<div style="font-size:12px;color:var(--text2);padding:4px 0"><b>'+escHtml(r.name)+'</b> — বসানো '+bizLevelChip(r.assigned)+' , অর্জিত '+bizLevelChip(r.earned)+' <span style="color:var(--text3)">('+escHtml(r.why)+')</span></div>';
+    });
+    h+='</div>';
+  }
+  if(d.withDue.length){
+    h+='<div style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.3);border-radius:12px;padding:14px;margin-bottom:12px">';
+    h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--warn);margin-bottom:4px">\u{1F512} Core Rule: Previous Due = New Booking Blocked</div>';
+    h+='<div style="font-size:11px;color:var(--text2);margin-bottom:8px">'+d.withDue.length+' জনের due আছে — মোট <b style="font-family:var(--fm)">'+fmtMoney(d.totalDue)+'</b>। নিয়ম অনুযায়ী এঁদের নতুন Booking নেওয়া যাবে না।</div>';
+    d.withDue.slice(0,12).forEach(function(r){
+      h+='<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid rgba(15,23,42,.05)"><span>'+escHtml(r.name)+'</span><span style="font-family:var(--fm);font-weight:700;color:var(--red)">'+fmtMoney(r.m.due)+'</span></div>';
+    });
+    h+='</div>';
+  }
+
+  // পূর্ণ তালিকা
+  h+='<div style="background:rgba(255,255,255,.7);border:1px solid var(--border);border-radius:12px;padding:14px;overflow-x:auto">';
+  h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:10px">সব ক্রেতা — Level ও পরের ধাপ</div>';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:640px">';
+  h+='<tr style="border-bottom:1px solid var(--border)">'+
+     ['কাস্টমার','Level','Invoice','Clean','Qty','Avg/Order','Return%','Due','পরের ধাপে যা লাগবে'].map(function(t,ix){
+       return '<th style="text-align:'+(ix>=2&&ix<=7?'right':'left')+';padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3);white-space:nowrap">'+t+'</th>'; }).join('')+'</tr>';
+  d.buyers.slice().sort(function(a,b){ return b.earned-a.earned || b.m.clean-a.m.clean; }).forEach(function(r){
+    h+='<tr style="border-bottom:1px solid rgba(15,23,42,.05)">';
+    h+='<td style="padding:7px 6px;font-weight:700">'+escHtml(r.name)+(r.inactive?' <span style="font-size:9px;color:var(--warn)">⏸️</span>':'')+'</td>';
+    h+='<td style="padding:7px 6px">'+bizLevelChip(r.earned)+'</td>';
+    h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm)">'+r.m.invCount+'</td>';
+    h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm);font-weight:700">'+r.m.clean+'</td>';
+    h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm)">'+r.m.qty+'</td>';
+    h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm)">'+(r.m.avgOrder===null?'—':r.m.avgOrder)+'</td>';
+    h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm);color:'+(r.m.returnPct!==null&&r.m.returnPct>SALES_MAX_RETURN_PCT?'var(--red)':'var(--text)')+'">'+(r.m.returnPct===null?'—':r.m.returnPct+'%')+'</td>';
+    h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm);color:'+(r.m.due>0?'var(--red)':'var(--text3)')+'">'+(r.m.due>0?fmtMoney(r.m.due):'—')+'</td>';
+    h+='<td style="padding:7px 6px;font-size:11px;color:var(--text2)">'+escHtml(r.next)+'</td>';
+    h+='</tr>';
+  });
+  h+='</table></div></div>';
+  return h;
+}
+
+// 📦 Order Size Intelligence
+function renderBizOrderSize(){
+  var d = getBizOrderSizeIntel();
+  var h='<div style="margin-bottom:22px">';
+  h+=bizSalesHead('\u{1F4E6} Order Size Intelligence (Strategy 4)',
+      'নতুন কাস্টমার নয়, নতুন স্টক নয় — শুধু প্রতি invoice-এ কয়েক pc বেশি। নিচের সব সংখ্যা আপনার লাইভ ইনভয়েস থেকে এখনই গোনা।');
+  if(!d){ h+='<div style="font-size:12px;color:var(--text3);padding:14px;background:rgba(15,23,42,.03);border-radius:10px">⚠️ ইনভয়েস ডেটা নেই।</div></div>'; return h; }
+
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px">';
+  h+=bizSalesCard('মোট Invoice', d.invoices, d.totalQty+' pcs বিক্রি');
+  h+=bizSalesCard('Average Order', d.avg+' pcs', 'Median '+d.median+' pcs', d.avg>=5?'var(--green)':'var(--warn)');
+  h+=bizSalesCard('সবচেয়ে বেশি যে সাইজ', d.topQty+' pcs', d.topCount+'টি invoice');
+  h+=bizSalesCard('গড় বিক্রয় মূল্য', d.avgPrice===null?'—':fmtMoney(d.avgPrice)+'/pc', d.realProfitPc===null?'purchase price নেই':('আসল profit '+fmtMoney(d.realProfitPc)+'/pc'));
+  h+='</div>';
+
+  // বণ্টন
+  h+='<div style="background:rgba(255,255,255,.7);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">';
+  h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:10px">Order Size বণ্টন</div>';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  d.buckets.forEach(function(b){
+    var col = b.lo>=6?'var(--green)':b.lo>=3?'var(--warn)':'var(--red)';
+    h+='<tr style="border-bottom:1px solid rgba(15,23,42,.05)">';
+    h+='<td style="padding:7px 6px;font-family:var(--fd);font-weight:700">'+b.label+'</td>';
+    h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm)">'+b.count+'টি</td>';
+    h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm);font-weight:800;color:'+col+'">'+b.pct+'%</td>';
+    h+='<td style="padding:7px 6px;width:45%"><div style="height:10px;border-radius:5px;background:rgba(15,23,42,.07)"><div style="height:10px;border-radius:5px;width:'+b.pct+'%;background:'+col+'"></div></div></td>';
+    h+='</tr>';
+  });
+  h+='</table></div>';
+
+  // সিমুলেশন
+  h+='<div style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.3);border-radius:12px;padding:14px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px">';
+  h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--green)">\u{1F9EE} Minimum Order নিয়ম চালু করলে কী হতো</div>';
+  h+='<div style="font-size:11px;color:var(--text2)">Minimum <input type="number" min="1" value="'+d.minQ+'" onchange="saveBizMinOrder(this.value)" style="width:58px;padding:5px;border:1px solid var(--border);border-radius:6px;font-family:var(--fm);font-size:12px;font-weight:700;text-align:center"> pcs</div>';
+  h+='</div>';
+  h+='<div style="font-size:11px;color:var(--text2);margin-bottom:12px">একই '+d.invoices+'টি invoice অপরিবর্তিত রেখে, শুধু '+d.minQ+' pcs-এর নিচের অর্ডারগুলো '+d.minQ+'-এ তুললে:</div>';
+  if(d.lift.length){
+    h+='<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px">';
+    h+='<tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3)">বর্তমান Order</th><th style="text-align:right;padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3)">Invoice</th><th style="text-align:right;padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3)">অতিরিক্ত বিক্রয়</th></tr>';
+    d.lift.forEach(function(l){
+      h+='<tr style="border-bottom:1px solid rgba(15,23,42,.05)"><td style="padding:6px;font-family:var(--fm)">'+l.from+' pc'+(l.from>1?'s':'')+'</td><td style="padding:6px;text-align:right;font-family:var(--fm)">'+l.invoices+'টি</td><td style="padding:6px;text-align:right;font-family:var(--fm);font-weight:700;color:var(--green)">+'+l.add+' pcs</td></tr>';
+    });
+    h+='<tr style="border-top:2px solid var(--border)"><td style="padding:7px 6px;font-family:var(--fd);font-weight:700">মোট</td><td style="padding:7px 6px;text-align:right;font-family:var(--fm);font-weight:800">'+d.lift.reduce(function(a,l){return a+l.invoices;},0)+'টি</td><td style="padding:7px 6px;text-align:right;font-family:var(--fm);font-weight:800;color:var(--green)">+'+d.extraQty+' pcs</td></tr>';
+    h+='</table>';
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:10px">';
+    h+=bizSalesCard('Total Quantity', d.totalQty+' → '+d.newTotalQty, '+'+d.extraQty+' pcs', 'var(--green)');
+    h+=bizSalesCard('Average Order', d.avg+' → '+d.newAvg, 'pcs per invoice', 'var(--green)');
+    h+=bizSalesCard('Quantity Growth', (d.growthPct===null?'—':'+'+d.growthPct+'%'), 'একই invoice সংখ্যায়', 'var(--green)');
+    h+=bizSalesCard('অতিরিক্ত Revenue', d.extraRevenue===null?'—':fmtMoney(d.extraRevenue), d.avgPrice===null?'—':('গড় '+fmtMoney(d.avgPrice)+'/pc'), 'var(--green)');
+    h+='</div>';
+    h+='<div style="font-size:11px;color:var(--text2);line-height:1.8;background:rgba(255,255,255,.6);border-radius:8px;padding:10px">';
+    if(d.extraProfitReal!==null){
+      h+='<b>আসল ডেটা অনুযায়ী profit:</b> '+fmtMoney(d.realProfitPc)+'/pc × '+d.extraQty+' pcs = <b style="font-family:var(--fm);color:var(--green)">'+fmtMoney(d.extraProfitReal)+'</b><br>';
+    } else {
+      h+='<b>Profit হিসাব করা যাচ্ছে না</b> — ইনভয়েসে purchase price নেই। নিচেরগুলো শুধু ধারণা:<br>';
+    }
+    h+='<span style="color:var(--text3)">ধারণা: </span>'+d.scenarios.map(function(x){ return fmtMoney(x.pp)+'/pc হলে '+fmtMoney(x.profit); }).join(' · ');
+    h+='</div>';
+  } else {
+    h+='<div style="font-size:12px;color:var(--text2)">'+d.minQ+' pcs-এর নিচে কোনো order নেই — নিয়মটি এখনই মানা হচ্ছে।</div>';
+  }
+  h+='</div>';
+
+  // কাকে আগে ধরতে হবে
+  if(d.custRows.length){
+    h+='<div style="background:rgba(255,255,255,.7);border:1px solid var(--border);border-radius:12px;padding:14px;margin-top:12px;overflow-x:auto">';
+    h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px">কাকে আগে ধরতে হবে</div>';
+    h+='<div style="font-size:11px;color:var(--text3);margin-bottom:10px">যাদের গড় order size সবচেয়ে কম অথচ invoice বেশি — এক pc বাড়ালেই সবচেয়ে বেশি লাভ। (অন্তত ২টি invoice আছে এমন কাস্টমার)</div>';
+    h+='<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:420px">';
+    h+='<tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3)">কাস্টমার</th><th style="text-align:right;padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3)">Invoice</th><th style="text-align:right;padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3)">গড় Order</th><th style="text-align:right;padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3)">সম্ভাব্য অতিরিক্ত</th></tr>';
+    d.custRows.slice(0,15).forEach(function(r){
+      h+='<tr style="border-bottom:1px solid rgba(15,23,42,.05)">';
+      h+='<td style="padding:7px 6px;font-weight:700">'+escHtml(r.name)+'</td>';
+      h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm)">'+r.inv+'</td>';
+      h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm);font-weight:700;color:'+(r.avg<d.minQ?'var(--red)':'var(--green)')+'">'+r.avg+'</td>';
+      h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm);font-weight:800;color:var(--green)">'+(r.upside>0?'+'+Math.round(r.upside)+' pcs':'—')+'</td>';
+      h+='</tr>';
+    });
+    h+='</table></div>';
+  }
+  h+='</div>';
+  return h;
+}
+
+// 🚢 Dubai Pre-Selling Board — ৫ ধাপ, ম্যানুয়াল এন্ট্রি
+function renderBizBookingBoard(){
+  var r = bizSalesRec();
+  if(!r.bookings) r.bookings=[];
+  var B = r.bookings;
+  var d = getBizBookingIntel();
+  var h='<div style="margin-bottom:22px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px">';
+  h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">\u{1F6A2} Dubai Pre-Selling Board (Strategy 1)</div>';
+  h+='<button onclick="addBizBooking()" style="background:var(--blue);border:none;border-radius:6px;padding:5px 12px;font-family:var(--fd);font-size:11px;font-weight:700;color:#fff;cursor:pointer">+ নতুন Booking</button>';
+  h+='</div>';
+  h+='<div style="font-size:11px;color:var(--text3);margin-bottom:12px">স্টক আসার আগেই কে কোন মডেল কত pcs নেবে — ৫ ধাপে। Core Rule: Advance ছাড়া Confirmed Booking নয়।</div>';
+
+  if(d){
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px">';
+    h+=bizSalesCard('Verbal → Advance', d.conv===null?'—':d.conv+'%',
+      d.advancePlus+' / '+d.verbalPlus+' · টার্গেট ≥৫০%',
+      d.conv===null?null:(d.conv>=50?'var(--green)':'var(--red)'));
+    h+=bizSalesCard('Confirmed Booking', d.advancePlus, 'মোট '+d.total+'টি এন্ট্রির মধ্যে', d.advancePlus>0?'var(--green)':'var(--warn)');
+    h+=bizSalesCard('মোট Advance', fmtMoney(d.totalAdvance), 'হাতে আসা বুকিং টাকা', 'var(--green)');
+    h+=bizSalesCard('Model ট্র্যাক হচ্ছে', d.models.length, 'প্রতি model ১০–১৫ জনকে দেখানোর কথা');
+    h+='</div>';
+
+    // ধাপে ধাপে ফানেল
+    var mx = Math.max.apply(null, BOOK_STAGES.map(function(x){ return d.byStage[x.id]||0; }).concat([1]));
+    h+='<div style="background:rgba(255,255,255,.7);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">';
+    h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:10px">Order Funnel</div>';
+    BOOK_STAGES.forEach(function(st){
+      var c=d.byStage[st.id]||0, w=Math.round(c/mx*100);
+      var col = st.id>=4?'var(--green)':st.id>=2?'var(--blue)':'rgba(15,23,42,.3)';
+      h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:7px">';
+      h+='<div style="width:150px;flex-shrink:0"><div style="font-family:var(--fd);font-size:12px;font-weight:700">'+st.id+'. '+st.name+'</div><div style="font-size:9px;color:var(--text3)">'+st.hint+'</div></div>';
+      h+='<div style="flex:1;height:14px;border-radius:7px;background:rgba(15,23,42,.06)"><div style="height:14px;border-radius:7px;width:'+w+'%;background:'+col+'"></div></div>';
+      h+='<div style="width:34px;text-align:right;font-family:var(--fm);font-size:13px;font-weight:800">'+c+'</div>';
+      h+='</div>';
+    });
+    h+='</div>';
+
+    // model-wise
+    if(d.models.length){
+      h+='<div style="background:rgba(255,255,255,.7);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;overflow-x:auto">';
+      h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:10px">Model অনুযায়ী</div>';
+      h+='<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:520px">';
+      h+='<tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3)">Model</th><th style="text-align:right;padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3)">দেখানো হয়েছে</th><th style="text-align:right;padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3)">Confirmed Qty</th><th style="text-align:right;padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3)">Advance</th><th style="text-align:right;padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3)">স্টকের কত %</th></tr>';
+      d.models.forEach(function(m){
+        var sc = m.shownCount>=10?'var(--green)':'var(--red)';
+        h+='<tr style="border-bottom:1px solid rgba(15,23,42,.05)">';
+        h+='<td style="padding:7px 6px;font-weight:700;font-family:var(--fm)">'+escHtml(m.model)+'</td>';
+        h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm);font-weight:700;color:'+sc+'">'+m.shownCount+' জন</td>';
+        h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm);font-weight:700">'+m.confirmedQty+'</td>';
+        h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm)">'+fmtMoney(m.advance)+'</td>';
+        h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm);font-weight:800;color:'+(m.coverage===null?'var(--text3)':(m.coverage>=30?'var(--green)':'var(--warn)'))+'">'+(m.coverage===null?'স্টক নেই':m.coverage+'%')+'</td>';
+        h+='</tr>';
+      });
+      h+='</table>';
+      h+='<div style="font-size:10px;color:var(--text3);margin-top:8px">"স্টকের কত %" = Confirmed Qty ÷ CTG-তে এখন যত available। টার্গেট ৩০–৪০%। স্টকে না থাকলে (এখনো Dubai-তে) হিসাব করা হয় না — অনুমান করা হয় না।</div>';
+      h+='</div>';
+    }
+    if(d.lowAdvance.length){
+      h+='<div style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.3);border-radius:12px;padding:12px;margin-bottom:12px;font-size:11px;line-height:1.7;color:var(--text2)">';
+      h+='<b style="color:var(--warn)">⚠️ '+d.lowAdvance.length+'টি Confirmed Booking-এ advance ৳'+BOOK_MIN_ADVANCE+'-এর কম</b><br>'+escHtml(d.lowAdvance.join(' · '));
+      h+='</div>';
+    }
+  }
+
+  if(!B.length){
+    h+='<div style="font-size:12px;color:var(--text3);padding:14px;background:rgba(15,23,42,.03);border-radius:10px">এখনো কোনো booking নেই। Dubai-তে যে মডেল অ্যাডভান্স করেছেন, সেটা দিয়ে শুরু করুন।</div></div>';
+    return h;
+  }
+  B.forEach(function(b, i){
+    var st = b.stage||1;
+    var col = st>=4?'rgba(16,185,129,.35)':'var(--border)';
+    h+='<div style="border:1px solid '+col+';background:'+(st>=4?'rgba(16,185,129,.05)':'transparent')+';border-radius:10px;padding:11px;margin-bottom:9px">';
+    h+='<div style="display:grid;grid-template-columns:1.4fr 1.4fr .7fr 1fr;gap:7px;margin-bottom:8px">';
+    h+='<input value="'+escHtml(b.model||'')+'" onblur="saveBizBooking('+i+',\'model\',this.value)" placeholder="Model" style="padding:8px;border:1px solid var(--border);border-radius:7px;font-family:var(--fm);font-size:12px;font-weight:700">';
+    h+='<input value="'+escHtml(b.customer||'')+'" onblur="saveBizBooking('+i+',\'customer\',this.value)" placeholder="Customer" style="padding:8px;border:1px solid var(--border);border-radius:7px;font-family:var(--fd);font-size:12px;font-weight:700">';
+    h+='<input value="'+escHtml(b.qty||'')+'" onblur="saveBizBooking('+i+',\'qty\',this.value)" placeholder="Qty" style="padding:8px;border:1px solid var(--border);border-radius:7px;font-family:var(--fm);font-size:12px;text-align:center">';
+    h+='<input value="'+escHtml(b.advance||'')+'" onblur="saveBizBooking('+i+',\'advance\',this.value)" placeholder="Advance ৳" style="padding:8px;border:1px solid var(--border);border-radius:7px;font-family:var(--fm);font-size:12px;text-align:right">';
+    h+='</div>';
+    h+='<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">';
+    BOOK_STAGES.forEach(function(x){
+      var on = st>=x.id;
+      h+='<button onclick="setBizBookingStage('+i+','+x.id+')" title="'+escHtml(x.hint)+'" style="flex:1;min-width:92px;background:'+(on?(x.id>=4?'var(--green)':'var(--blue)'):'rgba(15,23,42,.05)')+';border:none;border-radius:6px;padding:6px 7px;font-family:var(--fd);font-size:10px;font-weight:700;color:'+(on?'#fff':'var(--text3)')+';cursor:pointer">'+x.id+'. '+x.name+'</button>';
+    });
+    h+='</div>';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">';
+    h+='<input value="'+escHtml(b.note||'')+'" onblur="saveBizBooking('+i+',\'note\',this.value)" placeholder="নোট" style="flex:1;min-width:170px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;font-family:var(--fd);font-size:11px">';
+    h+='<span style="font-size:10px;color:var(--text3);font-family:var(--fm)">'+escHtml(b.date||'')+'</span>';
+    h+='<button onclick="deleteBizBooking('+i+')" style="background:transparent;border:1px solid var(--border);border-radius:6px;padding:5px 9px;font-size:11px;color:var(--text3);cursor:pointer">✕</button>';
+    h+='</div></div>';
+  });
+  h+='</div>';
+  return h;
+}
+
+// 🎯 Strategic Account Plan — Share of Wallet
+function renderBizAccountPlans(){
+  var d = getBizAccountPlans();
+  var h='<div style="margin-bottom:22px">';
+  h+=bizSalesHead('\u{1F3AF} Strategic Account Plan (Strategy 3)',
+      'বাঁ দিকের সংখ্যা CRM নিজেই বের করেছে। শুধু "মাসে মোট কত pcs বিক্রি করে" (Potential) লিখুন — Share of Wallet, gap ও সম্ভাব্য লাভ নিজে হিসাব হবে।');
+  if(!d || !d.rows.length){ h+='<div style="font-size:12px;color:var(--text3);padding:14px;background:rgba(15,23,42,.03);border-radius:10px">⚠️ এখনো কোনো ক্রেতা নেই।</div></div>'; return h; }
+
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px">';
+  h+=bizSalesCard('Account Plan লেখা হয়েছে', d.filled+' / '+d.rows.length, 'Potential বসানো কাস্টমার', d.filled>0?'var(--green)':'var(--warn)');
+  h+=bizSalesCard('গড় Share of Wallet', d.avgSow===null?'—':d.avgSow+'%', d.filled?'যাদের potential লেখা আছে':'আগে potential লিখুন', d.avgSow===null?null:(d.avgSow>=50?'var(--green)':'var(--warn)'));
+  h+=bizSalesCard('মোট Gap', d.totalGapPcs?Math.round(d.totalGapPcs)+' pcs/মাস':'—', 'অন্যের কাছ থেকে যা নিচ্ছে', d.totalGapPcs?'var(--warn)':null);
+  h+=bizSalesCard('Gap ধরতে পারলে Profit', d.totalGapProfit?fmtMoney(d.totalGapProfit)+'/মাস':'—', d.profitPc===null?'profit/pc জানা নেই':('আসল '+fmtMoney(d.profitPc)+'/pc'), d.totalGapProfit?'var(--green)':null);
+  h+='</div>';
+
+  h+='<div style="background:rgba(255,255,255,.7);border:1px solid var(--border);border-radius:12px;padding:14px;overflow-x:auto">';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:900px">';
+  h+='<tr style="border-bottom:1px solid var(--border)">'+
+     ['কাস্টমার','Level','আমার কাছ থেকে /মাস','Fast-selling models','সম্ভাব্য পরের অর্ডার','Monthly Potential','Competitor','SoW %','Gap'].map(function(t,ix){
+       return '<th style="text-align:'+(ix>=7?'right':'left')+';padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3);white-space:nowrap">'+t+'</th>'; }).join('')+'</tr>';
+  d.rows.forEach(function(r){
+    h+='<tr style="border-bottom:1px solid rgba(15,23,42,.05)">';
+    h+='<td style="padding:7px 6px;font-weight:700;white-space:nowrap">'+escHtml(r.name)+(r.inactive?' <span style="font-size:9px">⏸️</span>':'')+'</td>';
+    h+='<td style="padding:7px 6px">'+bizLevelChip(r.level)+'</td>';
+    h+='<td style="padding:7px 6px;font-family:var(--fm);font-weight:700">'+r.ourMonthly+' pcs</td>';
+    h+='<td style="padding:7px 6px;font-size:11px;color:var(--text2)">'+escHtml(r.fast.join(', ')||'—')+'</td>';
+    h+='<td style="padding:7px 6px;font-family:var(--fm);font-size:11px">'+(r.nextLikely?escHtml(r.nextLikely)+' <span style="color:var(--text3)">(~'+r.avgGapDays+'d)</span>':'<span style="color:var(--text3)">ছন্দ বোঝা যায়নি</span>')+'</td>';
+    h+='<td style="padding:7px 6px"><input type="number" min="0" value="'+escHtml(r.potential||'')+'" onblur="saveBizAccount('+r.id+',\'potential\',this.value)" placeholder="pcs/মাস" style="width:88px;padding:6px;border:1px solid var(--border);border-radius:6px;font-family:var(--fm);font-size:12px;text-align:right"></td>';
+    h+='<td style="padding:7px 6px"><input value="'+escHtml(r.competitor||'')+'" onblur="saveBizAccount('+r.id+',\'competitor\',this.value)" placeholder="অন্য supplier থেকে কী নেয়" style="width:170px;padding:6px;border:1px solid var(--border);border-radius:6px;font-family:var(--fd);font-size:11px"></td>';
+    h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm);font-weight:800;color:'+(r.sow===null?'var(--text3)':(r.sow>=50?'var(--green)':'var(--red)'))+'">'+(r.sow===null?'—':r.sow+'%')+'</td>';
+    h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm);font-weight:700;color:'+(r.gapPcs?'var(--warn)':'var(--text3)')+'">'+(r.gapPcs===null?'—':r.gapPcs+' pcs'+(r.gapProfit?'<div style="font-size:10px;color:var(--green)">'+fmtMoney(r.gapProfit)+'</div>':''))+'</td>';
+    h+='</tr>';
+  });
+  h+='</table></div></div>';
+  return h;
+}
+
+// 🔁 Push Opportunities — যা আগে থেকেই বানানো আছে, তার সারাংশ
+function renderBizPushSummary(){
+  var h='<div style="margin-bottom:22px">';
+  h+=bizSalesHead('\u{1F501} Push Opportunities (Strategy 2)',
+      'Repeat Selling ও Demand Discovery — পুরো বিশ্লেষণ Pipeline ট্যাবের 🎯 Push Opportunities-এ আছে। এখানে সারাংশ।');
+  var ok = (typeof getPushOpportunities==='function');
+  if(!ok){ h+='<div style="font-size:12px;color:var(--text3);padding:14px;background:rgba(15,23,42,.03);border-radius:10px">মডিউল পাওয়া যায়নি।</div></div>'; return h; }
+  var rows=[];
+  try{ rows = getPushOpportunities()||[]; }catch(e){ rows=[]; }
+  if(!rows.length){ h+='<div style="font-size:12px;color:var(--text3);padding:14px;background:rgba(15,23,42,.03);border-radius:10px">এখনো যথেষ্ট repeat-sell ডেটা নেই।</div></div>'; return h; }
+  var totRev = rows.reduce(function(a,r){ return a+(r.totalIncRevenue||0); },0);
+  var extCust = 0, extModels = 0;
+  db.customers.forEach(function(c){
+    var g = (typeof getCrossSellGap==='function') ? getCrossSellGap(c) : {inStock:[],noStock:[]};
+    var n = g.inStock.length+g.noStock.length;
+    if(n){ extCust++; extModels+=n; }
+  });
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px">';
+  h+=bizSalesCard('Repeat সুযোগ আছে', rows.length+' জন', 'যাদের আগের মডেল আবার অফার করা যায়', 'var(--green)');
+  h+=bizSalesCard('Repeat Revenue সুযোগ', fmtMoney(totRev), '৯০ দিনের বিক্রি ডাবল করলে', 'var(--green)');
+  h+=bizSalesCard('Demand Discovery', extCust+' জন', extModels+'টি external model রেকর্ড করা', extCust>0?'var(--green)':'var(--warn)');
+  h+=bizSalesCard('External রেকর্ড নেই', (db.customers.length-extCust)+' জন', 'এঁরা বাইরে কী বিক্রি করেন জানা নেই', (db.customers.length-extCust)>0?'var(--warn)':null);
+  h+='</div>';
+  h+='<div style="font-size:11px;color:var(--text2);line-height:1.8;background:rgba(15,23,42,.03);border-radius:10px;padding:12px">';
+  h+='Demand Discovery-র ঘরটি প্রতিটি কাস্টমারের প্রোফাইলের <b>Models</b> ট্যাবে — "External Selling" অংশে কাস্টমার তার নিজের দোকানে/পেজে যা বিক্রি করছে সেই মডেল যোগ করুন। স্টকে থাকলে CRM নিজেই সেটা সুযোগ হিসেবে দেখাবে।';
+  h+='</div></div>';
+  return h;
 }
 
 function renderBizLeadBox(){
@@ -6595,6 +7257,7 @@ function renderBizDetail(key){
   if((rec.engines||[]).length){
     var pillarLabel = (key==='purchase')  ? '\u{1F6A6} '+rec.engines.length+' Purchase Gates — চারটিই পাস করলে তবেই কেনা'
                     : (key==='marketing') ? '\u{1F4E3} '+rec.engines.length+' Marketing Rules — Sell Before Stock'
+                    : (key==='sales')     ? '\u{1F4B0} 4 Sales Strategy + Customer Success Roadmap'
                     : '\u{1F3D7}️ '+rec.engines.length+' Business Engines';
     h+='<div style="margin-bottom:18px">';
     h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">'+pillarLabel+'</div>';
@@ -6605,6 +7268,13 @@ function renderBizDetail(key){
     if(key==='purchase'){
       h+=renderBizStockCashIntel();
       h+=renderBizPurchaseQtyGuide();
+    }
+    if(key==='sales'){
+      h+=renderBizSalesLevels();
+      h+=renderBizBookingBoard();
+      h+=renderBizOrderSize();
+      h+=renderBizAccountPlans();
+      h+=renderBizPushSummary();
     }
     if(key==='marketing'){
       h+=renderBizAcquisition();
