@@ -6009,6 +6009,15 @@ function bizInvMoney(inv){
 // টাকা-পয়সা এখানে ধরা হয় না: এই ব্যবসায় কাস্টমার অর্ডার দিলে কুরিয়ারে বুকিং হয়,
 // কুরিয়ার থেকে রিসিভের আগে পেমেন্ট দিলে তবেই ল্যাপটপ রিলিজ হয় — তাই
 // "unpaid" মানে সাধারণত পথে থাকা মাল, বকেয়া নয়।
+// কাস্টমারের Level — শুধু অর্ডার (invoice) সংখ্যা দিয়ে। Sales Module-এর রিয়েল ডেটা।
+// টাকা-পয়সা এখানে ধরা হয় না: এই ব্যবসায় কাস্টমার অর্ডার দিলে কুরিয়ারে বুকিং হয়,
+// কুরিয়ার থেকে রিসিভের আগে পেমেন্ট দিলে তবেই ল্যাপটপ রিলিজ হয় — তাই
+// "unpaid" মানে সাধারণত পথে থাকা মাল, বকেয়া নয়।
+//
+// Build-40: এই CRM মাত্র ৩ মাসের। যে কাস্টমার Trial বা তার উপরের স্টেজে বসানো
+// আছেন অথচ একটিও ইনভয়েস নেই, তিনি নতুন নন — তিনি পুরনো কাস্টমার যিনি এই
+// সময়ে কিছু কেনেননি। তাই তিনিও INACTIVE। তবে সদ্য যোগ হওয়া কাউকে (যেমন
+// Lead Box থেকে আজ Trial-এ আসা কাস্টমার) INACTIVE বলা হয় না।
 function bizCustomerLevel(c){
   var invs = (c.invoices||[]);
   var last = null, qty = 0;
@@ -6025,25 +6034,48 @@ function bizCustomerLevel(c){
       if(n>=L.lo && n<=L.hi){ level=L.id; break; }
     }
   }
-  return { id:c.id, name:c.name, invCount:n, qty:qty, lastDate:last, daysSince:days,
-           inactive: (n>0 && days!==null && days>SALES_INACTIVE_DAYS),
-           level:level };
+  var addedDays = c.createdDate ? getAge(c.createdDate) : null;
+  var isCustomer = (c.stage||0) >= 3;          // Trial বা তার উপরে = কাস্টমার, Lead নয়
+  var neverOrdered = (n===0 && isCustomer);
+  var inactive;
+  if(n>0){
+    inactive = (days!==null && days>SALES_INACTIVE_DAYS);
+  } else {
+    // অর্ডার নেই: শুধু তখনই INACTIVE, যখন যোগ হওয়ার পরও যথেষ্ট সময় গেছে
+    inactive = neverOrdered && addedDays!==null && addedDays>SALES_INACTIVE_DAYS;
+  }
+  return { id:c.id, name:c.name, stage:c.stage, invCount:n, qty:qty,
+           lastDate:last, daysSince:days, addedDays:addedDays,
+           isCustomer:isCustomer, neverOrdered:neverOrdered,
+           // কত দিন চুপ — অর্ডার থাকলে শেষ অর্ডার থেকে, না থাকলে CRM-এ যোগ থেকে
+           silentDays: (n>0 ? days : addedDays),
+           inactive:inactive, level:level };
 }
 
 function getBizSalesLevels(){
   if(!db.customers || !db.customers.length) return null;
-  var rows = db.customers.map(bizCustomerLevel).filter(function(r){ return r.invCount>0; });
+  var all = db.customers.map(bizCustomerLevel);
+  // Roadmap-এ থাকবেন যাঁরা কিনেছেন, আর যাঁরা কাস্টমার স্টেজে আছেন কিন্তু কেনেননি।
+  // নিছক Lead (stage ১–২, কখনো কেনেননি) এখানে আসেন না — তিনি Lead Box-এর বিষয়।
+  var rows = all.filter(function(r){ return r.invCount>0 || r.neverOrdered; });
   if(!rows.length) return null;
   rows.sort(function(a,b){ return b.invCount-a.invCount; });
   var byLevel = {1:[],2:[],3:[],4:[]};
-  var inactive = [];
+  var inactive = [], pending = [];
   rows.forEach(function(r){
-    if(r.inactive){ inactive.push(r); return; }   // INACTIVE একচেটিয়া ঘর
+    if(r.inactive){ inactive.push(r); return; }        // INACTIVE একচেটিয়া ঘর
+    if(r.invCount===0){ pending.push(r); return; }     // সদ্য যোগ, এখনো অর্ডার দেননি
     if(byLevel[r.level]) byLevel[r.level].push(r);
   });
-  inactive.sort(function(a,b){ return b.daysSince-a.daysSince; });
-  return { rows:rows, byLevel:byLevel, inactive:inactive, totalBuyers:rows.length,
-           activeBuyers: rows.length - inactive.length };
+  // বেশিদিন চুপ থাকা উপরে; কখনো না কেনা কাস্টমাররা সবার নিচে
+  inactive.sort(function(a,b){
+    if(a.neverOrdered!==b.neverOrdered) return a.neverOrdered?1:-1;
+    return (b.silentDays||0)-(a.silentDays||0);
+  });
+  return { rows:rows, byLevel:byLevel, inactive:inactive, pending:pending,
+           totalBuyers: rows.filter(function(r){ return r.invCount>0; }).length,
+           neverOrderedCount: rows.filter(function(r){ return r.neverOrdered; }).length,
+           activeBuyers: rows.filter(function(r){ return r.invCount>0 && !r.inactive; }).length };
 }
 
 // ── Strategy 4: Order Size — আসল বণ্টন ও "minimum N pcs হলে কী হতো" ──
@@ -6312,32 +6344,46 @@ function renderBizSalesLevels(){
       'Sales Module-এর অর্ডার সংখ্যা থেকে সরাসরি। গত '+SALES_INACTIVE_DAYS+' দিনে অর্ডার না থাকলে কাস্টমার শুধু INACTIVE ঘরে থাকবেন।');
   if(!d){ h+='<div style="font-size:12px;color:var(--text3);padding:14px;background:rgba(15,23,42,.03);border-radius:10px">⚠️ এখনো কোনো অর্ডার নেই — Roadmap দেখানোর মতো ডেটা নেই।</div></div>'; return h; }
 
-  function bucket(title, emoji, color, rule, list){
+  function row(r){
+    var x='<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:5px 0;border-bottom:1px solid rgba(15,23,42,.05)">';
+    x+='<span style="font-family:var(--fd);font-size:13px;font-weight:700">'+escHtml(r.name)+'</span>';
+    x+='<span style="white-space:nowrap">';
+    x+='<span style="font-family:var(--fm);font-size:13px;font-weight:800;color:'+(r.invCount===0?'var(--red)':'var(--text)')+'">'+r.invCount+' Invoice</span>';
+    if(r.invCount===0){
+      x+='<span style="font-family:var(--fm);font-size:10px;color:var(--text3);margin-left:8px">CRM-এ '+(r.addedDays===null?'—':r.addedDays+' দিন, কোনো অর্ডার নেই')+'</span>';
+    } else {
+      x+='<span style="font-family:var(--fm);font-size:10px;color:var(--text3);margin-left:8px">'+(r.daysSince===null?'':r.daysSince+' দিন আগে')+'</span>';
+    }
+    return x+'</span></div>';
+  }
+  function bucket(title, emoji, color, rule, list, note){
     var x='<div style="border:1px solid var(--border);border-left:4px solid '+color+';border-radius:12px;padding:14px;background:rgba(255,255,255,.7);margin-bottom:12px">';
     x+='<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:2px">';
     x+='<div style="font-family:var(--fd);font-size:15px;font-weight:800;color:'+color+'">'+emoji+' '+title+'</div>';
     x+='<div style="font-family:var(--fm);font-size:15px;font-weight:800;color:'+color+'">'+list.length+' কাস্টমার</div>';
     x+='</div>';
     x+='<div style="font-size:10px;color:var(--text3);margin-bottom:10px">'+rule+'</div>';
-    if(!list.length){
-      x+='<div style="font-size:12px;color:var(--text3)">এখনো কেউ নেই।</div>';
-    } else {
-      list.forEach(function(r){
-        x+='<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:5px 0;border-bottom:1px solid rgba(15,23,42,.05)">';
-        x+='<span style="font-family:var(--fd);font-size:13px;font-weight:700">'+escHtml(r.name)+'</span>';
-        x+='<span style="white-space:nowrap"><span style="font-family:var(--fm);font-size:13px;font-weight:800">'+r.invCount+' Invoice</span>'+
-           '<span style="font-family:var(--fm);font-size:10px;color:var(--text3);margin-left:8px">'+(r.daysSince===null?'':r.daysSince+' দিন আগে')+'</span></span>';
-        x+='</div>';
-      });
-    }
+    if(!list.length) x+='<div style="font-size:12px;color:var(--text3)">এখনো কেউ নেই।</div>';
+    else list.forEach(function(r){ x+=row(r); });
+    if(note) x+='<div style="font-size:11px;color:var(--text2);margin-top:10px;background:rgba(15,23,42,.03);border-radius:8px;padding:9px;line-height:1.7">'+note+'</div>';
     return x+'</div>';
   }
 
   SALES_LEVELS.forEach(function(L){
     h+=bucket(L.name, L.emoji, L.color, L.rule, d.byLevel[L.id]||[]);
   });
+
+  var note = '';
+  if(d.neverOrderedCount){
+    note = 'ℹ️ এর মধ্যে <b>'+d.neverOrderedCount+' জনের</b> এই CRM-এ একটিও ইনভয়েস নেই। CRM মাত্র ৩ মাসের — এঁরা পুরনো কাস্টমার যাঁরা এই সময়ে কিছু কেনেননি।';
+  }
+  if(d.pending.length){
+    note += (note?'<br>':'') + '⏳ আরও <b>'+d.pending.length+' জন</b> সম্প্রতি যোগ হয়েছেন এবং এখনো অর্ডার দেননি — তাঁদের এখনো INACTIVE ধরা হয়নি: '+
+            escHtml(d.pending.map(function(r){ return r.name; }).join(', '))+'।';
+  }
   h+=bucket('INACTIVE', '⏸️', 'var(--warn)',
-      'অন্তত ১বার অর্ডার দিয়েছেন, কিন্তু গত '+SALES_INACTIVE_DAYS+' দিনে কোনো অর্ডার নেই', d.inactive);
+      'অন্তত ১বার অর্ডার দিয়েছেন কিন্তু গত '+SALES_INACTIVE_DAYS+' দিনে কোনো অর্ডার নেই — অথবা কাস্টমার স্টেজে আছেন কিন্তু এই CRM-এ কোনো অর্ডারই নেই',
+      d.inactive, note);
 
   h+='</div>';
   return h;
