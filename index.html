@@ -5913,6 +5913,171 @@ var MKT_STEPS = ['Dubai Warehouse Proof','Model Education','Demand & Selling Opp
                  'Price & Quantity Offer','Booking Update','Shipment Proof','Arrival & Delivery Proof',
                  'Customer Feedback','Repeat Stock Opportunity'];
 
+// ══════════════════════════════════════════════════════════════════════════
+// Build-36 — Customer Acquisition Dashboard + Second-Order Gap
+// Two separate truths, never mixed:
+//   (a) CRM-এ যোগ হওয়ার মাস  = createdDate  → এটি ডেটা-এন্ট্রির তারিখ
+//   (b) প্রথম অর্ডারের মাস     = first invoice → এটি আসল acquisition
+// পুরনো কাস্টমার CRM-এ পরে ওঠানো হলে (a) লাফ দেয় কিন্তু (b) দেয় না —
+// তাই দুটো পাশাপাশি দেখানো হয় এবং গরমিল হলে সরাসরি লেখা হয়।
+// ══════════════════════════════════════════════════════════════════════════
+function getBizAcquisition(){
+  if(!db.customers || !db.customers.length) return null;
+  var addedM={}, firstM={};
+  var noCreated=0;
+  db.customers.forEach(function(c){
+    var cd = c.createdDate||'';
+    if(/^\d{4}-\d{2}/.test(cd)) addedM[cd.slice(0,7)] = (addedM[cd.slice(0,7)]||0)+1;
+    else noCreated++;
+    var invs=(c.invoices||[]).slice().sort(function(a,b){ return new Date(a.date)-new Date(b.date); });
+    if(invs.length && /^\d{4}-\d{2}/.test(invs[0].date||'')) firstM[invs[0].date.slice(0,7)] = (firstM[invs[0].date.slice(0,7)]||0)+1;
+  });
+  var all = {};
+  Object.keys(addedM).forEach(function(m){ all[m]=1; });
+  Object.keys(firstM).forEach(function(m){ all[m]=1; });
+  var months = Object.keys(all).sort().slice(-12).map(function(m){
+    return { month:m, added:(addedM[m]||0), firstOrder:(firstM[m]||0) };
+  });
+  var totalAdded = Object.keys(addedM).reduce(function(a,m){ return a+addedM[m]; },0);
+  var totalFirst = Object.keys(firstM).reduce(function(a,m){ return a+firstM[m]; },0);
+  // একটি মাসে যোগ অনেক বেশি অথচ প্রথম অর্ডার অনেক কম = bulk data entry
+  var bulk = months.filter(function(m){ return m.added>=5 && m.added >= m.firstOrder*3; }).map(function(m){ return m.month; });
+  return { months:months, totalCustomers:db.customers.length, totalAdded:totalAdded,
+           totalFirstOrder:totalFirst, noCreatedDate:noCreated, bulkMonths:bulk };
+}
+
+// প্রথম অর্ডার হয়েছে কিন্তু দ্বিতীয়টি হয়নি — দিন অনুযায়ী ভাগ করা,
+// কারণ ৩ দিন আগে কেনা কাস্টমারকে "হারানো" বলা ডেটার অপব্যবহার।
+var BIZ_2ND_FRESH = 30;   // এর নিচে = এখনো সময় আছে
+var BIZ_2ND_RISK  = 60;   // এর নিচে = ঝুঁকিতে, এর উপরে = হারানো
+function getBizSecondOrderGap(){
+  if(!db.customers || !db.customers.length) return null;
+  var stageName={}; STAGES.forEach(function(s){ stageName[s.id]=s.name; });
+  var once=[], never=[];
+  db.customers.forEach(function(c){
+    var invs=(c.invoices||[]).slice().sort(function(a,b){ return new Date(a.date)-new Date(b.date); });
+    if(!invs.length){ never.push({ name:c.name, stage:c.stage, stageName:(stageName[c.stage]||c.stage), created:c.createdDate||null }); return; }
+    if(invs.length>1) return;
+    var iv=invs[0];
+    var qty=(iv.items||[]).reduce(function(a,x){ return a+(x.qty||0); },0);
+    var amt=(iv.items||[]).reduce(function(a,x){ return a+(x.qty||0)*(x.price||0); },0);
+    var days=(iv.date? getAge(iv.date) : null);
+    once.push({ name:c.name, stage:c.stage, stageName:(stageName[c.stage]||c.stage),
+                date:iv.date||null, days:days, qty:qty, amt:amt,
+                bucket: days===null?'unknown' : (days<BIZ_2ND_FRESH?'fresh' : (days<BIZ_2ND_RISK?'risk':'lost')) });
+  });
+  once.sort(function(a,b){ return (b.days||0)-(a.days||0); });
+  function cnt(b){ return once.filter(function(r){ return r.bucket===b; }).length; }
+  var repeated = db.customers.filter(function(c){ return (c.invoices||[]).length>=2; }).length;
+  var ordered  = db.customers.filter(function(c){ return (c.invoices||[]).length>=1; }).length;
+  return { once:once, onceCount:once.length, fresh:cnt('fresh'), risk:cnt('risk'), lost:cnt('lost'),
+           lostNames: once.filter(function(r){ return r.bucket==='lost'; }).map(function(r){ return r.name; }),
+           never:never, neverCount:never.length, ordered:ordered, repeated:repeated,
+           secondOrderRate: ordered? Math.round(repeated/ordered*100) : null };
+}
+
+function renderBizAcquisition(){
+  var a = getBizAcquisition();
+  var g = getBizSecondOrderGap();
+  var h='<div style="margin-bottom:22px">';
+  h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px">\u{1F4C8} Customer Acquisition Dashboard</div>';
+  h+='<div style="font-size:11px;color:var(--text3);margin-bottom:12px">প্রতি মাসে CRM-এ কতজন নতুন কাস্টমার যোগ হচ্ছে, আর তাদের মধ্যে কতজন আসলে প্রথম অর্ডার দিয়েছে</div>';
+  if(!a){ h+='<div style="font-size:12px;color:var(--text3);padding:14px;background:rgba(15,23,42,.03);border-radius:10px">⚠️ কাস্টমার ডেটা নেই।</div></div>'; return h; }
+
+  function bigCard(label, val, sub, color){
+    return '<div style="background:rgba(15,23,42,.03);border-radius:12px;padding:14px">'+
+      '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">'+label+'</div>'+
+      '<div style="font-family:var(--fm);font-size:26px;font-weight:800;color:'+(color||'var(--text)')+'">'+val+'</div>'+
+      (sub?'<div style="font-size:10px;color:var(--text3);margin-top:4px">'+sub+'</div>':'')+'</div>';
+  }
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px;margin-bottom:14px">';
+  h+=bigCard('টোটাল কাস্টমার (CRM)', a.totalCustomers, 'সব মাস মিলিয়ে যোগ হয়েছে '+a.totalAdded+' জন');
+  h+=bigCard('প্রথম অর্ডার দিয়েছে', a.totalFirstOrder, a.totalCustomers+' জনের মধ্যে',
+      a.totalFirstOrder>=a.totalCustomers*0.7?'var(--green)':'var(--warn)');
+  var lastM = a.months.length? a.months[a.months.length-1] : null;
+  h+=bigCard('চলতি মাসে যোগ', lastM?lastM.added:'—', lastM?(lastM.month+' · প্রথম অর্ডার '+lastM.firstOrder+' জন'):'');
+  h+=bigCard('এখনো কেনেনি', g?g.neverCount:'—', 'CRM-এ ইনভয়েস নেই', (g&&g.neverCount>0)?'var(--warn)':null);
+  h+='</div>';
+
+  // মাসভিত্তিক টেবিল — দুটো সংখ্যা পাশাপাশি
+  var mxA = Math.max.apply(null, a.months.map(function(m){ return Math.max(m.added,m.firstOrder); }).concat([1]));
+  h+='<div style="background:rgba(255,255,255,.7);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;overflow-x:auto">';
+  h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:10px">মাস অনুযায়ী নতুন কাস্টমার</div>';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:430px">';
+  h+='<tr style="border-bottom:1px solid var(--border)">'+
+     '<th style="text-align:left;padding:7px 6px;font-family:var(--fd);font-size:10px;color:var(--text3);font-weight:700">মাস</th>'+
+     '<th style="text-align:right;padding:7px 6px;font-family:var(--fd);font-size:10px;color:var(--text3);font-weight:700">CRM-এ যোগ</th>'+
+     '<th style="text-align:right;padding:7px 6px;font-family:var(--fd);font-size:10px;color:var(--text3);font-weight:700">প্রথম অর্ডার</th>'+
+     '<th style="text-align:left;padding:7px 6px;font-family:var(--fd);font-size:10px;color:var(--text3);font-weight:700">প্রথম অর্ডার (bar)</th></tr>';
+  a.months.forEach(function(m){
+    var w = Math.round(m.firstOrder/mxA*100);
+    var col = m.firstOrder>=8?'var(--green)':m.firstOrder>=4?'var(--warn)':'var(--red)';
+    h+='<tr style="border-bottom:1px solid rgba(15,23,42,.05)">';
+    h+='<td style="padding:7px 6px;font-family:var(--fm);font-size:12px">'+m.month+'</td>';
+    h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm);font-weight:700">'+m.added+'</td>';
+    h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm);font-weight:800;color:'+col+'">'+m.firstOrder+'</td>';
+    h+='<td style="padding:7px 6px"><div style="height:9px;border-radius:5px;background:rgba(15,23,42,.07)"><div style="height:9px;border-radius:5px;width:'+w+'%;background:'+col+'"></div></div></td>';
+    h+='</tr>';
+  });
+  h+='<tr style="border-top:2px solid var(--border)">';
+  h+='<td style="padding:8px 6px;font-family:var(--fd);font-size:11px;font-weight:700">টোটাল</td>';
+  h+='<td style="padding:8px 6px;text-align:right;font-family:var(--fm);font-weight:800">'+a.totalAdded+'</td>';
+  h+='<td style="padding:8px 6px;text-align:right;font-family:var(--fm);font-weight:800">'+a.totalFirstOrder+'</td><td></td></tr>';
+  h+='</table>';
+  if(a.bulkMonths.length){
+    h+='<div style="margin-top:10px;font-size:11px;line-height:1.7;color:var(--text2);background:rgba(15,23,42,.03);border-radius:8px;padding:10px">'+
+       'ℹ️ <b>'+escHtml(a.bulkMonths.join(', '))+'</b> মাসে CRM-এ যোগের সংখ্যা প্রথম অর্ডারের চেয়ে অনেক বেশি — এটি সম্ভবত পুরনো কাস্টমার একসাথে তোলা (data entry), নতুন কাস্টমার আসা নয়। '+
+       'তাই marketing পারফরম্যান্স বিচার করতে <b>"প্রথম অর্ডার"</b> কলামটাই দেখুন।</div>';
+  }
+  h+='</div>';
+
+  // ── দ্বিতীয় অর্ডার হয়নি ──
+  if(g){
+    h+='<div style="background:rgba(255,255,255,.7);border:1px solid var(--border);border-radius:12px;padding:14px">';
+    h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px">\u{1F501} প্রথম অর্ডার হয়েছে, দ্বিতীয়টি হয়নি</div>';
+    h+='<div style="font-size:11px;color:var(--text3);margin-bottom:12px">প্রথম অর্ডারের কত দিন পার হয়েছে সেই অনুযায়ী ভাগ করা — ৩০ দিনের কম হলে এখনো সময় আছে</div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px">';
+    h+=bigCard('মোট একবারই কিনেছে', g.onceCount, g.ordered+' জন ক্রেতার মধ্যে', g.onceCount>0?'var(--warn)':'var(--green)');
+    h+=bigCard('⏳ এখনো সময় আছে', g.fresh, '৩০ দিনের কম হয়েছে');
+    h+=bigCard('⚠️ ঝুঁকিতে', g.risk, '৩০–৬০ দিন চুপ', g.risk>0?'var(--warn)':null);
+    h+=bigCard('❌ হারানো', g.lost, '৬০ দিনের বেশি চুপ', g.lost>0?'var(--red)':'var(--green)');
+    h+='</div>';
+    if(g.once.length){
+      h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:520px">';
+      h+='<tr style="border-bottom:1px solid var(--border)">'+
+         '<th style="text-align:left;padding:7px 6px;font-family:var(--fd);font-size:10px;color:var(--text3);font-weight:700">কাস্টমার</th>'+
+         '<th style="text-align:left;padding:7px 6px;font-family:var(--fd);font-size:10px;color:var(--text3);font-weight:700">প্রথম অর্ডার</th>'+
+         '<th style="text-align:right;padding:7px 6px;font-family:var(--fd);font-size:10px;color:var(--text3);font-weight:700">দিন</th>'+
+         '<th style="text-align:right;padding:7px 6px;font-family:var(--fd);font-size:10px;color:var(--text3);font-weight:700">Qty</th>'+
+         '<th style="text-align:right;padding:7px 6px;font-family:var(--fd);font-size:10px;color:var(--text3);font-weight:700">Amount</th>'+
+         '<th style="text-align:left;padding:7px 6px;font-family:var(--fd);font-size:10px;color:var(--text3);font-weight:700">অবস্থা</th></tr>';
+      g.once.forEach(function(r){
+        var bc = r.bucket==='lost'?'var(--red)':r.bucket==='risk'?'var(--warn)':'var(--green)';
+        var bt = r.bucket==='lost'?'❌ হারানো':r.bucket==='risk'?'⚠️ ঝুঁকিতে':r.bucket==='fresh'?'⏳ সময় আছে':'—';
+        h+='<tr style="border-bottom:1px solid rgba(15,23,42,.05)">';
+        h+='<td style="padding:7px 6px;font-weight:700">'+escHtml(r.name)+'</td>';
+        h+='<td style="padding:7px 6px;font-family:var(--fm);font-size:11px">'+escHtml(r.date||'—')+'</td>';
+        h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm);font-weight:800;color:'+bc+'">'+(r.days===null?'—':r.days)+'</td>';
+        h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm)">'+r.qty+'</td>';
+        h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm)">'+fmtMoney(r.amt)+'</td>';
+        h+='<td style="padding:7px 6px;font-size:11px;color:'+bc+';font-weight:700">'+bt+'</td>';
+        h+='</tr>';
+      });
+      h+='</table></div>';
+    } else {
+      h+='<div style="font-size:12px;color:var(--text3)">একবার কিনে থেমে থাকা কোনো কাস্টমার নেই।</div>';
+    }
+    if(g.neverCount){
+      h+='<div style="margin-top:12px;font-size:11px;line-height:1.75;color:var(--text2);background:rgba(15,23,42,.03);border-radius:8px;padding:10px">'+
+         'ℹ️ আরও <b>'+g.neverCount+' জন</b> CRM-এ আছেন যাঁদের একটিও ইনভয়েস নেই: '+escHtml(g.never.map(function(r){ return r.name; }).join(', '))+'. '+
+         'এঁদের মধ্যে পুরনো কাস্টমার থাকতে পারে যাঁদের বিক্রয় এই CRM-এ ওঠানো হয়নি — তাই এঁদের "হারানো" ধরা হয়নি।</div>';
+    }
+    h+='</div>';
+  }
+  h+='</div>';
+  return h;
+}
+
 function getBizMarketingIntel(){
   if(!db.customers || !db.customers.length) return null;
   var stageName = {}; STAGES.forEach(function(s){ stageName[s.id]=s.name; });
@@ -5983,7 +6148,8 @@ function renderBizMarketingIntel(){
   h+=card('Repeat Rate', d.repeatRate===null?'—':(d.repeatRate+'%'),
     d.repeated+' / '+d.ordered+' কাস্টমার আবার কিনেছেন',
     d.repeatRate!==null&&d.repeatRate>=60?'var(--green)':'var(--warn)');
-  h+=card('Trial এসে ফেরেনি', d.trialNeverRepeated, 'একবার কিনে আর আসেনি', d.trialNeverRepeated>0?'var(--warn)':'var(--green)');
+  var _g2 = getBizSecondOrderGap();
+  h+=card('একবারই কিনেছে', d.trialNeverRepeated, _g2?(_g2.lost+' জন ৬০+ দিন চুপ · '+_g2.fresh+' জনের এখনো সময় আছে'):'দ্বিতীয় অর্ডার হয়নি', (_g2&&_g2.lost>0)?'var(--red)':'var(--warn)');
   h+=card('কখনো কেনেনি', d.neverOrdered, d.totalCustomers+' জনের মধ্যে', d.neverOrdered>0?'var(--warn)':null);
   h+='</div>';
 
@@ -6006,9 +6172,10 @@ function renderBizMarketingIntel(){
 
   // honest warnings
   var warns = [];
-  if(d.stageNoInvoice.length) warns.push({t:'স্টেজ ও ইনভয়সে গরমিল', b:d.stageNoInvoice.length+' জন Repeat/Trusted স্টেজে আছেন কিন্তু একটিও ইনভয়স নেই — তাই funnel-এর শতকরা হিসাব বিশ্বাসযোগ্য নয়। <b>'+escHtml(d.stageNoInvoice.join(', '))+'</b>'});
+  if(d.stageNoInvoice.length) warns.push({t:'স্টেজ আছে, কিন্তু CRM-এ ইনভয়েস নেই', b:d.stageNoInvoice.length+' জন Repeat/Trusted স্টেজে আছেন অথচ এই CRM-এ তাঁদের একটিও ইনভয়েস নেই। এঁরা পুরনো কাস্টমার হতে পারেন যাঁদের বিক্রয় এখানে ওঠানো হয়নি — কিন্তু যতক্ষণ ইনভয়েস নেই, funnel-এর শতকরা হিসাব রিয়েল বিক্রয় নয়। <b>'+escHtml(d.stageNoInvoice.join(', '))+'</b>'});
   if(d.noWhatsAppCount) warns.push({t:'WhatsApp নম্বর নেই', b:'Rule 3 বলছে শুধু WhatsApp, কিন্তু '+d.noWhatsAppCount+' জনের নম্বরই নেই — এদের কাছে পুরো মার্কেটিং পৌঁছায় না। <b>'+escHtml(d.noWhatsAppNames.join(', '))+'</b>'});
-  if(d.trialNeverRepeated) warns.push({t:'Trial এসে ফেরেনি', b:escHtml(d.trialNeverRepeatedNames.join(', '))+' — Rule 5 অনুযায়ী এঁদের দ্বিতীয় অর্ডারে আনাই আসল কাজ।'});
+  var _gap = getBizSecondOrderGap();
+  if(_gap && _gap.lost) warns.push({t:'৬০ দিনের বেশি চুপ — দ্বিতীয় অর্ডার হয়নি', b:'<b>'+escHtml(_gap.lostNames.join(', '))+'</b> — Rule 5 অনুযায়ী এঁদের দ্বিতীয় অর্ডারে আনাই আসল কাজ। (৩০ দিনের কম হওয়া কাস্টমারদের এখানে ধরা হয়নি।)'});
   if(warns.length){
     h+='<div style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.3);border-radius:12px;padding:14px">';
     h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--warn);margin-bottom:10px">⚠️ যেগুলো ঠিক করতে হবে</div>';
@@ -6317,6 +6484,7 @@ function renderBizDetail(key){
       h+=renderBizPurchaseQtyGuide();
     }
     if(key==='marketing'){
+      h+=renderBizAcquisition();
       h+=renderBizMarketingIntel();
       h+=renderBizMktCampaigns(rec);
     }
