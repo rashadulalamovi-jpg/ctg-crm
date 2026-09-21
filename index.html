@@ -5979,15 +5979,14 @@ var MKT_STEPS = ['Dubai Warehouse Proof','Model Education','Demand & Selling Opp
 // শুধু STRATEGIC লেভেলে দেখা হয় (Roadmap-এ Return ≤5% সেখানেই লেখা)।
 // ══════════════════════════════════════════════════════════════════════════
 var SALES_LEVELS = [
-  {id:1, key:'trial',     name:'TRIAL',     emoji:'\u{1F9EA}', color:'var(--red)'},
-  {id:2, key:'regular',   name:'REGULAR',   emoji:'\u{1F504}', color:'var(--blue)'},
-  {id:3, key:'trusted',   name:'TRUSTED',   emoji:'\u{1F6E1}️', color:'var(--green)'},
-  {id:4, key:'strategic', name:'STRATEGIC', emoji:'\u{1F451}', color:'var(--gold)'}
+  {id:1, key:'trial',     name:'TRIAL',     emoji:'\u{1F9EA}', color:'var(--red)',   lo:1,  hi:5,       rule:'১–৫ অর্ডার'},
+  {id:2, key:'regular',   name:'REGULAR',   emoji:'\u{1F504}', color:'var(--blue)',  lo:6,  hi:20,      rule:'৬–২০ অর্ডার'},
+  {id:3, key:'trusted',   name:'TRUSTED',   emoji:'\u{1F6E1}️', color:'var(--green)', lo:21, hi:50, rule:'২১–৫০ অর্ডার'},
+  {id:4, key:'strategic', name:'STRATEGIC', emoji:'\u{1F451}', color:'var(--gold)',  lo:51, hi:Infinity, rule:'৫১+ অর্ডার'}
 ];
-var SALES_CLEAN_FOR_REGULAR   = 3;
-var SALES_CLEAN_FOR_TRUSTED   = 10;
-var SALES_CLEAN_FOR_STRATEGIC = 20;
-var SALES_MAX_RETURN_PCT      = 5;
+// Build-39: গত এত দিনে কোনো অর্ডার না থাকলে কাস্টমার INACTIVE — এবং তখন তিনি
+// শুধু INACTIVE ঘরেই থাকবেন, Level ঘরে নয় (মালিকের সিদ্ধান্ত)।
+var SALES_INACTIVE_DAYS = 30;
 
 function bizSalesRec(){ return db.businessSystem.functions.sales; }
 
@@ -6006,61 +6005,45 @@ function bizInvMoney(inv){
 }
 
 // কাস্টমারের অর্জিত Level — invoice থেকে, হাতে বসানো stage থেকে নয়
+// কাস্টমারের Level — শুধু অর্ডার (invoice) সংখ্যা দিয়ে। Sales Module-এর রিয়েল ডেটা।
+// টাকা-পয়সা এখানে ধরা হয় না: এই ব্যবসায় কাস্টমার অর্ডার দিলে কুরিয়ারে বুকিং হয়,
+// কুরিয়ার থেকে রিসিভের আগে পেমেন্ট দিলে তবেই ল্যাপটপ রিলিজ হয় — তাই
+// "unpaid" মানে সাধারণত পথে থাকা মাল, বকেয়া নয়।
 function bizCustomerLevel(c){
-  var invs = (c.invoices||[]).slice().sort(function(a,b){ return new Date(a.date)-new Date(b.date); });
-  var m = { invCount:invs.length, clean:0, qty:0, retQty:0, revenue:0, cost:0, due:0, first:null, last:null };
+  var invs = (c.invoices||[]);
+  var last = null, qty = 0;
   invs.forEach(function(inv){
-    var v = bizInvMoney(inv);
-    if(v.clean) m.clean++;
-    m.qty += v.qty; m.retQty += v.retQty; m.revenue += v.net; m.cost += v.cost; m.due += v.due;
-    if(inv.date){ if(!m.first||inv.date<m.first) m.first=inv.date; if(!m.last||inv.date>m.last) m.last=inv.date; }
+    if(inv.date && (!last || inv.date>last)) last = inv.date;
+    qty += (inv.items||[]).reduce(function(a,x){ return a+(x.qty||0); },0);
   });
-  m.returnPct = m.qty>0 ? Math.round(m.retQty/m.qty*1000)/10 : null;
-  m.avgOrder  = m.invCount>0 ? Math.round(m.qty/m.invCount*100)/100 : null;
-  m.profit    = (m.cost>0) ? Math.round(m.revenue-m.cost) : null;
-  m.profitPc  = (m.profit!==null && m.qty>0) ? Math.round(m.profit/m.qty) : null;
-
-  // অর্জিত Level + কেন, এবং পরের Level-এর জন্য কী বাকি
-  var lvl=1, why='', next='';
-  if(m.invCount===0){
-    lvl=0; why='এখনো কোনো ইনভয়েস নেই'; next='প্রথম অর্ডার হলেই TRIAL';
-  } else if(m.clean>=SALES_CLEAN_FOR_STRATEGIC && m.returnPct!==null && m.returnPct<=SALES_MAX_RETURN_PCT && m.due===0){
-    lvl=4; why=m.clean+' clean invoice · Return '+m.returnPct+'% · কোনো due নেই'; next='সর্বোচ্চ লেভেল';
-  } else if(m.clean>=SALES_CLEAN_FOR_TRUSTED){
-    lvl=3; why=m.clean+' clean invoice';
-    var miss=[];
-    if(m.clean<SALES_CLEAN_FOR_STRATEGIC) miss.push('আরও '+(SALES_CLEAN_FOR_STRATEGIC-m.clean)+'টি clean invoice');
-    if(m.returnPct===null||m.returnPct>SALES_MAX_RETURN_PCT) miss.push('Return ≤'+SALES_MAX_RETURN_PCT+'% (এখন '+(m.returnPct===null?'—':m.returnPct+'%')+')');
-    if(m.due>0) miss.push('due ক্লিয়ার');
-    next='STRATEGIC-এর জন্য: '+miss.join(' · ');
-  } else if(m.clean>=SALES_CLEAN_FOR_REGULAR){
-    lvl=2; why=m.clean+' clean invoice';
-    next='TRUSTED-এর জন্য আরও '+(SALES_CLEAN_FOR_TRUSTED-m.clean)+'টি clean invoice';
-  } else {
-    lvl=1; why=m.invCount+' invoice · '+m.clean+' clean';
-    next='REGULAR-এর জন্য আরও '+Math.max(0,SALES_CLEAN_FOR_REGULAR-m.clean)+'টি clean invoice';
+  var n = invs.length;
+  var days = last ? getAge(last) : null;
+  var level = 0;
+  if(n>0){
+    for(var i=0;i<SALES_LEVELS.length;i++){
+      var L=SALES_LEVELS[i];
+      if(n>=L.lo && n<=L.hi){ level=L.id; break; }
+    }
   }
-  // হাতে বসানো stage → Level (তুলনার জন্য; pipeline-এ হাত দেওয়া হয় না)
-  var assigned = 0;
-  if(c.stage===3) assigned=1; else if(c.stage===4) assigned=2;
-  else if(c.stage===5) assigned=3; else if(c.stage===6||c.stage===7) assigned=4;
-  return { id:c.id, name:c.name, stage:c.stage, inactive:!!c.inactive,
-           earned:lvl, assigned:assigned, why:why, next:next, m:m,
-           gap: assigned-lvl };   // +ve = উপরে বসানো, -ve = নিচে পড়ে আছে
+  return { id:c.id, name:c.name, invCount:n, qty:qty, lastDate:last, daysSince:days,
+           inactive: (n>0 && days!==null && days>SALES_INACTIVE_DAYS),
+           level:level };
 }
 
 function getBizSalesLevels(){
   if(!db.customers || !db.customers.length) return null;
-  var rows = db.customers.map(bizCustomerLevel);
-  var buyers = rows.filter(function(r){ return r.m.invCount>0; });
-  if(!buyers.length) return null;
-  var byLevel = {1:0,2:0,3:0,4:0};
-  buyers.forEach(function(r){ if(byLevel[r.earned]!==undefined) byLevel[r.earned]++; });
-  var over  = rows.filter(function(r){ return r.gap>0; }).sort(function(a,b){ return b.gap-a.gap; });
-  var under = rows.filter(function(r){ return r.gap<0; }).sort(function(a,b){ return a.gap-b.gap; });
-  var withDue = buyers.filter(function(r){ return r.m.due>0; }).sort(function(a,b){ return b.m.due-a.m.due; });
-  return { rows:rows, buyers:buyers, byLevel:byLevel, over:over, under:under, withDue:withDue,
-           totalDue: withDue.reduce(function(a,r){ return a+r.m.due; },0) };
+  var rows = db.customers.map(bizCustomerLevel).filter(function(r){ return r.invCount>0; });
+  if(!rows.length) return null;
+  rows.sort(function(a,b){ return b.invCount-a.invCount; });
+  var byLevel = {1:[],2:[],3:[],4:[]};
+  var inactive = [];
+  rows.forEach(function(r){
+    if(r.inactive){ inactive.push(r); return; }   // INACTIVE একচেটিয়া ঘর
+    if(byLevel[r.level]) byLevel[r.level].push(r);
+  });
+  inactive.sort(function(a,b){ return b.daysSince-a.daysSince; });
+  return { rows:rows, byLevel:byLevel, inactive:inactive, totalBuyers:rows.length,
+           activeBuyers: rows.length - inactive.length };
 }
 
 // ── Strategy 4: Order Size — আসল বণ্টন ও "minimum N pcs হলে কী হতো" ──
@@ -6150,9 +6133,9 @@ function getBizAccountPlans(){
     var potential = parseFloat(a.potential)||0;
     var sow = potential>0 ? Math.round(ourMonthly/potential*1000)/10 : null;
     var gapPcs = potential>0 ? Math.round(Math.max(0, potential-ourMonthly)*10)/10 : null;
-    return { id:c.id, name:c.name, level:lv.earned, inactive:!!c.inactive,
-             fast:fast, ourMonthly:ourMonthly, q90:q90, invCount:lv.m.invCount, due:lv.m.due,
-             lastDate:lv.m.last, avgGapDays:gap, nextLikely:nextLikely,
+    return { id:c.id, name:c.name, level:lv.level, inactive:!!c.inactive,
+             fast:fast, ourMonthly:ourMonthly, q90:q90, invCount:lv.invCount, due:0,
+             lastDate:lv.lastDate, avgGapDays:gap, nextLikely:nextLikely,
              potential:potential, competitor:(a.competitor||''), note:(a.note||''),
              nextDate:(a.nextDate||''), nextQty:(a.nextQty||''),
              sow:sow, gapPcs:gapPcs,
@@ -6325,74 +6308,38 @@ function bizLevelChip(id){
 function renderBizSalesLevels(){
   var d = getBizSalesLevels();
   var h='<div style="margin-bottom:22px">';
-  h+=bizSalesHead('\u{1F3C6} Customer Level Engine (অর্জিত — Invoice থেকে)',
-      'Roadmap বলছে Performance দিয়ে Level অর্জন করতে হবে। এখানে প্রতিটি কাস্টমারের Level ইনভয়েস থেকে হিসাব হয়েছে — Clean Invoice মানে পুরো পেমেন্ট হয়েছে। Pipeline-এর হাতে বসানো stage আলাদা রাখা হয়েছে, কিছুই বদলানো হয়নি।');
-  if(!d){ h+='<div style="font-size:12px;color:var(--text3);padding:14px;background:rgba(15,23,42,.03);border-radius:10px">⚠️ ইনভয়েস ডেটা নেই — Level হিসাব করা যাচ্ছে না।</div></div>'; return h; }
+  h+=bizSalesHead('\u{1F3C6} Customer Success Roadmap (Live)',
+      'Sales Module-এর অর্ডার সংখ্যা থেকে সরাসরি। গত '+SALES_INACTIVE_DAYS+' দিনে অর্ডার না থাকলে কাস্টমার শুধু INACTIVE ঘরে থাকবেন।');
+  if(!d){ h+='<div style="font-size:12px;color:var(--text3);padding:14px;background:rgba(15,23,42,.03);border-radius:10px">⚠️ এখনো কোনো অর্ডার নেই — Roadmap দেখানোর মতো ডেটা নেই।</div></div>'; return h; }
 
-  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px">';
+  function bucket(title, emoji, color, rule, list){
+    var x='<div style="border:1px solid var(--border);border-left:4px solid '+color+';border-radius:12px;padding:14px;background:rgba(255,255,255,.7);margin-bottom:12px">';
+    x+='<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:2px">';
+    x+='<div style="font-family:var(--fd);font-size:15px;font-weight:800;color:'+color+'">'+emoji+' '+title+'</div>';
+    x+='<div style="font-family:var(--fm);font-size:15px;font-weight:800;color:'+color+'">'+list.length+' কাস্টমার</div>';
+    x+='</div>';
+    x+='<div style="font-size:10px;color:var(--text3);margin-bottom:10px">'+rule+'</div>';
+    if(!list.length){
+      x+='<div style="font-size:12px;color:var(--text3)">এখনো কেউ নেই।</div>';
+    } else {
+      list.forEach(function(r){
+        x+='<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:5px 0;border-bottom:1px solid rgba(15,23,42,.05)">';
+        x+='<span style="font-family:var(--fd);font-size:13px;font-weight:700">'+escHtml(r.name)+'</span>';
+        x+='<span style="white-space:nowrap"><span style="font-family:var(--fm);font-size:13px;font-weight:800">'+r.invCount+' Invoice</span>'+
+           '<span style="font-family:var(--fm);font-size:10px;color:var(--text3);margin-left:8px">'+(r.daysSince===null?'':r.daysSince+' দিন আগে')+'</span></span>';
+        x+='</div>';
+      });
+    }
+    return x+'</div>';
+  }
+
   SALES_LEVELS.forEach(function(L){
-    h+=bizSalesCard(L.emoji+' '+L.name, d.byLevel[L.id]||0,
-      L.id===1?'প্রথম দিকের ক্রেতা':L.id===2?(SALES_CLEAN_FOR_REGULAR+'+ clean invoice'):
-      L.id===3?(SALES_CLEAN_FOR_TRUSTED+'+ clean invoice'):(SALES_CLEAN_FOR_STRATEGIC+'+ clean · Return ≤'+SALES_MAX_RETURN_PCT+'% · due নেই'), L.color);
+    h+=bucket(L.name, L.emoji, L.color, L.rule, d.byLevel[L.id]||[]);
   });
+  h+=bucket('INACTIVE', '⏸️', 'var(--warn)',
+      'অন্তত ১বার অর্ডার দিয়েছেন, কিন্তু গত '+SALES_INACTIVE_DAYS+' দিনে কোনো অর্ডার নেই', d.inactive);
+
   h+='</div>';
-
-  if(d.over.length){
-    h+='<div style="background:rgba(227,6,19,.06);border:1px solid rgba(227,6,19,.3);border-radius:12px;padding:14px;margin-bottom:12px">';
-    h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--red);margin-bottom:4px">\u{1F6A8} '+d.over.length+' জন প্রাপ্যের চেয়ে উপরে বসানো</div>';
-    h+='<div style="font-size:11px;color:var(--text2);margin-bottom:10px">এঁদের Pipeline stage যা বলছে, ইনভয়েস তা সমর্থন করছে না। Credit বা Early Access দেওয়ার আগে এটাই দেখার জায়গা।</div>';
-    h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:520px">';
-    h+='<tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3)">কাস্টমার</th><th style="text-align:left;padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3)">বসানো</th><th style="text-align:left;padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3)">অর্জিত</th><th style="text-align:left;padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3)">কারণ</th></tr>';
-    d.over.forEach(function(r){
-      h+='<tr style="border-bottom:1px solid rgba(15,23,42,.05)">';
-      h+='<td style="padding:7px 6px;font-weight:700">'+escHtml(r.name)+'</td>';
-      h+='<td style="padding:7px 6px">'+bizLevelChip(r.assigned)+'</td>';
-      h+='<td style="padding:7px 6px">'+(r.earned?bizLevelChip(r.earned):'<span style="font-size:10px;color:var(--red);font-weight:700">ইনভয়েস নেই</span>')+'</td>';
-      h+='<td style="padding:7px 6px;font-size:11px;color:var(--text2)">'+escHtml(r.why)+'</td>';
-      h+='</tr>';
-    });
-    h+='</table></div></div>';
-  }
-  if(d.under.length){
-    h+='<div style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.3);border-radius:12px;padding:14px;margin-bottom:12px">';
-    h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin-bottom:4px">⬆️ '+d.under.length+' জন প্রাপ্যের চেয়ে নিচে পড়ে আছেন</div>';
-    h+='<div style="font-size:11px;color:var(--text2);margin-bottom:8px">এঁরা কাজ দিয়ে উপরের Level অর্জন করেছেন কিন্তু Pipeline-এ নিচে বসে আছেন — এঁদের সুবিধা না দিলে অন্য supplier-এর কাছে চলে যেতে পারেন।</div>';
-    d.under.forEach(function(r){
-      h+='<div style="font-size:12px;color:var(--text2);padding:4px 0"><b>'+escHtml(r.name)+'</b> — বসানো '+bizLevelChip(r.assigned)+' , অর্জিত '+bizLevelChip(r.earned)+' <span style="color:var(--text3)">('+escHtml(r.why)+')</span></div>';
-    });
-    h+='</div>';
-  }
-  if(d.withDue.length){
-    h+='<div style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.3);border-radius:12px;padding:14px;margin-bottom:12px">';
-    h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--warn);margin-bottom:4px">\u{1F512} Core Rule: Previous Due = New Booking Blocked</div>';
-    h+='<div style="font-size:11px;color:var(--text2);margin-bottom:8px">'+d.withDue.length+' জনের due আছে — মোট <b style="font-family:var(--fm)">'+fmtMoney(d.totalDue)+'</b>। নিয়ম অনুযায়ী এঁদের নতুন Booking নেওয়া যাবে না।</div>';
-    d.withDue.slice(0,12).forEach(function(r){
-      h+='<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid rgba(15,23,42,.05)"><span>'+escHtml(r.name)+'</span><span style="font-family:var(--fm);font-weight:700;color:var(--red)">'+fmtMoney(r.m.due)+'</span></div>';
-    });
-    h+='</div>';
-  }
-
-  // পূর্ণ তালিকা
-  h+='<div style="background:rgba(255,255,255,.7);border:1px solid var(--border);border-radius:12px;padding:14px;overflow-x:auto">';
-  h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:10px">সব ক্রেতা — Level ও পরের ধাপ</div>';
-  h+='<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:640px">';
-  h+='<tr style="border-bottom:1px solid var(--border)">'+
-     ['কাস্টমার','Level','Invoice','Clean','Qty','Avg/Order','Return%','Due','পরের ধাপে যা লাগবে'].map(function(t,ix){
-       return '<th style="text-align:'+(ix>=2&&ix<=7?'right':'left')+';padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3);white-space:nowrap">'+t+'</th>'; }).join('')+'</tr>';
-  d.buyers.slice().sort(function(a,b){ return b.earned-a.earned || b.m.clean-a.m.clean; }).forEach(function(r){
-    h+='<tr style="border-bottom:1px solid rgba(15,23,42,.05)">';
-    h+='<td style="padding:7px 6px;font-weight:700">'+escHtml(r.name)+(r.inactive?' <span style="font-size:9px;color:var(--warn)">⏸️</span>':'')+'</td>';
-    h+='<td style="padding:7px 6px">'+bizLevelChip(r.earned)+'</td>';
-    h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm)">'+r.m.invCount+'</td>';
-    h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm);font-weight:700">'+r.m.clean+'</td>';
-    h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm)">'+r.m.qty+'</td>';
-    h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm)">'+(r.m.avgOrder===null?'—':r.m.avgOrder)+'</td>';
-    h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm);color:'+(r.m.returnPct!==null&&r.m.returnPct>SALES_MAX_RETURN_PCT?'var(--red)':'var(--text)')+'">'+(r.m.returnPct===null?'—':r.m.returnPct+'%')+'</td>';
-    h+='<td style="padding:7px 6px;text-align:right;font-family:var(--fm);color:'+(r.m.due>0?'var(--red)':'var(--text3)')+'">'+(r.m.due>0?fmtMoney(r.m.due):'—')+'</td>';
-    h+='<td style="padding:7px 6px;font-size:11px;color:var(--text2)">'+escHtml(r.next)+'</td>';
-    h+='</tr>';
-  });
-  h+='</table></div></div>';
   return h;
 }
 
