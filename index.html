@@ -5582,44 +5582,72 @@ function ensureBizSystemDefaults(){
 
   // ── Build-38: Sales Function — 4 Strategy + Customer Success Roadmap ──
   var sl = db.businessSystem.functions.sales;
-  if(sl && !sl.engines){
-    sl.coreRule = 'ADVANCE ছাড়া কোনো Order নয় · PREVIOUS DUE = NEW BOOKING BLOCKED';
+  // Build-42: pillar-গুলো এখন নিচের migration নিজেই বানায় (নতুন ইনস্টল ও পুরনো — দুটোতেই),
+  // তাই এখানে শুধু যা pillar নয় সেগুলোই বসে।
+  if(sl && !sl.stopRules) sl.stopRules = [
+    'Advance ছাড়া কোনো মৌখিক Order-কে Confirmed Booking ধরা যাবে না',
+    'Previous Due থাকলে নতুন Booking নেওয়া যাবে না',
+    'Performance ছাড়া শুধু Relationship দিয়ে কাউকে উপরের Level দেওয়া যাবে না'
+  ];
+  if(sl && !sl.targetLine) sl.targetLine = 'Stock দ্রুত Cash-এ · Cash দ্রুত নতুন profitable Stock-এ · Trial Customer দ্রুত Repeat Customer-এ';
+  if(sl && !sl.summaryFormula) sl.summaryFormula = 'Right Model × Right Customer × Right Price × Fast Payment × Repeat Order';
+
+  // ── Build-42: মালিকের নতুন ৫টি Strategy · এক কার্ডে এক ফিল্ড ──
+  // পুরনো কার্ডের লেখা মুছে ফেলা হয় না — Strategy Notes-এ জুড়ে রাখা হয়,
+  // যাতে আগে যা লেখা ছিল তা চোখের সামনেই থাকে।
+  if(sl && !sl.pillarsV2){
+    var oldEng = sl.engines || [];
+    function _pick(frag){
+      for(var i=0;i<oldEng.length;i++){ if((oldEng[i].title||'').indexOf(frag)>=0) return oldEng[i]; }
+      return null;
+    }
+    function _carry(src, title, desc){
+      var e = { title:title, fields:[{label:'বিবরণ', value:desc}],
+                strategyTree:(src&&src.strategyTree)||[], images:(src&&src.images)||[], notes:(src&&src.notes)||'' };
+      return e;
+    }
+    var S1 = 'Strategy 1 : প্রতিটি কাস্টমারের জন্য আলাদাভাবে ChatGpt কিংবা Claude Project বানানো।';
+    var S2 = 'Strategy 2 : Dubai Pre-Selling — Stock আসার আগেই Customer তৈরি';
+    var S3 = 'Strategy 3 : Push Opportunities — Repeat Sale করে Sales Double';
+    var S4 = 'Strategy 4 : Top Customer Strategic Account Expansion';
+    var S5 = 'Strategy 5 : Average Order Size increase';
+
+    var D2 = 'Sales Process: Dubai Stock Video/Photo → Customer Requirement যাচাই → Model ও Quantity মৌখিকভাবে নির্বাচন → Price ও Condition পরিষ্কার করা → Booking Advance নেওয়া → Confirmed Order → QC Video → Cargo/Delivery Update\n\n'
+           + 'Core Rule: Advance ছাড়া কোনো মৌখিক Order-কে Final Sale বা Confirmed Booking হিসেবে ধরা যাবে না।\n\n'
+           + 'Target: Arrival-এর আগে stock-এর ৩০–৪০% confirmed booking · প্রতিটি incoming model কমপক্ষে ১০–১৫ relevant customer-কে দেখানো · Verbal Commitment থেকে Advance Conversion ≥৫০%';
+    var D3 = 'Customer আগে আমাদের কাছ থেকে যেসব model কিনেছে এবং ভালোভাবে বিক্রি করেছে, সেই modelগুলো পুনরায় relevant সময়ে offer করতে হবে। পাশাপাশি customer তার নিজস্ব selling channel-এ কোন model, configuration ও price range বেশি বিক্রি করছে তা নিয়মিত জানতে হবে।\n\n'
+           + 'A. Repeat Selling — কত pcs নিয়েছে · কতদিনে বিক্রি করেছে · Return হয়েছে কি না · আবার requirement আছে কি না।\n\n'
+           + 'B. Demand Discovery — Customer আমাদের কাছ থেকে না নিলেও তার দোকান, Facebook page, WhatsApp Status বা অন্য selling channel-এ যেসব model বিক্রি করছে সেগুলো CRM-এ record করা, পরে সেই model পাওয়া গেলে তাকে আগে targeted offer দেওয়া।\n\n'
+           + 'ফল: Dubai থেকে Stock আসার আগেই Buyer তৈরি + Customer যা দ্রুত বিক্রি করে সেটিই পুনরায় Offer = Faster Rotation এবং Higher Sales';
+    var D4 = 'Top customer-দের জন্য আলাদা account plan: Fast-selling models (নিয়মিত কোন model নেয়) · Monthly potential (কত pcs কিনতে পারে) · Current purchase (আমার কাছ থেকে কত নেয়) · Competitor purchase (অন্য supplier থেকে কী নেয়) · Opportunity gap (কোন models আমি দিতে পারি) · Next order (সম্ভাব্য তারিখ ও quantity)।\n\n'
+           + 'উদাহরণ: Customer মাসে মোট ৫০ pcs বিক্রি করে, কিন্তু আমার কাছ থেকে নেয় ১৫ pcs। নতুন customer না খুঁজেও বাকি ৩৫ pcs-এর অংশ দখল করাই সুযোগ।\n\n'
+           + 'লক্ষ্য: Customer-এর মোট purchasing-এর বেশি অংশ আমার কাছে আনা — Share of Wallet Growth।';
+    var D5 = 'কঠিন সত্য: বর্তমান customer base-কে "wholesale" বলা হলেও বাস্তবে বেশিরভাগ order small-volume retailer order — মোট order-এর প্রায় ৭৭% হলো ১–৫ pcs।\n\n'
+           + 'লক্ষ্য: বর্তমান typical order size ৩–৫ pcs → ৫–৭ pcs। Minimum Order ৫ pcs।\n\n'
+           + 'কেন: নতুন customer আনার চেয়ে existing customer-এর প্রতি invoice-এ মাত্র ১ pc বাড়ানো সস্তা — একই invoice সংখ্যা থেকেই অনেক বড় বিক্রয়।';
+
+    // পুরনো কার্ডের যে লেখা নতুন কাঠামোয় জায়গা পাচ্ছে না, তা Strategy Notes-এ জমা
+    var keep = [];
+    oldEng.forEach(function(e){
+      (e.fields||[]).forEach(function(f){
+        var v=(f.value||'').trim(); if(!v) return;
+        keep.push('• '+(e.title||'')+' → '+(f.label||'')+': '+v);
+      });
+    });
+
     sl.engines = [
-      { title:'Strategy 1 — Dubai Pre-Selling (Stock আসার আগেই Customer তৈরি)', fields:[
-          {label:'Sales Process', value:'Dubai Stock Video/Photo → Customer Requirement যাচাই → Model ও Quantity মৌখিক নির্বাচন → Price ও Condition পরিষ্কার → Booking Advance → Confirmed Order → QC Video → Cargo/Delivery Update'},
-          {label:'Core Rule', value:'Advance ছাড়া কোনো মৌখিক Order-কে Final Sale বা Confirmed Booking হিসেবে ধরা যাবে না'},
-          {label:'Target', value:'Arrival-এর আগে stock-এর ৩০–৪০% confirmed booking · প্রতি incoming model ১০–১৫ relevant customer-কে দেখানো · Verbal → Advance ≥৫০%'} ],
-        strategyTree:[], images:[], notes:'' },
-      { title:'Strategy 2 — Push Opportunities (Repeat Sale করে Sales Double)', fields:[
-          {label:'A. Repeat Selling', value:'কাস্টমার আগে যে model নিয়েছে — কত pcs, কতদিনে বিক্রি, return হয়েছে কি না, আবার requirement আছে কি না — দেখে একই model পুনরায় offer'},
-          {label:'B. Demand Discovery', value:'কাস্টমার আমাদের কাছ থেকে না নিলেও তার দোকান, Facebook page বা WhatsApp Status-এ যে model বিক্রি করছে তা CRM-এ record করা, পরে সেই model পেলে আগে offer দেওয়া'},
-          {label:'ফল', value:'Dubai থেকে Stock আসার আগেই Buyer তৈরি + কাস্টমার যা দ্রুত বিক্রি করে সেটিই পুনরায় Offer = Faster Rotation, Higher Sales'} ],
-        strategyTree:[], images:[], notes:'' },
-      { title:'Strategy 3 — Strategic Account Expansion (Share of Wallet)', fields:[
-          {label:'CRM-এ যা রাখবো', value:'Fast-selling models · Monthly potential · Current purchase · Competitor purchase · Opportunity gap · Next order (তারিখ ও quantity)'},
-          {label:'উদাহরণ', value:'কাস্টমার মাসে ৫০ pcs বিক্রি করে, আমার কাছ থেকে নেয় ১৫ pcs। নতুন কাস্টমার না খুঁজেও বাকি ৩৫ pcs-এর অংশ দখল করাই সুযোগ।'},
-          {label:'লক্ষ্য', value:'কাস্টমারের মোট purchasing-এর বেশি অংশ আমার কাছে আনা — Share of Wallet Growth'} ],
-        strategyTree:[], images:[], notes:'' },
-      { title:'Strategy 4 — Average Order Size বাড়ানো (৩–৫ → ৫–৭ pcs)', fields:[
-          {label:'কঠিন সত্য', value:'"Wholesale" বলা হলেও বাস্তবে বেশিরভাগ order small-volume retailer order — মোট order-এর ~৭৭% হলো ১–৫ pcs'},
-          {label:'লক্ষ্য', value:'বর্তমান typical order size ৩–৫ pcs → ৫–৭ pcs; Minimum Order ৫ pcs'},
-          {label:'কেন', value:'নতুন কাস্টমার আনার চেয়ে existing কাস্টমারের প্রতি invoice-এ মাত্র ১ pc বাড়ানো সস্তা — একই invoice সংখ্যা থেকেই বড় বিক্রি'} ],
-        strategyTree:[], images:[], notes:'' },
-      { title:'Customer Success Roadmap — Trial → Regular → Trusted → Strategic', fields:[
-          {label:'01 TRIAL', value:'প্রথম ৩–৫ Invoice · ১০০% Advance / Cash · লক্ষ্য: Trust তৈরি'},
-          {label:'02 REGULAR', value:'৩–১০ Clean Invoice · Delivery-এর আগে Payment · Relevant Stock Update'},
-          {label:'03 TRUSTED', value:'১০–২০ Clean Invoice · Selected ২০–৩০% Credit · Early Stock Access'},
-          {label:'04 STRATEGIC', value:'High Volume + Fast Payment · Return ≤৫% · Priority Allocation + Approved Terms'},
-          {label:'Core Rule', value:'Previous Due = New Booking Blocked। Performance দিয়ে Level অর্জন করতে হবে — শুধু Relationship দিয়ে নয়।'} ],
-        strategyTree:[], images:[], notes:'' }
+      _carry(null,               S1, ''),
+      _carry(_pick('Dubai Pre'), S2, D2),
+      _carry(_pick('Push Oppor'),S3, D3),
+      _carry(_pick('Strategic Acc'), S4, D4),
+      _carry(_pick('Average Order'), S5, D5)
     ];
-    sl.stopRules = [
-      'Advance ছাড়া কোনো মৌখিক Order-কে Confirmed Booking ধরা যাবে না',
-      'Previous Due থাকলে নতুন Booking নেওয়া যাবে না',
-      'Performance ছাড়া শুধু Relationship দিয়ে কাউকে উপরের Level দেওয়া যাবে না'
-    ];
-    sl.targetLine = 'Stock দ্রুত Cash-এ · Cash দ্রুত নতুন profitable Stock-এ · Trial Customer দ্রুত Repeat Customer-এ';
-    sl.summaryFormula = 'Right Model × Right Customer × Right Price × Fast Payment × Repeat Order';
+    sl.coreRule = 'PREVIOUS DUE = NEW BOOKING BLOCKED';
+    if(keep.length){
+      sl.strategy = (sl.strategy?sl.strategy+'\n\n':'') +
+        '── আগের Strategy কার্ডগুলোর লেখা (Build-42-এ কাঠামো বদলানোয় এখানে রাখা হলো) ──\n' + keep.join('\n');
+    }
+    sl.pillarsV2 = true;
   }
   if(sl && !sl.bookings) sl.bookings = [];
   if(sl && !sl.accounts) sl.accounts = {};
@@ -7404,7 +7432,7 @@ function renderBizDetail(key){
   if((rec.engines||[]).length){
     var pillarLabel = (key==='purchase')  ? '\u{1F6A6} '+rec.engines.length+' Purchase Gates — চারটিই পাস করলে তবেই কেনা'
                     : (key==='marketing') ? '\u{1F4E3} '+rec.engines.length+' Marketing Rules — Sell Before Stock'
-                    : (key==='sales')     ? '\u{1F4B0} 4 Sales Strategy + Customer Success Roadmap'
+                    : (key==='sales')     ? '\u{1F4B0} 5 Sales Strategy'
                     : '\u{1F3D7}️ '+rec.engines.length+' Business Engines';
     h+='<div style="margin-bottom:18px">';
     h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">'+pillarLabel+'</div>';
@@ -7484,7 +7512,8 @@ function renderBizModelEngines(rec){
   (rec.engines||[]).forEach(function(eng,ei){
     h+='<div style="background:rgba(15,23,42,.03);border-radius:10px;padding:12px">';
     h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
-    h+='<input type="text" value="'+escHtml(eng.title||'')+'" onblur="saveBizEngineTitle('+ei+',this.value)" style="font-family:var(--fd);font-size:14px;font-weight:800;color:var(--text);border:none;background:transparent;width:80%">';
+    // Build-42: টাইটেল লম্বা হলে input-এ কেটে যেত — textarea করায় পুরো লেখা দেখা যায়
+    h+='<textarea rows="2" onblur="saveBizEngineTitle('+ei+',this.value)" style="font-family:var(--fd);font-size:14px;font-weight:800;line-height:1.5;color:var(--text);border:none;background:transparent;width:88%;resize:vertical;overflow:hidden">'+escHtml(eng.title||'')+'</textarea>';
     h+='<span onclick="removeBizEngine('+ei+')" style="cursor:pointer;color:var(--red);font-size:13px" title="Remove engine">✕</span>';
     h+='</div>';
     (eng.fields||[]).forEach(function(fld,fi){
