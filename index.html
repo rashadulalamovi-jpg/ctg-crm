@@ -6337,6 +6337,160 @@ function bizLevelChip(id){
 }
 
 // 🏆 Customer Level Engine — অর্জিত বনাম হাতে বসানো
+// ══════════════════════════════════════════════════════════════════════════
+// Build-41 — Sales Performance (গত ৩ মাস)
+// প্রতিটি মাসের আসল বিক্রয়, profit, ROI, return ও order size — ইনভয়েস থেকে।
+// Cost হিসাবে ইনভয়েসের purchasePrice ব্যবহার হয় (অ্যাপের বাকি অংশ যেভাবে করে)।
+// Return হলে বিক্রয় থেকে টাকা কাটা হয়, কিন্তু ওই পিসের কেনা দাম cost-এ থেকে
+// যায় — তাই ROI রক্ষণশীল দিকেই থাকে, ফুলিয়ে দেখানো হয় না।
+// ══════════════════════════════════════════════════════════════════════════
+var SALES_ROI_MIN    = 10;    // মালিকের locked rule: সর্বনিম্ন
+var SALES_ROI_TARGET = 15;    // টার্গেট ১৫–২০%
+var SALES_PC_MIN     = 2500;  // profit/pc ৳২,৫০০–৳৩,৫০০
+var SALES_PC_TARGET  = 3500;
+var SALES_RETURN_MAX = 5;     // Return ≤৫%
+
+function getBizSalesPerformance(){
+  if(!db.customers || !db.customers.length) return null;
+  var now = new Date(TODAY+'T00:00:00');
+  var y=now.getFullYear(), m=now.getMonth(), today=now.getDate();
+  var MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function shift(yy,mm,n){ mm+=n; while(mm<0){mm+=12;yy--;} while(mm>11){mm-=12;yy++;} return {y:yy,m:mm}; }
+
+  var all=[];
+  db.customers.forEach(function(c){
+    (c.invoices||[]).forEach(function(inv){ if(inv.date) all.push({c:c, inv:inv}); });
+  });
+  if(!all.length) return null;
+
+  function monthStats(yy,mm,isCur){
+    var rows = all.filter(function(r){
+      return parseInt(r.inv.date.slice(0,4),10)===yy && parseInt(r.inv.date.slice(5,7),10)-1===mm;
+    });
+    var qty=0, retQty=0, sales=0, cost=0, custs={};
+    rows.forEach(function(r){
+      var v = bizInvMoney(r.inv);
+      qty   += v.qty;
+      retQty+= v.retQty;
+      sales += v.net;       // return-এর টাকা কাটা
+      cost  += v.cost;
+      custs[r.c.id]=true;
+    });
+    var netQty = Math.max(0, qty-retQty);
+    var profit = cost>0 ? (sales-cost) : null;
+    return {
+      label: MN[mm]+" '"+String(yy).slice(2), isCurrent:!!isCur,
+      sub: isCur ? ('১–'+today+' তারিখ পর্যন্ত') : 'পুরো মাস',
+      invoices: rows.length, qty:qty, netQty:netQty, retQty:retQty,
+      sales: Math.round(sales), cost: Math.round(cost),
+      profit: profit===null?null:Math.round(profit),
+      roi:    (cost>0) ? Math.round((sales-cost)/cost*1000)/10 : null,
+      profitPc: (profit!==null && netQty>0) ? Math.round(profit/netQty) : null,
+      retPct: qty>0 ? Math.round(retQty/qty*1000)/10 : null,
+      avgOrder: rows.length>0 ? Math.round(qty/rows.length*100)/100 : null,
+      customers: Object.keys(custs).length,
+      avgPrice: netQty>0 ? Math.round(sales/netQty) : null
+    };
+  }
+
+  var m2=shift(y,m,-2), m1=shift(y,m,-1);
+  var months = [ monthStats(m2.y,m2.m,false), monthStats(m1.y,m1.m,false), monthStats(y,m,true) ];
+
+  // ৩ মাসের মোট
+  var tot = {invoices:0, qty:0, retQty:0, sales:0, cost:0};
+  months.forEach(function(x){ tot.invoices+=x.invoices; tot.qty+=x.qty; tot.retQty+=x.retQty; tot.sales+=x.sales; tot.cost+=x.cost; });
+  tot.netQty = Math.max(0, tot.qty-tot.retQty);
+  tot.profit = tot.cost>0 ? (tot.sales-tot.cost) : null;
+  tot.roi    = tot.cost>0 ? Math.round((tot.sales-tot.cost)/tot.cost*1000)/10 : null;
+  tot.profitPc = (tot.profit!==null && tot.netQty>0) ? Math.round(tot.profit/tot.netQty) : null;
+  tot.retPct = tot.qty>0 ? Math.round(tot.retQty/tot.qty*1000)/10 : null;
+  tot.avgOrder = tot.invoices>0 ? Math.round(tot.qty/tot.invoices*100)/100 : null;
+
+  // চলতি মাসের গতি — projection, actual নয়
+  var cur = months[2];
+  var dim = new Date(y, m+1, 0).getDate();
+  var pace = today>0 ? { qty: Math.round(cur.qty/today*dim), sales: Math.round(cur.sales/today*dim) } : null;
+
+  // মাসিক টার্গেট (Monthly Target বক্স থেকে, থাকলে)
+  var target = null;
+  try{ var t=parseInt(localStorage.getItem('ctg_monthTarget')||'',10); if(t>0) target=t; }catch(e){}
+
+  return { months:months, total:tot, pace:pace, today:today, daysInMonth:dim, target:target };
+}
+
+function renderBizSalesPerformance(){
+  var d = getBizSalesPerformance();
+  var h='<div style="margin-bottom:22px">';
+  h+=bizSalesHead('\u{1F4C8} Sales Performance — গত ৩ মাস',
+      'প্রতিটি সংখ্যা ইনভয়েস থেকে। Return-এর টাকা বিক্রয় থেকে কাটা হয়েছে। চলতি মাস আংশিক, তাই আগের মাসের সাথে সরাসরি তুলনা করবেন না।');
+  if(!d){ h+='<div style="font-size:12px;color:var(--text3);padding:14px;background:rgba(15,23,42,.03);border-radius:10px">⚠️ ইনভয়েস ডেটা নেই।</div></div>'; return h; }
+
+  var T=d.total;
+  function sig(v, good, warn, inv){
+    if(v===null) return null;
+    if(inv) return v<=good?'var(--green)':(v<=warn?'var(--warn)':'var(--red)');
+    return v>=good?'var(--green)':(v>=warn?'var(--warn)':'var(--red)');
+  }
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px">';
+  h+=bizSalesCard('৩ মাসে বিক্রয়', T.netQty+' pcs', T.invoices+' invoice · '+fmtMoney(T.sales));
+  h+=bizSalesCard('গড় ROI', T.roi===null?'—':T.roi+'%',
+      'নিয়ম: সর্বনিম্ন '+SALES_ROI_MIN+'% · টার্গেট '+SALES_ROI_TARGET+'–২০%',
+      sig(T.roi, SALES_ROI_TARGET, SALES_ROI_MIN));
+  h+=bizSalesCard('গড় Profit / pc', T.profitPc===null?'—':fmtMoney(T.profitPc),
+      'নিয়ম: ৳'+SALES_PC_MIN.toLocaleString('en-IN')+'–৳'+SALES_PC_TARGET.toLocaleString('en-IN'),
+      sig(T.profitPc, SALES_PC_TARGET, SALES_PC_MIN));
+  h+=bizSalesCard('Return', T.retPct===null?'—':T.retPct+'%',
+      T.retQty+' pcs · নিয়ম ≤'+SALES_RETURN_MAX+'%',
+      sig(T.retPct, SALES_RETURN_MAX, SALES_RETURN_MAX*2, true));
+  h+='</div>';
+
+  // মাসভিত্তিক টেবিল
+  h+='<div style="background:rgba(255,255,255,.7);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;overflow-x:auto">';
+  h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:10px">মাস অনুযায়ী</div>';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">';
+  h+='<tr style="border-bottom:1px solid var(--border)">'+
+     ['মাস','Invoice','Qty','Return','Sales','Profit','ROI','Profit/pc','Avg Order','কাস্টমার'].map(function(t,ix){
+       return '<th style="text-align:'+(ix===0?'left':'right')+';padding:6px;font-family:var(--fd);font-size:10px;color:var(--text3);white-space:nowrap">'+t+'</th>'; }).join('')+'</tr>';
+  d.months.forEach(function(x){
+    h+='<tr style="border-bottom:1px solid rgba(15,23,42,.05);'+(x.isCurrent?'background:rgba(16,185,129,.05)':'')+'">';
+    h+='<td style="padding:8px 6px;white-space:nowrap"><b style="font-family:var(--fd)">'+x.label+'</b><div style="font-size:9px;color:var(--text3)">'+x.sub+'</div></td>';
+    h+='<td style="padding:8px 6px;text-align:right;font-family:var(--fm)">'+x.invoices+'</td>';
+    h+='<td style="padding:8px 6px;text-align:right;font-family:var(--fm);font-weight:700">'+x.netQty+'</td>';
+    h+='<td style="padding:8px 6px;text-align:right;font-family:var(--fm);color:'+(x.retPct!==null&&x.retPct>SALES_RETURN_MAX?'var(--red)':'var(--text3)')+'">'+(x.retPct===null?'—':x.retPct+'%')+'</td>';
+    h+='<td style="padding:8px 6px;text-align:right;font-family:var(--fm)">'+fmtMoney(x.sales)+'</td>';
+    h+='<td style="padding:8px 6px;text-align:right;font-family:var(--fm)">'+(x.profit===null?'—':fmtMoney(x.profit))+'</td>';
+    h+='<td style="padding:8px 6px;text-align:right;font-family:var(--fm);font-weight:800;color:'+(sig(x.roi,SALES_ROI_TARGET,SALES_ROI_MIN)||'var(--text3)')+'">'+(x.roi===null?'—':x.roi+'%')+'</td>';
+    h+='<td style="padding:8px 6px;text-align:right;font-family:var(--fm);color:'+(sig(x.profitPc,SALES_PC_TARGET,SALES_PC_MIN)||'var(--text3)')+'">'+(x.profitPc===null?'—':fmtMoney(x.profitPc))+'</td>';
+    h+='<td style="padding:8px 6px;text-align:right;font-family:var(--fm)">'+(x.avgOrder===null?'—':x.avgOrder)+'</td>';
+    h+='<td style="padding:8px 6px;text-align:right;font-family:var(--fm)">'+x.customers+'</td>';
+    h+='</tr>';
+  });
+  h+='</table></div>';
+
+  // qty বার
+  var mx = Math.max.apply(null, d.months.map(function(x){return x.netQty;}).concat([1]));
+  h+='<div style="background:rgba(255,255,255,.7);border:1px solid var(--border);border-radius:12px;padding:14px">';
+  h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:10px">মাসিক বিক্রয় (pcs)</div>';
+  h+='<div style="display:flex;align-items:flex-end;gap:14px;height:100px">';
+  d.months.forEach(function(x){
+    var hp = Math.max(6, Math.round(x.netQty/mx*80));
+    h+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">';
+    h+='<div style="font-family:var(--fm);font-size:14px;font-weight:800;margin-bottom:4px;color:'+(x.isCurrent?'var(--green)':'var(--text)')+'">'+x.netQty+'</div>';
+    h+='<div style="width:100%;max-width:70px;height:'+hp+'px;border-radius:6px 6px 0 0;background:'+(x.isCurrent?'var(--green)':'rgba(15,23,42,.2)')+'"></div>';
+    h+='<div style="font-family:var(--fd);font-size:10px;color:var(--text3);margin-top:6px">'+x.label+'</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+  if(d.pace){
+    h+='<div style="margin-top:12px;font-size:11px;color:var(--text2);background:rgba(15,23,42,.03);border-radius:8px;padding:10px;line-height:1.7">';
+    h+='⚡ এই গতিতে চললে চলতি মাস শেষে প্রায় <b style="font-family:var(--fm)">'+d.pace.qty+' pcs</b> · '+fmtMoney(d.pace.sales)+' — এটি projection, আসল বিক্রয় নয়।';
+    if(d.target) h+='<br>\u{1F3AF} মাসিক টার্গেট '+d.target+' pcs — এই গতিতে <b style="color:'+(d.pace.qty>=d.target?'var(--green)':'var(--red)')+'">'+Math.round(d.pace.qty/d.target*100)+'%</b> পূরণ হবে।';
+    h+='</div>';
+  }
+  h+='</div></div>';
+  return h;
+}
+
 function renderBizSalesLevels(){
   var d = getBizSalesLevels();
   var h='<div style="margin-bottom:22px">';
@@ -7264,6 +7418,8 @@ function renderBizDetail(key){
     }
     if(key==='sales'){
       h+=renderBizSalesLevels();
+      h+=renderBizSalesPerformance();
+      h+=renderBizStockCashIntel();     // ২১ দিনের Fast Rotation — Purchase-এর মতোই
       h+=renderBizBookingBoard();
       h+=renderBizOrderSize();
       h+=renderBizAccountPlans();
