@@ -5480,6 +5480,7 @@ function ensureBizSystemDefaults(){
     if(!rec.modelImages) rec.modelImages=[];   // Build-30: image for every function
     if(!rec.learningTree) rec.learningTree=[]; // Build-31: Learning Zone for every function
     if(!rec.strategyTree) rec.strategyTree=[]; // Build-34: Systems tree for every function
+    if(f.key==='marketing' && !rec.leads) rec.leads=[];   // Build-37: manual Lead Box
   });
   // Business Model: pre-populate the 3-Engine structure from the owner's sample, only if not already set
   var bm = db.businessSystem.functions.bizmodel;
@@ -5686,7 +5687,9 @@ function getBizSysMarketingKPIs(){
   var leadCnt = byStage[1]||0;
   var beyondLead = active.length-leadCnt;
   var convPct = active.length>0 ? Math.round(beyondLead/active.length*100) : null;
-  return { totalActive:active.length, byStage:byStage, leadCnt:leadCnt, convPct:convPct };
+  return { totalActive:active.length, byStage:byStage, leadCnt:leadCnt, convPct:convPct,
+           inactiveCnt: db.customers.filter(function(c){ return !!c.inactive; }).length,
+           trustCnt: byStage[2]||0 };
 }
 
 // ── Health badge helpers (my own reasonable thresholds — adjustable) ──
@@ -5821,8 +5824,12 @@ function bizKpiBlockHtml(key, kpi){
     stat('Overdue Invoices', kpi.overdueCnt, 'var(--red)');
     stat('Reminders Sent', kpi.reminderTotal);
   } else if(key==='marketing'){
-    STAGES.forEach(function(s){ stat(s.emoji+' '+s.name, kpi.byStage[s.id]||0); });
-    stat('Lead→Beyond Conversion', kpi.convPct===null?'—':kpi.convPct+'%');
+    // Build-37: Customer Pipeline-এর যে স্টেজগুলো মালিক দেখতে চেয়েছেন
+    [3,4,5,6,7].forEach(function(id){
+      var st = STAGES.filter(function(x){ return x.id===id; })[0];
+      if(st) stat(st.emoji+' '+st.name, kpi.byStage[id]||0);
+    });
+    stat('\u23f8\ufe0f Inactive', kpi.inactiveCnt, kpi.inactiveCnt>0?'var(--warn)':null);
   }
   h+='</div>';
   return h;
@@ -5912,6 +5919,122 @@ function getBizStockCashIntel(){
 var MKT_STEPS = ['Dubai Warehouse Proof','Model Education','Demand & Selling Opportunity','QC Proof',
                  'Price & Quantity Offer','Booking Update','Shipment Proof','Arrival & Delivery Proof',
                  'Customer Feedback','Repeat Stock Opportunity'];
+
+// ══════════════════════════════════════════════════════════════════════════
+// Build-37 — 📇 Lead Box (ম্যানুয়াল লিড রেজিস্টার)
+// মালিক নিজে হাতে Name + WhatsApp লিখে রাখেন। যখন লিড প্রথম অর্ডার দেয়,
+// "Trial-এ নিন" চাপলে সেই লিড Customer Pipeline-এ 🧪 Trial স্টেজে আসল
+// কাস্টমার প্রোফাইল হিসেবে তৈরি হয়। লিডটি মুছে যায় না — converted হিসেবে
+// থেকে যায়, তাই কত লিড থেকে কত কাস্টমার হলো সেটা পরেও দেখা যায়।
+// ══════════════════════════════════════════════════════════════════════════
+function bizLeads(){
+  var r = db.businessSystem.functions.marketing;
+  if(!r.leads) r.leads = [];
+  return r.leads;
+}
+var _bizLeadSeq = 0;
+function bizNewLeadId(){ _bizLeadSeq++; return Date.now()*1000 + (_bizLeadSeq%1000); }
+function addBizLead(){
+  bizLeads().unshift({ id:bizNewLeadId(), name:'', wa:'', source:'', note:'',
+                       added:TODAY, converted:false, convertedDate:null, custId:null });
+  saveDB(); syncToFirebase(); renderBizDetail('marketing');
+}
+function saveBizLead(i, prop, val){
+  var L = bizLeads(); if(!L[i]) return;
+  L[i][prop] = val; saveDB(); syncToFirebase(); bizFlashSaved();
+}
+function deleteBizLead(i){
+  var L = bizLeads(); if(!L[i]) return;
+  if(!confirm((L[i].name||'এই লিড')+' — মুছে ফেলবেন?')) return;
+  L.splice(i,1); saveDB(); syncToFirebase(); renderBizDetail('marketing');
+}
+// লিড → Customer Pipeline (🧪 Trial)
+function bizLeadToTrial(i){
+  var L = bizLeads(); var ld = L[i]; if(!ld) return;
+  var nm = (ld.name||'').trim();
+  if(!nm){ notify('আগে কাস্টমারের নাম লিখুন', true); return; }
+  if(ld.converted){ notify('এই লিড আগেই Trial-এ গেছে', true); return; }
+  // একই নাম/WhatsApp আগে থেকেই পাইপলাইনে আছে কিনা — ডুপ্লিকেট প্রোফাইল ঠেকানো
+  var wa = (ld.wa||'').replace(/\D/g,'');
+  var dup = (db.customers||[]).filter(function(c){
+    if((c.name||'').trim().toLowerCase()===nm.toLowerCase()) return true;
+    if(wa && String(c.wa||'').replace(/\D/g,'')===wa) return true;
+    return false;
+  })[0];
+  if(dup){
+    if(!confirm('"'+dup.name+'" নামে/নম্বরে একজন কাস্টমার পাইপলাইনে আছে।\n\nনতুন প্রোফাইল না বানিয়ে ওই কাস্টমারের সাথেই যুক্ত করবো?')) return;
+    ld.converted=true; ld.convertedDate=TODAY; ld.custId=dup.id;
+    saveDB(); syncToFirebase(); renderBizDetail('marketing');
+    notify('✅ '+dup.name+' — আগের প্রোফাইলের সাথে যুক্ত হলো');
+    return;
+  }
+  if(!confirm(nm+' কে Customer Pipeline-এ \u{1F9EA} Trial স্টেজে যোগ করবো?')) return;
+  var nc = migrate({ id:Date.now(), name:nm, wa:(ld.wa||'').trim(), stage:3,
+                     createdDate:TODAY, stageDate:TODAY });
+  nc.history = [{date:TODAY, action:'\u{1F4C7} Lead Box থেকে Trial-এ এসেছে', color:'var(--green)'}];
+  db.customers.push(nc);
+  ld.converted=true; ld.convertedDate=TODAY; ld.custId=nc.id;
+  saveDB(); syncToFirebase();
+  if(typeof renderPipeline==='function') renderPipeline();
+  renderBizDetail('marketing');
+  notify('✅ '+nm+' Customer Pipeline-এ Trial স্টেজে যোগ হলো');
+}
+
+function renderBizLeadBox(){
+  var L = bizLeads();
+  var conv = L.filter(function(x){ return x.converted; }).length;
+  var open = L.length - conv;
+  var rate = L.length ? Math.round(conv/L.length*100) : null;
+
+  var h='<div style="background:rgba(255,255,255,.7);border:1px solid var(--border);border-radius:12px;padding:14px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px">';
+  h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">\u{1F4C7} Lead Box — ম্যানুয়াল</div>';
+  h+='<button onclick="addBizLead()" style="background:var(--blue);border:none;border-radius:6px;padding:5px 12px;font-family:var(--fd);font-size:11px;font-weight:700;color:#fff;cursor:pointer">+ নতুন Lead</button>';
+  h+='</div>';
+  h+='<div style="font-size:11px;color:var(--text3);margin-bottom:12px">নাম ও WhatsApp নম্বর নিজে লিখে রাখুন। প্রথম অর্ডার এলে "Trial-এ নিন" চাপলে Customer Pipeline-এ প্রোফাইল তৈরি হবে।</div>';
+
+  h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">';
+  [['মোট Lead', L.length, null],
+   ['⏳ অপেক্ষায়', open, open>0?'var(--warn)':null],
+   ['✅ Trial হয়েছে', conv, conv>0?'var(--green)':null]].forEach(function(c){
+    h+='<div style="background:rgba(15,23,42,.03);border-radius:8px;padding:9px">'+
+       '<div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:3px">'+c[0]+'</div>'+
+       '<div style="font-family:var(--fm);font-size:17px;font-weight:800;color:'+(c[2]||'var(--text)')+'">'+c[1]+'</div></div>';
+  });
+  h+='</div>';
+  if(rate!==null){
+    h+='<div style="font-size:11px;color:var(--text2);margin-bottom:12px;background:rgba(15,23,42,.03);border-radius:8px;padding:9px">'+
+       'Lead → Trial conversion: <b style="font-family:var(--fm)">'+rate+'%</b> ('+conv+'/'+L.length+')</div>';
+  }
+
+  if(!L.length){
+    h+='<div style="font-size:12px;color:var(--text3);padding:12px 0">এখনো কোনো Lead নেই। উপরের বাটন চেপে শুরু করুন।</div>';
+    h+='</div>'; return h;
+  }
+  L.forEach(function(ld, i){
+    var done = !!ld.converted;
+    h+='<div style="border:1px solid '+(done?'rgba(16,185,129,.35)':'var(--border)')+';background:'+(done?'rgba(16,185,129,.06)':'transparent')+';border-radius:10px;padding:10px;margin-bottom:9px">';
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px">';
+    h+='<input value="'+escHtml(ld.name||'')+'" onblur="saveBizLead('+i+',\'name\',this.value)" placeholder="Customer Name" '+(done?'readonly':'')+' style="padding:8px;border:1px solid var(--border);border-radius:7px;font-family:var(--fd);font-size:13px;font-weight:700;background:'+(done?'rgba(15,23,42,.04)':'#fff')+'">';
+    h+='<input value="'+escHtml(ld.wa||'')+'" onblur="saveBizLead('+i+',\'wa\',this.value)" placeholder="WhatsApp Number" '+(done?'readonly':'')+' style="padding:8px;border:1px solid var(--border);border-radius:7px;font-family:var(--fm);font-size:13px;background:'+(done?'rgba(15,23,42,.04)':'#fff')+'">';
+    h+='</div>';
+    h+='<input value="'+escHtml(ld.note||'')+'" onblur="saveBizLead('+i+',\'note\',this.value)" placeholder="নোট — কোথা থেকে এলো, কোন মডেল চায়" style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:7px;font-family:var(--fd);font-size:12px;margin-bottom:8px">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:7px">';
+    h+='<div style="font-size:10px;color:var(--text3);font-family:var(--fm)">যোগ: '+escHtml(ld.added||'—')+(done?(' · ✅ Trial: '+escHtml(ld.convertedDate||'')):'')+'</div>';
+    h+='<div style="display:flex;gap:6px">';
+    if(done){
+      h+='<span style="font-size:11px;font-weight:700;color:var(--green);font-family:var(--fd)">✅ Pipeline-এ আছে</span>';
+    } else {
+      var wanum = String(ld.wa||'').replace(/\D/g,'');
+      if(wanum) h+='<a href="https://wa.me/'+wanum+'" target="_blank" rel="noopener" style="background:rgba(37,211,102,.12);border:1px solid rgba(37,211,102,.4);border-radius:6px;padding:5px 10px;font-family:var(--fd);font-size:11px;font-weight:700;color:#128C7E;text-decoration:none">\u{1F4AC} WhatsApp</a>';
+      h+='<button onclick="bizLeadToTrial('+i+')" style="background:var(--green);border:none;border-radius:6px;padding:5px 11px;font-family:var(--fd);font-size:11px;font-weight:700;color:#fff;cursor:pointer">\u{1F9EA} Trial-এ নিন</button>';
+    }
+    h+='<button onclick="deleteBizLead('+i+')" style="background:transparent;border:1px solid var(--border);border-radius:6px;padding:5px 9px;font-size:11px;color:var(--text3);cursor:pointer">✕</button>';
+    h+='</div></div></div>';
+  });
+  h+='</div>';
+  return h;
+}
 
 // ══════════════════════════════════════════════════════════════════════════
 // Build-36 — Customer Acquisition Dashboard + Second-Order Gap
@@ -6493,7 +6616,17 @@ function renderBizDetail(key){
   // Live Performance
   h+='<div style="margin-bottom:18px">';
   h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">\u{1F4CA} Live Performance (Real Data)</div>';
-  h+=bizKpiBlockHtml(key, kpi);
+  if(key==='marketing'){
+    // Build-37: বাঁয়ে Customer Pipeline-এর আসল স্টেজ, ডানে ম্যানুয়াল Lead Box
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;align-items:start">';
+    h+='<div>'+bizKpiBlockHtml(key, kpi);
+    if(kpi) h+='<div style="font-size:11px;color:var(--text3);margin-top:8px">Pipeline-এ আরও আছে — \u{1F4E1} Lead '+kpi.leadCnt+' \u00b7 \u{1F91D} Trust '+kpi.trustCnt+'</div>';
+    h+='</div>';
+    h+=renderBizLeadBox();
+    h+='</div>';
+  } else {
+    h+=bizKpiBlockHtml(key, kpi);
+  }
   h+='</div>';
 
   // Action Roadmap
