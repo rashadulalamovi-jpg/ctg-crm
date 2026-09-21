@@ -5466,6 +5466,7 @@ const BIZ_FUNCTIONS = [
   {key:'legal',      icon:'⚖️', name:'Legal',            defOwner:'Unassigned',             kpi:null}
 ];
 
+var _bizPillarsMigrated = false;
 function ensureBizSystemDefaults(){
   if(!db.businessSystem) db.businessSystem = {};
   if(!db.businessSystem.functions) db.businessSystem.functions = {};
@@ -5648,6 +5649,9 @@ function ensureBizSystemDefaults(){
         '── আগের Strategy কার্ডগুলোর লেখা (Build-42-এ কাঠামো বদলানোয় এখানে রাখা হলো) ──\n' + keep.join('\n');
     }
     sl.pillarsV2 = true;
+    // migration-এর ফল সব ডিভাইসে পৌঁছাতে হবে, নইলে অন্য ট্যাব পুরনো কাঠামো
+    // আবার লিখে দিতে পারে। তাই একবারই cloud-এ পাঠানো হয়।
+    _bizPillarsMigrated = true;
   }
   if(sl && !sl.bookings) sl.bookings = [];
   if(sl && !sl.accounts) sl.accounts = {};
@@ -5662,6 +5666,11 @@ function ensureBizSystemDefaults(){
       if(eng.notes===undefined) eng.notes = '';
     });
   });
+
+  if(_bizPillarsMigrated){
+    _bizPillarsMigrated = false;
+    try{ saveDB(); if(typeof syncToFirebase==='function') syncToFirebase(); }catch(e){ console.warn('pillar migration sync:', e); }
+  }
 }
 
 // ── KPI: Purchase (reuses getModelStats + getFinalAction — same engine as Model Demand module) ──
