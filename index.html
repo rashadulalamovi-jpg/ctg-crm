@@ -3831,7 +3831,7 @@ function getCashRotationDays(windowDays){
     });
   });
   var dhbsWeightedSum=0, dhbsQty=0;
-  var _dhbsB = {d21:0, d45:0, d60:0, over:0};
+  var _dhbsB = {d7:0, d21:0, d45:0, d60:0, over:0};
   Object.keys(byModelItems).forEach(function(key){
     var queue = byModelBatches[key]||[];
     var items = byModelItems[key].slice().sort(function(a,b){return new Date(a.invDate||'')-new Date(b.invDate||'');});
@@ -3852,6 +3852,7 @@ function getCashRotationDays(windowDays){
             dhbsWeightedSum += dhbs*chunk;
             dhbsQty += chunk;
             // Build-34: bucket each unit by how long it sat, so the 21-day target can be scored
+            if(dhbs<=7) _dhbsB.d7+=chunk;
             if(dhbs<=21) _dhbsB.d21+=chunk;
             else if(dhbs<=45) _dhbsB.d45+=chunk;
             else if(dhbs<=60) _dhbsB.d60+=chunk;
@@ -3883,8 +3884,9 @@ function getCashRotationDays(windowDays){
 
   var cashRotation = (avgDHBS!==null && avgDSO!==null) ? Math.round((avgDHBS+avgDSO)*10)/10 : null;
   var within21Pct = dhbsQty>0 ? Math.round(_dhbsB.d21/dhbsQty*100) : null;
+  var within7Pct  = dhbsQty>0 ? Math.round(_dhbsB.d7/dhbsQty*100) : null;
   return {avgDHBS:avgDHBS, avgDSO:avgDSO, cashRotation:cashRotation, dhbsSampleQty:dhbsQty, dsoSampleInvoices:dsoCount, windowDays:windowDays,
-          dhbsBuckets:_dhbsB, within21Pct:within21Pct};
+          dhbsBuckets:_dhbsB, within21Pct:within21Pct, within7Pct:within7Pct};
 }
 
 function renderStockTable(){
@@ -5545,6 +5547,33 @@ function ensureBizSystemDefaults(){
     pu.targetLine = 'Sell CTG Stock Within 21 Days — ২১ দিনের মধ্যে CTG stock বিক্রয় (Fast Rotation)';
     pu.summaryFormula = 'Right Model × Right Price × Right Quantity × Buyer Evidence = Fast Rotation';
   }
+  // Build-35: Marketing Function — the 5-Rule blueprint
+  var mk = db.businessSystem.functions.marketing;
+  if(mk && !mk.engines){
+    mk.coreRule = 'SELL BEFORE STOCK';
+    mk.engines = [
+      { title:'Rule 1 — Every Content Must Have One Clear Purpose', fields:[
+          {label:'নিয়ম', value:'প্রতিটি Content-এর নির্দিষ্ট উদ্দেশ্য থাকতে হবে'},
+          {label:'প্রয়োগ', value:''} ], strategyTree:[], images:[], notes:'' },
+      { title:'Rule 2 — Start Model Marketing on Dubai Advance Day', fields:[
+          {label:'নিয়ম', value:'দুবাইতে ল্যাপটপ অ্যাডভান্স করার দিন থেকেই সেই মডেলের মার্কেটিং শুরু'},
+          {label:'প্রয়োগ', value:''} ], strategyTree:[], images:[], notes:'' },
+      { title:'Rule 3 — Channel: WhatsApp Only', fields:[
+          {label:'নিয়ম', value:'শুধু WhatsApp — Video, Text ও Image'},
+          {label:'প্রয়োগ', value:''} ], strategyTree:[], images:[], notes:'' },
+      { title:'Rule 4 — Continuous Campaign for Each Model', fields:[
+          {label:'নিয়ম', value:'একটি ভিডিওতে marketing শেষ নয় — প্রতিটি selected model-এর জন্য ১০ ধাপের ধারাবাহিক campaign। একই message বারবার নয়।'},
+          {label:'প্রয়োগ', value:''} ], strategyTree:[], images:[], notes:'' },
+      { title:'Rule 5 — Trial Customer Entry Offer', fields:[
+          {label:'নিয়ম', value:'একটি সফল, ঝামেলামুক্ত এবং লাভজনক Trial Invoice'},
+          {label:'প্রয়োগ', value:''} ], strategyTree:[], images:[], notes:'' }
+    ];
+    mk.stopRules = ['Do Not Buy Stock First and Search for Customers Later — আগে Stock কিনে তারপর Customer খোঁজা নয়'];
+    mk.targetLine = 'BEFORE STOCK ARRIVES IN BANGLADESH: Qualified Buyers + Confirmed Bookings — স্টক বাংলাদেশে পৌঁছানোর আগেই যোগ্য ক্রেতা ও নিশ্চিত বুকিং';
+    mk.summaryFormula = 'Education → Dubai Proof → Model Opportunity → Trial Offer → Booking → QC Proof → Delivery Proof → Repeat Order';
+  }
+  if(mk && !mk.campaigns) mk.campaigns = [];
+
   // every function's pillars get the tree/notes/image fields
   BIZ_FUNCTIONS.forEach(function(f){
     var r = db.businessSystem.functions[f.key];
@@ -5876,6 +5905,188 @@ function getBizStockCashIntel(){
 
 
 // Build-34: the cross-pillar "Systems" tree, available on every function page
+
+// ══════════════════════════════════════════════════════════
+// BUILD-35 — Marketing Function: real intelligence + 10-Step campaign tracker
+// ══════════════════════════════════════════════════════════
+var MKT_STEPS = ['Dubai Warehouse Proof','Model Education','Demand & Selling Opportunity','QC Proof',
+                 'Price & Quantity Offer','Booking Update','Shipment Proof','Arrival & Delivery Proof',
+                 'Customer Feedback','Repeat Stock Opportunity'];
+
+function getBizMarketingIntel(){
+  if(!db.customers || !db.customers.length) return null;
+  var stageName = {}; STAGES.forEach(function(s){ stageName[s.id]=s.name; });
+
+  var rows = db.customers.map(function(c){
+    var invs = (c.invoices||[]).slice().sort(function(a,b){ return new Date(a.date)-new Date(b.date); });
+    return { name:c.name, stage:c.stage, inactive:!!c.inactive, wa:(c.wa&&String(c.wa).trim())?true:false,
+             invCount:invs.length, first: invs.length?invs[0].date:null };
+  });
+  var ordered  = rows.filter(function(r){ return r.invCount>0; });
+  var repeated = ordered.filter(function(r){ return r.invCount>=2; });
+  var onceOnly = ordered.filter(function(r){ return r.invCount===1; });
+
+  // trial generation: new customers by month of their first invoice
+  var byMonth = {};
+  ordered.forEach(function(r){ var m=(r.first||'').slice(0,7); if(m) byMonth[m]=(byMonth[m]||0)+1; });
+  var months = Object.keys(byMonth).sort().slice(-6).map(function(m){ return {month:m, count:byMonth[m]}; });
+
+  // "sell before stock" evidence, from the same FIFO engine the Stock Intelligence uses
+  var pre = null;
+  if(typeof stockDB!=='undefined' && stockDB.batches && stockDB.batches.length){
+    var rot = getCashRotationDays(90);
+    if(rot.dhbsSampleQty>0){
+      pre = { units: rot.dhbsSampleQty, within7: rot.dhbsBuckets.d7, within7Pct: rot.within7Pct,
+              within21Pct: rot.within21Pct, over45: rot.dhbsBuckets.d60 + rot.dhbsBuckets.over };
+    }
+  }
+
+  // data-hygiene flags
+  var noWA = rows.filter(function(r){ return !r.wa; });
+  var stageNoInvoice = rows.filter(function(r){ return r.invCount===0 && r.stage>=4; })
+                           .map(function(r){ return r.name+' → '+(stageName[r.stage]||r.stage); });
+
+  return {
+    totalCustomers: rows.length,
+    ordered: ordered.length,
+    neverOrdered: rows.length - ordered.length,
+    repeated: repeated.length,
+    repeatRate: ordered.length ? Math.round(repeated.length/ordered.length*100) : null,
+    trialNeverRepeated: onceOnly.length,
+    trialNeverRepeatedNames: onceOnly.map(function(r){ return r.name; }),
+    newByMonth: months,
+    preBooking: pre,
+    noWhatsAppCount: noWA.length,
+    noWhatsAppNames: noWA.map(function(r){ return r.name; }),
+    stageNoInvoice: stageNoInvoice
+  };
+}
+
+function renderBizMarketingIntel(){
+  var d = getBizMarketingIntel();
+  var h='<div style="margin-bottom:22px">';
+  h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px">\u{1F4E3} Marketing Intelligence</div>';
+  h+='<div style="font-size:11px;color:var(--text3);margin-bottom:12px">Customer, Invoice ও Stock ডেটা থেকে সরাসরি — নতুন কাস্টমার আসছে কিনা, Trial ফিরছে কিনা, আর স্টক নামার আগেই বিক্রি হচ্ছে কিনা</div>';
+  if(!d){ h+='<div style="font-size:12px;color:var(--text3);padding:14px;background:rgba(15,23,42,.03);border-radius:10px">⚠️ কাস্টমার ডেটা নেই।</div></div>'; return h; }
+
+  function card(label, val, sub, color){
+    return '<div style="background:rgba(15,23,42,.03);border-radius:10px;padding:12px">'+
+      '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:5px">'+label+'</div>'+
+      '<div style="font-family:var(--fm);font-size:22px;font-weight:800;color:'+(color||'var(--text)')+'">'+val+'</div>'+
+      (sub?'<div style="font-size:10px;color:var(--text3);margin-top:3px">'+sub+'</div>':'')+'</div>';
+  }
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px">';
+  var p = d.preBooking;
+  h+=card('স্টক নামার ৭ দিনে বিক্রি', p?(p.within7Pct+'%'):'—',
+    p?(p.within7+' / '+p.units+' pcs · প্রি-বুকিং কাজ করেছে'):'স্টক ডেটা নেই',
+    p?(p.within7Pct>=50?'var(--green)':p.within7Pct>=25?'var(--warn)':'var(--red)'):null);
+  h+=card('Repeat Rate', d.repeatRate===null?'—':(d.repeatRate+'%'),
+    d.repeated+' / '+d.ordered+' কাস্টমার আবার কিনেছেন',
+    d.repeatRate!==null&&d.repeatRate>=60?'var(--green)':'var(--warn)');
+  h+=card('Trial এসে ফেরেনি', d.trialNeverRepeated, 'একবার কিনে আর আসেনি', d.trialNeverRepeated>0?'var(--warn)':'var(--green)');
+  h+=card('কখনো কেনেনি', d.neverOrdered, d.totalCustomers+' জনের মধ্যে', d.neverOrdered>0?'var(--warn)':null);
+  h+='</div>';
+
+  // new customer trend — the headline for "New Trial Customer Generation"
+  if(d.newByMonth.length){
+    var mx = Math.max.apply(null, d.newByMonth.map(function(m){return m.count;}).concat([1]));
+    h+='<div style="background:rgba(255,255,255,.7);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">';
+    h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:10px">নতুন কাস্টমার — প্রথম ইনভয়সের মাস অনুযায়ী</div>';
+    h+='<div style="display:flex;align-items:flex-end;gap:12px;height:90px">';
+    d.newByMonth.forEach(function(m){
+      var hpx = Math.max(6, Math.round(m.count/mx*70));
+      h+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">';
+      h+='<div style="font-family:var(--fm);font-size:13px;font-weight:800;color:var(--text);margin-bottom:4px">'+m.count+'</div>';
+      h+='<div style="width:100%;max-width:52px;height:'+hpx+'px;border-radius:5px 5px 0 0;background:'+(m.count>=mx?'var(--green)':'rgba(15,23,42,.2)')+'"></div>';
+      h+='<div style="font-family:var(--fd);font-size:9px;color:var(--text3);margin-top:5px">'+m.month+'</div>';
+      h+='</div>';
+    });
+    h+='</div></div>';
+  }
+
+  // honest warnings
+  var warns = [];
+  if(d.stageNoInvoice.length) warns.push({t:'স্টেজ ও ইনভয়সে গরমিল', b:d.stageNoInvoice.length+' জন Repeat/Trusted স্টেজে আছেন কিন্তু একটিও ইনভয়স নেই — তাই funnel-এর শতকরা হিসাব বিশ্বাসযোগ্য নয়। <b>'+escHtml(d.stageNoInvoice.join(', '))+'</b>'});
+  if(d.noWhatsAppCount) warns.push({t:'WhatsApp নম্বর নেই', b:'Rule 3 বলছে শুধু WhatsApp, কিন্তু '+d.noWhatsAppCount+' জনের নম্বরই নেই — এদের কাছে পুরো মার্কেটিং পৌঁছায় না। <b>'+escHtml(d.noWhatsAppNames.join(', '))+'</b>'});
+  if(d.trialNeverRepeated) warns.push({t:'Trial এসে ফেরেনি', b:escHtml(d.trialNeverRepeatedNames.join(', '))+' — Rule 5 অনুযায়ী এঁদের দ্বিতীয় অর্ডারে আনাই আসল কাজ।'});
+  if(warns.length){
+    h+='<div style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.3);border-radius:12px;padding:14px">';
+    h+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--warn);margin-bottom:10px">⚠️ যেগুলো ঠিক করতে হবে</div>';
+    warns.forEach(function(w){
+      h+='<div style="margin-bottom:10px"><div style="font-family:var(--fd);font-size:12px;font-weight:700;color:var(--text)">'+w.t+'</div>';
+      h+='<div style="font-size:12px;line-height:1.7;color:var(--text2)">'+w.b+'</div></div>';
+    });
+    h+='</div>';
+  }
+  h+='</div>';
+  return h;
+}
+
+// ── 10-Step campaign tracker, one row per model per lot ──
+function renderBizMktCampaigns(rec){
+  if(!rec.campaigns) rec.campaigns = [];
+  var h='<div style="margin-bottom:22px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px">';
+  h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">\u{1F504} 10-Step Model Content Campaign</div>';
+  h+='<span onclick="addBizMktCampaign()" style="cursor:pointer;font-size:12px;font-weight:700;color:var(--cyan)">+ নতুন Model Campaign</span>';
+  h+='</div>';
+  h+='<div style="font-size:11px;color:var(--text3);margin-bottom:12px">Rule 4 — প্রতিটি মডেলে কোন ধাপ হয়েছে টিক দিন। Dubai Advance-এর দিন থেকে শুরু।</div>';
+  if(!rec.campaigns.length){
+    h+='<div style="font-size:12px;color:var(--text3);padding:14px;background:rgba(34,211,238,.06);border-radius:10px">এখনো কোনো campaign নেই। যে মডেলে অ্যাডভান্স দিলেন, সেটা যোগ করে শুরু করুন।</div></div>';
+    return h;
+  }
+  rec.campaigns.forEach(function(cp, ci){
+    var done = (cp.steps||[]).filter(Boolean).length;
+    var pct = Math.round(done/MKT_STEPS.length*100);
+    h+='<div style="background:rgba(255,255,255,.7);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px">';
+    h+='<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:220px">';
+    h+='<input type="text" value="'+escHtml(cp.model||'')+'" placeholder="মডেলের নাম..." onblur="saveBizMktCampaign('+ci+',\'model\',this.value)" style="flex:1;font-family:var(--fd);font-size:14px;font-weight:800;color:var(--text);border:none;background:transparent">';
+    h+='<input type="date" value="'+(cp.advanceDate||'')+'" title="Dubai Advance Day" onchange="saveBizMktCampaign('+ci+',\'advanceDate\',this.value)" style="font-family:var(--fm);font-size:11px;border:1px solid var(--border);border-radius:6px;padding:4px 7px">';
+    h+='</div>';
+    h+='<div style="display:flex;align-items:center;gap:10px">';
+    h+='<span style="font-family:var(--fm);font-size:13px;font-weight:800;color:'+(pct===100?'var(--green)':pct>=50?'var(--warn)':'var(--text3)')+'">'+done+'/'+MKT_STEPS.length+' · '+pct+'%</span>';
+    h+='<span onclick="deleteBizMktCampaign('+ci+')" style="cursor:pointer;color:var(--red);font-size:13px">✕</span>';
+    h+='</div></div>';
+    h+='<div style="height:7px;border-radius:4px;background:rgba(15,23,42,.07);overflow:hidden;margin-bottom:12px"><div style="height:100%;width:'+pct+'%;background:'+(pct===100?'var(--green)':'var(--cyan)')+'"></div></div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:6px">';
+    MKT_STEPS.forEach(function(st, si){
+      var on = !!(cp.steps && cp.steps[si]);
+      h+='<div onclick="toggleBizMktStep('+ci+','+si+')" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:7px;background:'+(on?'rgba(52,211,153,.1)':'rgba(15,23,42,.03)')+'">';
+      h+='<span style="flex-shrink:0;width:18px;height:18px;border-radius:5px;border:2px solid '+(on?'var(--green)':'var(--border)')+';background:'+(on?'var(--green)':'transparent')+';display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff">'+(on?'✓':'')+'</span>';
+      h+='<span style="font-family:var(--fm);font-size:12px;color:'+(on?'var(--text3)':'var(--text)')+';text-decoration:'+(on?'line-through':'none')+'">'+(si+1)+'. '+st+'</span>';
+      h+='</div>';
+    });
+    h+='</div>';
+    h+='<textarea onblur="saveBizMktCampaign('+ci+',\'note\',this.value)" rows="2" placeholder="এই campaign সম্পর্কে নোট..." style="width:100%;margin-top:10px;padding:8px;border:1px solid var(--border);border-radius:7px;font-family:var(--fm);font-size:12px;resize:vertical">'+escHtml(cp.note||'')+'</textarea>';
+    h+='</div>';
+  });
+  h+='</div>';
+  return h;
+}
+
+function bizMktRec(){ return db.businessSystem.functions.marketing; }
+function addBizMktCampaign(){
+  var r=bizMktRec(); if(!r.campaigns) r.campaigns=[];
+  r.campaigns.unshift({model:'', advanceDate:TODAY, steps:MKT_STEPS.map(function(){return false;}), note:''});
+  saveDB(); syncToFirebase(); renderBizDetail('marketing');
+}
+function deleteBizMktCampaign(ci){
+  if(!confirm('এই campaign মুছবেন?')) return;
+  var r=bizMktRec(); (r.campaigns||[]).splice(ci,1);
+  saveDB(); syncToFirebase(); renderBizDetail('marketing');
+}
+function saveBizMktCampaign(ci, prop, val){
+  var r=bizMktRec(); if(!r.campaigns||!r.campaigns[ci]) return;
+  r.campaigns[ci][prop]=val; saveDB(); syncToFirebase(); bizFlashSaved();
+}
+function toggleBizMktStep(ci, si){
+  var r=bizMktRec(); if(!r.campaigns||!r.campaigns[ci]) return;
+  if(!r.campaigns[ci].steps) r.campaigns[ci].steps = MKT_STEPS.map(function(){return false;});
+  r.campaigns[ci].steps[si] = !r.campaigns[ci].steps[si];
+  saveDB(); syncToFirebase(); renderBizDetail('marketing');
+}
+
 function renderBizSystemsTree(key, rec){
   if(!rec.strategyTree) rec.strategyTree = [];
   var st = bizTreeStats(rec.strategyTree);
@@ -6103,6 +6314,10 @@ function renderBizDetail(key){
     if(key==='purchase'){
       h+=renderBizStockCashIntel();
       h+=renderBizPurchaseQtyGuide();
+    }
+    if(key==='marketing'){
+      h+=renderBizMarketingIntel();
+      h+=renderBizMktCampaigns(rec);
     }
   }
 
