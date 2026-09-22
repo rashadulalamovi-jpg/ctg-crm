@@ -1385,17 +1385,110 @@ async function syncStockBatches(){
   for(const b of (stockDB.batches||[])){
     try{
       if(b._fbId){
-        await fsdb.collection('stockBatches').doc(b._fbId)
+        // Build-47: _fbId ভুতুড়ে হতে পারে (add() ব্রাউজারেই id বানাত), তাই
+        // batch-এর নিজের id-কেই অগ্রাধিকার — তাহলে লেখা সবসময় একই জায়গায় যায়।
+        await fsdb.collection('stockBatches').doc(String(b.id||b._fbId))
           .set(sanitize(Object.assign({},b,{_fbId:undefined})),{merge:true});
+        if(b.id!==undefined) b._fbId = String(b.id);
       }else{
+        // Build-47: add() নয় — batch-এর নিজের id-ই doc id. তাই বারবার চললেও
+        // ডুপ্লিকেট হয় না, আর "পৌঁছেছে কি না" মেলানো সহজ।
         const clean = sanitize(Object.assign({},b)); delete clean._fbId;
-        const ref = await fsdb.collection('stockBatches').add(clean);
-        b._fbId = ref.id; added++;
+        await fsdb.collection('stockBatches').doc(String(b.id)).set(clean,{merge:true});
+        b._fbId = String(b.id); added++;
       }
     }catch(e){ console.warn('stock sync failed for', b && b.model, e); }
   }
   saveStock();
   return added;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// BUILD-47 — এন্ট্রি দিলেই সরাসরি cloud-এ, এবং পড়ে যাচাই
+//
+// আগের সমস্যা: লেখা হতো add() দিয়ে, যা ব্রাউজারেই doc id বানায়, আর error
+// চুপচাপ গিলে ফেলা হতো (.catch(function(){})). ফলে অ্যাপ "সেভ হয়েছে" দেখাত
+// অথচ সার্ভারে কিছু যেত না।
+//
+// এখন প্রতিটি এন্ট্রি:
+//   ১) নির্দিষ্ট doc id দিয়ে লেখা হয় (set) — একই এন্ট্রি দুবার বসে না
+//   ২) সার্ভার থেকে পড়ে দেখা হয় সত্যিই পৌঁছেছে কি না
+//   ৩) ফল স্ক্রিনে দেখানো হয় — সবুজ ✅ বা লাল ❌ সহ "আবার চেষ্টা" বাটন
+// ══════════════════════════════════════════════════════════════════════════
+var _cloudPending = 0;
+function cloudBadge(state, text, retryFn){
+  var id='cloudSaveBadge', el=document.getElementById(id);
+  if(state==='hide'){ if(el) el.remove(); return; }
+  if(!el){
+    el=document.createElement('div'); el.id=id;
+    el.style.cssText='position:fixed;right:14px;bottom:14px;z-index:99999;border-radius:10px;'
+      +'padding:11px 15px;font-family:var(--fd,sans-serif);font-size:13px;font-weight:700;color:#fff;'
+      +'box-shadow:0 4px 18px rgba(0,0,0,.28);max-width:330px;line-height:1.55';
+    document.body.appendChild(el);
+  }
+  el.style.background = state==='ok' ? '#10b981' : state==='fail' ? '#e30613' : '#0f172a';
+  el.innerHTML = text + (retryFn ? ' <button onclick="'+retryFn+'" style="margin-left:8px;background:#fff;color:#e30613;border:none;border-radius:5px;padding:4px 10px;font-family:inherit;font-size:11px;font-weight:800;cursor:pointer">আবার চেষ্টা</button>' : '');
+  if(state==='ok') setTimeout(function(){ var e=document.getElementById(id); if(e && e.style.background.indexOf('16, 185, 129')>=0 || (e&&e.textContent.indexOf('✅')>=0)) e.remove(); }, 4000);
+}
+
+// একটি ডকুমেন্ট লিখে, সার্ভার থেকে পড়ে নিশ্চিত করে
+async function cloudSaveVerified(collName, docId, data, label){
+  if(!window._fbReady || !fsdb){
+    cloudBadge('fail', '❌ Cloud কানেকশন নেই — ' + label + ' শুধু এই ডিভাইসে');
+    return false;
+  }
+  _cloudPending++;
+  cloudBadge('busy', '⏳ ' + label + ' cloud-এ পাঠানো হেচ্ছে...');
+  try{
+    await fsdb.collection(collName).doc(String(docId)).set(sanitize(data), {merge:true});
+    // সার্ভার থেকেই পড়া — cache থেকে নয়, নইলে যাচাইয়ের কোনো মানে থাকে না
+    var chk = await fsdb.collection(collName).doc(String(docId)).get({source:'server'});
+    _cloudPending--;
+    if(chk.exists){
+      cloudBadge('ok', '✅ ' + label + ' cloud-এ সেভ হয়েছে');
+      return true;
+    }
+    cloudBadge('fail', '❌ ' + label + ' cloud-এ পৌঁছায়নি', 'retryCloudSaves()');
+    return false;
+  }catch(e){
+    _cloudPending--;
+    console.error('cloudSaveVerified failed', collName, docId, e);
+    cloudBadge('fail', '❌ ' + label + ' cloud-এ যায়নি (' + (e.code||'error') + ')', 'retryCloudSaves()');
+    return false;
+  }
+}
+
+// একটি stock batch সরাসরি cloud-এ — doc id = batch-এর নিজের id
+async function saveBatchToCloud(batch){
+  var ok = await cloudSaveVerified('stockBatches', batch.id,
+             Object.assign({}, batch, {_fbId: undefined}),
+             'Stock: ' + (batch.model||''));
+  if(ok){ batch._fbId = String(batch.id); saveStock(); }
+  return ok;
+}
+
+// একটি customer (তার সব invoice সহ) সরাসরি cloud-এ
+async function saveCustomerToCloud(c, label){
+  var d = Object.assign({}, c); delete d.intel;
+  var ok = await cloudSaveVerified('customers', c.id, d, label || ('Customer: ' + (c.name||'')));
+  if(ok && c.intel){
+    try{ await fsdb.collection('intel').doc(String(c.id)).set(sanitize(c.intel), {merge:true}); }catch(e){}
+  }
+  return ok;
+}
+
+// যা এখনো cloud-এ পৌঁছায়নি, সব আবার পাঠানোর চেষ্টা
+async function retryCloudSaves(){
+  cloudBadge('busy', '⏳ আবার চেষ্টা করা হচ্ছে...');
+  var fails = 0;
+  for(const b of (stockDB.batches||[])){
+    if(String(b._fbId||'') !== String(b.id)){ if(!await saveBatchToCloud(b)) fails++; }
+  }
+  for(const c of (db.customers||[])){ if(!await saveCustomerToCloud(c)) fails++; }
+  cloudBadge(fails ? 'fail' : 'ok',
+    fails ? ('❌ ' + fails + 'টি এখনও যায়নি') : '✅ সব cloud-এ সেভ হয়েছে',
+    fails ? 'retryCloudSaves()' : null);
+  return fails;
 }
 
 // ── Real-time listeners ──────────────────────────────────
@@ -2330,8 +2423,8 @@ function deleteCustomer(cid){
   db.customers = db.customers.filter(x=>x.id!==cid);
   saveDB();
   if(window._fbReady && fsdb){
-    fsdb.collection('customers').doc(String(cid)).delete().catch(function(){});
-    fsdb.collection('intel').doc(String(cid)).delete().catch(function(){});
+    fsdb.collection('customers').doc(String(cid)).delete().catch(function(e){console.warn('customer delete:',e);});
+    fsdb.collection('intel').doc(String(cid)).delete().catch(function(e){console.warn('intel delete:',e);});
   }
   closeModal('custModal');
   renderAll();
@@ -2754,11 +2847,14 @@ function saveAddInvoice(){
     else c.intel.models.push({name:item.model,count:item.qty});
     const matching=stockDB.batches.filter(function(b){return b.model.toLowerCase().includes(item.model.toLowerCase())||item.model.toLowerCase().includes(b.model.toLowerCase());}).sort(function(a,b){return new Date(a.entryDate)-new Date(b.entryDate);});
     let rem=item.qty;
-    matching.forEach(function(b){if(rem<=0)return;const av=Math.max(0,(b.qtyReceived||0)-(b.qtySold||0));const s=Math.min(av,rem);b.qtySold=(b.qtySold||0)+s;rem-=s;if(s>0&&window._fbReady&&fsdb&&b._fbId){fsdb.collection('stockBatches').doc(b._fbId).set({qtySold:b.qtySold},{merge:true}).catch(function(){});}});
+    matching.forEach(function(b){if(rem<=0)return;const av=Math.max(0,(b.qtyReceived||0)-(b.qtySold||0));const s=Math.min(av,rem);b.qtySold=(b.qtySold||0)+s;rem-=s;if(s>0&&window._fbReady&&fsdb){fsdb.collection('stockBatches').doc(String(b._fbId||b.id)).set({qtySold:b.qtySold},{merge:true}).catch(function(e){console.warn('qtySold sync:',e);});}});
   });
   saveStock();
   addInvItems=[]; addInvTargetId=null; addInvPendingRets=[];
-  saveDB(); syncToFirebase();
+  saveDB();
+  // Build-47: এই কাস্টমারের ডকুমেন্ট সাথে সাথেই cloud-এ, যাচাই সহ।
+  // যে batch-গুলোর qtySold বদলেছে সেগুলোও নির্দিষ্ট id দিয়ে লেখা হয়।
+  saveCustomerToCloud(c, 'Invoice ' + no).then(function(){ return syncStockBatches(); });
   closeModal('addInvModal');
   renderSalesDashboard();
   renderPipeline();
@@ -3988,7 +4084,7 @@ function saveExpectedSellPrice(id, val){
   b.expectedSellPrice = parseFloat(val)||0;
   saveStock();
   if(window._fbReady && fsdb && b._fbId){
-    fsdb.collection('stockBatches').doc(b._fbId).set({expectedSellPrice:b.expectedSellPrice},{merge:true}).catch(function(){});
+    fsdb.collection('stockBatches').doc(String(b._fbId||b.id)).set({expectedSellPrice:b.expectedSellPrice},{merge:true}).catch(function(e){console.warn('sellPrice sync:',e);});
   }
   renderStockTable();
 }
@@ -4414,7 +4510,7 @@ function chgSold(id, delta){
   b.qtySold = Math.min(Math.max(0,(b.qtySold||0)+delta), b.qtyReceived);
   saveStock();
   if(window._fbReady && fsdb && b._fbId){
-    fsdb.collection('stockBatches').doc(b._fbId).set({qtySold:b.qtySold},{merge:true}).catch(function(){});
+    fsdb.collection('stockBatches').doc(String(b._fbId||b.id)).set({qtySold:b.qtySold},{merge:true}).catch(function(e){console.warn('qtySold sync:',e);});
   }
   renderStockAll();
 }
@@ -4425,7 +4521,7 @@ function delBatch(id){
   stockDB.batches = stockDB.batches.filter(x=>x.id!==id);
   saveStock();
   if(window._fbReady && fsdb && b._fbId){
-    fsdb.collection('stockBatches').doc(b._fbId).delete().catch(function(){});
+    fsdb.collection('stockBatches').doc(String(b._fbId||b.id)).delete().catch(function(e){console.warn('batch delete:',e);});
   }
   renderStockAll();
   notify('\u{1F5D1} Batch deleted');
@@ -4442,7 +4538,7 @@ function markBatchReady(id){
   b.isReturnPending = false;
   saveStock();
   if(window._fbReady && fsdb && b._fbId){
-    fsdb.collection('stockBatches').doc(b._fbId).set({returnStatus:'ready', isReturnPending:false},{merge:true}).catch(function(){});
+    fsdb.collection('stockBatches').doc(String(b._fbId||b.id)).set({returnStatus:'ready', isReturnPending:false},{merge:true}).catch(function(e){console.warn('returnStatus sync:',e);});
   }
   renderStockAll();
   notify('\u2705 '+b.model+' \u2014 Ready \u09b9\u09b2\u09cb, \u098f\u0996\u09a8 \u09ac\u09bf\u0995\u09cd\u09b0\u09bf\u09b0 \u099c\u09a8\u09cd\u09af \u0989\u09aa\u09b2\u09ac\u09cd\u09a7');
@@ -4476,10 +4572,8 @@ function addBatch(){
   const batch = {id:Date.now(), model:m, brand:((document.getElementById('sb_brand')||{}).value||autoDetectBrandFromName(m)), entryDate:d, qtyReceived:q, qtySold:0, costPerPc:cst, expectedSellPrice:parseFloat(spEl&&spEl.value||0)||0, note:n, config:cfg||undefined, createdAt:TODAY};
   stockDB.batches.unshift(batch);
   saveStock();
-  if(window._fbReady && fsdb){
-    const clean = sanitize(Object.assign({},batch));
-    fsdb.collection('stockBatches').add(clean).then(function(ref){ batch._fbId=ref.id; saveStock(); }).catch(function(){});
-  }
+  // Build-47: সাথে সাথে cloud-এ, এবং পড়ে যাচাই করে জানানো
+  saveBatchToCloud(batch);
   ['sb_m','sb_q','sb_c','sb_sp','sb_n','sb_desc'].forEach(function(id){ const el=document.getElementById(id); if(el) el.value=''; });
   const de=document.getElementById('sb_d'); if(de) de.value=TODAY;
   renderStockAll();
@@ -9445,11 +9539,11 @@ function saveExpenseDB(){
   expDB._savedAt = Date.now();
   localStorage.setItem('ctgexp_v1', JSON.stringify(expDB));
   if(window._fbReady && fsdb){
-    fsdb.collection('meta').doc('expSaved').set({at:expDB._savedAt}).catch(function(){});
+    fsdb.collection('meta').doc('expSaved').set({at:expDB._savedAt}).catch(function(e){console.warn('exp meta:',e);});
     // Sync latest entries to Firebase
     var recent = (expDB.expenses||[]).slice(0,20);
     recent.forEach(function(e){
-      fsdb.collection('expenses').doc(String(e.id)).set(sanitize(Object.assign({},e)),{merge:true}).catch(function(){});
+      fsdb.collection('expenses').doc(String(e.id)).set(sanitize(Object.assign({},e)),{merge:true}).catch(function(err){console.warn('expense sync:',err);});
     });
   }
 }
@@ -11882,7 +11976,7 @@ function saveReturn(){
 function removeInvoice(cid, invId){
   const c = db.customers.find(function(x){return x.id===cid;}); if(!c) return;
   if(!confirm('Invoice delete \u0995\u09B0\u09AC\u09C7\u09A8?')) return;
-  var _delInv=(c.invoices||[]).find(function(i){return i.id===invId;});c.invoices=(c.invoices||[]).filter(function(i){return i.id!==invId;});if(_delInv&&_delInv.items){_delInv.items.forEach(function(item){var matching=stockDB.batches.filter(function(b){return b.model&&(b.model.toLowerCase().includes(item.model.toLowerCase())||item.model.toLowerCase().includes(b.model.toLowerCase()));}).sort(function(a,b){return new Date(a.entryDate)-new Date(b.entryDate);});var rem=item.qty||1;matching.forEach(function(b){if(rem<=0)return;var s=Math.min(rem,b.qtySold||0);b.qtySold=Math.max(0,(b.qtySold||0)-s);rem-=s;if(s>0&&window._fbReady&&fsdb&&b._fbId){fsdb.collection('stockBatches').doc(b._fbId).set({qtySold:b.qtySold},{merge:true}).catch(function(){});}});});saveStock();}
+  var _delInv=(c.invoices||[]).find(function(i){return i.id===invId;});c.invoices=(c.invoices||[]).filter(function(i){return i.id!==invId;});if(_delInv&&_delInv.items){_delInv.items.forEach(function(item){var matching=stockDB.batches.filter(function(b){return b.model&&(b.model.toLowerCase().includes(item.model.toLowerCase())||item.model.toLowerCase().includes(b.model.toLowerCase()));}).sort(function(a,b){return new Date(a.entryDate)-new Date(b.entryDate);});var rem=item.qty||1;matching.forEach(function(b){if(rem<=0)return;var s=Math.min(rem,b.qtySold||0);b.qtySold=Math.max(0,(b.qtySold||0)-s);rem-=s;if(s>0&&window._fbReady&&fsdb){fsdb.collection('stockBatches').doc(String(b._fbId||b.id)).set({qtySold:b.qtySold},{merge:true}).catch(function(e){console.warn('qtySold sync:',e);});}});});saveStock();}
   c.orders = c.invoices.length;
   c.sales = c.invoices.reduce(function(a,i){return a+(i.amt||0);},0);
   allowShrinkOnce();          // Build-44: মালিক নিজে মুছেছেন — এটি বৈধ
