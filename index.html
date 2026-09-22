@@ -1337,6 +1337,9 @@ async function syncToFirebase(){
     // লোকাল কপি চাপা দিয়ে দিত, ফলে সদ্য লেখা এন্ট্রি হারিয়ে যেত।
     // এখন কাজটা জমা থাকে, cloud ডেটা আসার সাথে সাথেই পাঠানো হয়।
     _pendingSync = true;
+    // stock-এর নিজের shrink ঝুঁকি নেই (add/set করে, মোছে না),
+    // তাই customer অংশ অপেক্ষায় থাকলেও stock এখনই পাঠানো হয়।
+    try{ syncStockBatches(); }catch(e){ console.warn('stock sync (queued path):', e); }
     showSync('\u23F3 Cloud \u09A1\u09C7\u099F\u09BE \u0986\u09B8\u09B2\u09C7\u0987 \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u09B9\u09AC\u09C7...');
     showOfflineAlarm(true, '\u098F\u0996\u09A8\u0993 Cloud-\u098F \u09AF\u09BE\u09AF\u09BC\u09A8\u09BF \u2014 \u09AA\u09C7\u099C \u09AC\u09A8\u09CD\u09A7 \u0995\u09B0\u09AC\u09C7\u09A8 \u09A8\u09BE');
     console.warn('syncToFirebase queued: cloud customers not loaded yet');
@@ -1350,6 +1353,7 @@ async function syncToFirebase(){
     showSync('\u{1F6D1} Sync \u09A5\u09BE\u09AE\u09BE\u09A8\u09CB \u09B9\u09AF\u09BC\u09C7\u099B\u09C7');
     showOfflineAlarm(true, 'Sync \u09A5\u09BE\u09AE\u09BE\u09A8\u09CB \u09B9\u09AF\u09BC\u09C7\u099B\u09C7 \u2014 \u098F\u0987 \u0995\u09AA\u09BF\u09A4\u09C7 \u0987\u09A8\u09AD\u09AF\u09BC\u09C7\u09B8 \u0995\u09AE: '+who);
     console.error('syncToFirebase BLOCKED — would delete invoices:', _shrink);
+    try{ syncStockBatches(); }catch(e){ console.warn('stock sync (blocked path):', e); }
     return;
   }
   try{
@@ -1364,19 +1368,34 @@ async function syncToFirebase(){
     batch.set(fsdb.collection('meta').doc('tasks'), {tasks: db.tasks||[], _savedAt: Date.now()});
     batch.set(fsdb.collection('meta').doc('businessSystem'), {businessSystem: db.businessSystem||{}, _savedAt: Date.now()});
     await batch.commit();
-    // stock batches
-    for(const b of stockDB.batches){
+    await syncStockBatches();
+    showSync('\u2705 Synced ' + new Date().toLocaleTimeString());
+  }catch(e){ showSync('\u26A0\uFE0F Sync error'); console.error(e); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Build-46 — stock batch sync নিজের পায়ে দাঁড়ায়
+// আগে stock শুধু syncToFirebase()-এর শেষে লেখা হতো। customer অংশ কোনো কারণে
+// থেমে গেলে (cloud ডেটা আসেনি, shrink guard) stock-ও কখনো cloud-এ যেত না,
+// আর তারপর stock listener এসে লোকাল তালিকা চাপা দিয়ে নতুন batch মুছে ফেলত।
+// ══════════════════════════════════════════════════════════════════════════
+async function syncStockBatches(){
+  if(!window._fbReady || !fsdb) return 0;
+  var added = 0;
+  for(const b of (stockDB.batches||[])){
+    try{
       if(b._fbId){
-        await fsdb.collection('stockBatches').doc(b._fbId).set(sanitize(Object.assign({},b,{_fbId:undefined})),{merge:true});
+        await fsdb.collection('stockBatches').doc(b._fbId)
+          .set(sanitize(Object.assign({},b,{_fbId:undefined})),{merge:true});
       }else{
         const clean = sanitize(Object.assign({},b)); delete clean._fbId;
         const ref = await fsdb.collection('stockBatches').add(clean);
-        b._fbId = ref.id;
+        b._fbId = ref.id; added++;
       }
-    }
-    saveStock();
-    showSync('\u2705 Synced ' + new Date().toLocaleTimeString());
-  }catch(e){ showSync('\u26A0\uFE0F Sync error'); console.error(e); }
+    }catch(e){ console.warn('stock sync failed for', b && b.model, e); }
+  }
+  saveStock();
+  return added;
 }
 
 // ── Real-time listeners ──────────────────────────────────
@@ -1436,8 +1455,27 @@ function startRealtimeSync(){
   try{
     const stockUnsub = fsdb.collection('stockBatches').onSnapshot(function(snap){
       if(!snap.empty){
-        var _incomingBatches=snap.docs.map(function(d){return Object.assign({},d.data(),{_fbId:d.id});});stockDB.batches=_incomingBatches.map(function(nb){var lb=stockDB.batches.find(function(b){return b._fbId===nb._fbId;});if(lb&&(lb.qtySold||0)>(nb.qtySold||0)){nb.qtySold=lb.qtySold;}return nb;});
-        saveStock(); renderAll();
+        var _incomingBatches=snap.docs.map(function(d){return Object.assign({},d.data(),{_fbId:d.id});});
+        var _merged=_incomingBatches.map(function(nb){var lb=stockDB.batches.find(function(b){return b._fbId===nb._fbId;});if(lb&&(lb.qtySold||0)>(nb.qtySold||0)){nb.qtySold=lb.qtySold;}return nb;});
+        // Build-46: যে batch এখনো cloud-এ যায়নি (_fbId নেই) সেটি ধরে রাখতে হবে।
+        // আগে এখানে পুরো তালিকা বদলে দেওয়া হতো, তাই সদ্য যোগ করা entry
+        // cloud snapshot-এ চাপা পড়ে হারিয়ে যেত — ২১ সেপ্টেম্বরে ঠিক এটাই ঘটেছিল।
+        var _cloudIds={}; _merged.forEach(function(b){ if(b.id!==undefined) _cloudIds[String(b.id)]=true; });
+        var _unsynced=(stockDB.batches||[]).filter(function(b){
+          // Build-46b: "_fbId আছে" মানে cloud-এ পৌঁছেছে — এটা ভুল ধারণা ছিল।
+          // Firestore-এর add() ক্লায়েন্টেই doc id বানিয়ে দেয়, তাই লেখা সার্ভারে
+          // না পৌঁছালেও _fbId বসে যায়। ২১ সেপ্টেম্বরের batch-এ ঠিক এটাই হয়েছিল।
+          // তাই একমাত্র নির্ভরযোগ্য প্রমাণ: cloud তালিকায় এই id আছে কি না।
+          if(b.id!==undefined) return !_cloudIds[String(b.id)];
+          return !b._fbId;
+        });
+        stockDB.batches=_merged.concat(_unsynced);
+        saveStock();
+        if(_unsynced.length){
+          console.warn('keeping '+_unsynced.length+' unsynced stock batch(es), pushing now');
+          try{ syncStockBatches(); }catch(e){ console.warn('stock push:', e); }
+        }
+        renderAll();
       }
     }, function(err){ console.warn('Stock listener:', err); });
     _rtListeners.push(stockUnsub);
