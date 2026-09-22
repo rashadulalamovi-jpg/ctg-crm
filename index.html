@@ -979,7 +979,7 @@ body{max-width:100vw;overflow-x:hidden!important}
       </div>
       <div style="display:grid;grid-template-columns:1fr 1.2fr 145px;gap:8px;margin-bottom:11px;align-items:end">
         <div><label class="lbl">&#x09A4;&#x09BE;&#x09B0;&#x09BF;&#x0996;</label><input type="date" id="addInvDate" style="font-size:11px"></div>
-        <div><label class="lbl">Invoice No</label><input id="addInvNo" placeholder="1029" style="font-size:11px"></div>
+        <div><label class="lbl">Invoice No</label><input id="addInvNo" placeholder="568349" style="font-size:11px"></div>
         <div><label class="lbl">Status</label>
           <select id="addInvStat" style="font-size:11px">
             <option value="transit">&#x1F69A; In Transit</option>
@@ -2638,6 +2638,52 @@ function refreshStockList(){
 }
 
 
+// ==== Build 48: Unique Invoice Number ====
+// \u09AA\u09C1\u09B0\u09CB\u09A8\u09CB \u0987\u09A8\u09AD\u09AF\u09BC\u09B8 \u09A8\u09AE\u09CD\u09AC\u09B0 \u09AF\u09C7\u09AE\u09A8 \u0986\u099B\u09C7 \u09A4\u09C7\u09AE\u09A8\u0987 \u09A5\u09BE\u0995\u09AC\u09C7\u0964
+// \u09A8\u09A4\u09C1\u09A8 \u0987\u09A8\u09AD\u09AF\u09BC\u09B8 568349 \u09A5\u09C7\u0995\u09C7 \u09B8\u09BF\u09B0\u09BF\u09AF\u09BC\u09BE\u09B2 \u09A7\u09B0\u09C7 \u0985\u099F\u09CB \u09A8\u09AE\u09CD\u09AC\u09B0 \u09AA\u09BE\u09AC\u09C7\u0964
+var INV_SERIAL_START = 568349;
+
+function invNoDigits(v){
+  var s = String(v==null?'':v).replace(/[^0-9]/g,'');
+  return s ? parseInt(s,10) : NaN;
+}
+
+function allInvoiceCustomers(){
+  return (typeof db!=='undefined' && db && db.customers) ? db.customers : [];
+}
+
+function allInvoiceNos(){
+  var set = {};
+  allInvoiceCustomers().forEach(function(c){
+    (c.invoices||[]).forEach(function(i){
+      var raw = String(i.no==null?'':i.no).trim();
+      if(raw) set[raw] = true;
+    });
+  });
+  return set;
+}
+
+function nextInvoiceNo(){
+  var max = 0;
+  allInvoiceCustomers().forEach(function(c){
+    (c.invoices||[]).forEach(function(i){
+      var n = invNoDigits(i.no);
+      if(!isNaN(n) && n >= INV_SERIAL_START && n > max) max = n;
+    });
+  });
+  var next = max ? max + 1 : INV_SERIAL_START;
+  var used = allInvoiceNos();
+  var guard = 0;
+  while(used[String(next)] && guard++ < 100000) next++;
+  return String(next);
+}
+
+function isInvoiceNoTaken(no){
+  var raw = String(no==null?'':no).trim();
+  if(!raw) return false;
+  return !!allInvoiceNos()[raw];
+}
+
 function openAddInvoiceModal(){
   const el = document.getElementById('addInvCustSel');
   if(el){
@@ -2651,6 +2697,9 @@ function openAddInvoiceModal(){
   ['addInvNo','addInvIiM','addInvIiQ','addInvIiP'].forEach(function(id){
     const e=document.getElementById(id); if(e) e.value='';
   });
+  // Build 48: \u0987\u09A8\u09AD\u09AF\u09BC\u09B8 \u09A8\u09AE\u09CD\u09AC\u09B0 \u0985\u099F\u09CB
+  const noAuto=document.getElementById('addInvNo');
+  if(noAuto){ noAuto.value=nextInvoiceNo(); noAuto.style.borderColor=''; }
   const d=document.getElementById('addInvDate'); if(d) d.value=TODAY;
   const s=document.getElementById('addInvStat'); if(s) s.value='transit';
   addInvTargetId=null; addInvItems=[];
@@ -2816,6 +2865,12 @@ function saveAddInvoice(){
   const noEl=document.getElementById('addInvNo');
   const no=(noEl&&noEl.value||'').trim();
   if(!no){if(noEl){noEl.style.borderColor='var(--red)';noEl.focus();}notify('Invoice No \u09A6\u09BF\u09A8',true);return;}
+  // Build 48: \u098F\u0995\u0987 \u09A8\u09AE\u09CD\u09AC\u09B0 \u09A6\u09C1\u0987\u09AC\u09BE\u09B0 \u09AC\u09CD\u09AF\u09AC\u09B9\u09BE\u09B0 \u09AC\u09CD\u09B2\u0995
+  if(isInvoiceNoTaken(no)){
+    if(noEl){noEl.style.borderColor='var(--red)';noEl.focus();}
+    notify('Invoice No '+no+' \u0986\u0997\u09C7\u0987 \u0986\u099B\u09C7 \u2014 \u0987\u0989\u09A8\u09BF\u0995 \u09A8\u09AE\u09CD\u09AC\u09B0 \u09A6\u09BF\u09A8', true);
+    return;
+  }
   // auto-add pending item
   const mEl=document.getElementById('addInvIiM'),qEl=document.getElementById('addInvIiQ'),pEl=document.getElementById('addInvIiP');
   if(mEl&&mEl.value.trim()&&parseInt(qEl&&qEl.value||0)>0&&parseFloat(pEl&&pEl.value||0)>0) addInvAddItem();
