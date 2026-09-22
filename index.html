@@ -1252,6 +1252,7 @@ function showOfflineAlarm(on, why){
 function refreshCloudAlarm(){
   if(!window._fbReady || !fsdb){ showOfflineAlarm(true, 'Cloud কানেকশন নেই'); return; }
   if(!_cloudCustomersSeen){ showOfflineAlarm(true, 'Cloud ডেটা এখনো আসেনি'); return; }
+  if(_pendingSync){ showOfflineAlarm(true, 'কিছু কাজ এখনো Cloud-এ যায়নি'); return; }
   showOfflineAlarm(false);
 }
 
@@ -1327,11 +1328,18 @@ function restoreSnapshotUI(){
 // invoices অ্যারে বদলে দেয়। তাই cloud থেকে একবারও ডেটা না আসা পর্যন্ত
 // কোনো customer doc লেখা হয় না।
 var _cloudCustomersSeen = false;
+// Build-45: cloud ডেটা আসার আগে করা কাজ জমা থাকে, হারিয়ে যায় না
+var _pendingSync = false;
 async function syncToFirebase(){
   if(!window._fbReady || !fsdb){ showSync('\u26A0\uFE0F Offline mode'); return; }
   if(!_cloudCustomersSeen){
-    showSync('\u23F3 Cloud \u09A1\u09C7\u099F\u09BE \u0986\u09B8\u09BE\u09B0 \u0985\u09AA\u09C7\u0995\u09CD\u09B7\u09BE\u09AF\u09BC...');
-    console.warn('syncToFirebase skipped: cloud customers not loaded yet');
+    // Build-45: আগে এখানে চুপচাপ ফিরে যাওয়া হতো — এবং তারপর listener এসে
+    // লোকাল কপি চাপা দিয়ে দিত, ফলে সদ্য লেখা এন্ট্রি হারিয়ে যেত।
+    // এখন কাজটা জমা থাকে, cloud ডেটা আসার সাথে সাথেই পাঠানো হয়।
+    _pendingSync = true;
+    showSync('\u23F3 Cloud \u09A1\u09C7\u099F\u09BE \u0986\u09B8\u09B2\u09C7\u0987 \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u09B9\u09AC\u09C7...');
+    showOfflineAlarm(true, '\u098F\u0996\u09A8\u0993 Cloud-\u098F \u09AF\u09BE\u09AF\u09BC\u09A8\u09BF \u2014 \u09AA\u09C7\u099C \u09AC\u09A8\u09CD\u09A7 \u0995\u09B0\u09AC\u09C7\u09A8 \u09A8\u09BE');
+    console.warn('syncToFirebase queued: cloud customers not loaded yet');
     return;
   }
   // Build-44: sync কখনো ইনভয়েস কমাতে পারবে না
@@ -1386,9 +1394,24 @@ function startRealtimeSync(){
   const custUnsub = fsdb.collection('customers').onSnapshot(function(snap){
     if(snap.empty){ _cloudCustomersSeen = true; db.customers = []; saveDB(); renderAll(); return; }
     const custs = snap.docs.map(function(d){ return Object.assign({id: parseInt(d.id)||d.id}, d.data()); });
-    db.customers = custs.map(function(c){ return migrate(c); });
-    _cloudCustomersSeen = true;  // Build-43b: এখন থেকে লেখা নিরাপদ
-    noteCloudInvoiceCounts(db.customers);   // Build-44: shrink guard-এর ভিত্তি
+    const cloudList = custs.map(function(c){ return migrate(c); });
+    _cloudCustomersSeen = true;
+    noteCloudInvoiceCounts(cloudList);      // shrink guard-এর ভিত্তি — সবসময় cloud থেকে
+
+    // Build-45: লোকালে এমন কাজ জমে থাকতে পারে যা এখনো cloud-এ যায়নি।
+    // সেটি থাকলে cloud কপি দিয়ে চাপা দেওয়া যাবে না — আগে জমা কাজটা পাঠাতে হবে।
+    // shrink guard পাহারায় আছে, তাই পুরনো কপি দিয়ে নতুন ইনভয়েস মোছার ঝুঁকি নেই।
+    if(_pendingSync){
+      _pendingSync = false;
+      console.warn('flushing queued sync before applying cloud snapshot');
+      showSync('\u{1F4E4} \u099C\u09AE\u09BE \u0995\u09BE\u099C \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u09B9\u099A\u09CD\u099B\u09C7...');
+      saveDB();
+      syncToFirebase();
+      refreshCloudAlarm();
+      return;                                // এই snapshot প্রয়োগ করা হলো না
+    }
+
+    db.customers = cloudList;
     takeDailySnapshot();
     refreshCloudAlarm();
     runActivityBacklinkOnce();   // Build-43: cloud ডেটা আসার পরও বাঁধা হয়
