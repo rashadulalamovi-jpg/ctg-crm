@@ -308,6 +308,7 @@ body{max-width:100vw;overflow-x:hidden!important}
   <button class="btn btn-o" onclick="loadFromFirebase()" style="font-size:8px;padding:3px 10px">&#x2193; Firebase</button>
   <button class="btn btn-o" onclick="syncToFirebase()" style="font-size:8px;padding:3px 10px">&#x2191; Sync</button>
   <button class="btn btn-o" onclick="exportJSON()" style="font-size:8px;padding:3px 10px">&#x1F4BE; Backup</button>
+  <button class="btn btn-o" onclick="restoreSnapshotUI()" style="font-size:8px;padding:3px 10px" title="প্রতিদিনের রক্ষিত কপি থেকে ফিরিয়ে আনুন">&#x1F570; Restore</button>
   <label class="btn btn-o" style="font-size:8px;padding:3px 10px;cursor:pointer">
     &#x1F4E5; Import<input type="file" accept=".json" onchange="importJSON(event)" style="display:none">
   </label>
@@ -1184,10 +1185,141 @@ try{
   window._fbReady = true;
   startRealtimeSync();
 }catch(e){ window._fbReady = false; console.warn('FB offline:', e.message); }
+// Build-44: cloud-এ সেভ হচ্ছে কি না তা যেন চোখ এড়িয়ে না যায়।
+// পেজ খোলার পর অ্যালার্ম তোলা হয়, cloud ডেটা এলে listener সেটি নামিয়ে দেয়।
+// কিছু না এলে ১৫ সেকেন্ড পরেও লাল বার থেকেই যাবে।
+try{
+  window.addEventListener('DOMContentLoaded', function(){
+    try{ refreshCloudAlarm(); }catch(e){}
+    setInterval(function(){ try{ refreshCloudAlarm(); }catch(e){} }, 15000);
+  });
+}catch(e){}
 
 function showSync(msg){
   const el = document.getElementById('syncStatus');
   if(el){ el.textContent = msg; }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// BUILD-44 — ডেটা হারানো ঠেকানোর তিন স্তর
+// ২১ সেপ্টেম্বরের ইনভয়েস ও purchase হারানোর পর যোগ করা।
+//   ১) Shrink guard  — কোনো sync যেন ইনভয়েস কমিয়ে না দেয়
+//   ২) Offline alarm — cloud-এ সেভ না হলে বড় করে সতর্কবার্তা
+//   ৩) Daily snapshot— প্রতিদিনের একটি করে লোকাল কপি, ফেরত আনার বাটনসহ
+// ══════════════════════════════════════════════════════════════════════════
+
+// ── ১) SHRINK GUARD ───────────────────────────────────────────────────────
+// cloud-এ প্রতিটি কাস্টমারের কয়টি ইনভয়েস আছে তা মনে রাখা হয়। sync করার
+// আগে মিলিয়ে দেখা হয় — লোকাল কপিতে কম থাকলে পুরো sync থামিয়ে দেওয়া হয়।
+// মালিক নিজে ইনভয়েস মুছলে সেটি বৈধ, তাই তখন একবারের জন্য ছাড় দেওয়া হয়।
+var _cloudInvCount = {};
+var _allowShrinkOnce = false;
+function allowShrinkOnce(){ _allowShrinkOnce = true; }
+function noteCloudInvoiceCounts(list){
+  var m = {};
+  (list||[]).forEach(function(c){ m[String(c.id)] = (c.invoices||[]).length; });
+  _cloudInvCount = m;
+}
+// ফেরত দেয় null (সব ঠিক) অথবা কোথায় কমে যাচ্ছে তার তালিকা
+function findShrink(){
+  var bad = [];
+  (db.customers||[]).forEach(function(c){
+    var was = _cloudInvCount[String(c.id)];
+    if(was===undefined) return;                       // cloud-এ ছিল না — নতুন কাস্টমার
+    var now = (c.invoices||[]).length;
+    if(now < was) bad.push({name:c.name, was:was, now:now});
+  });
+  return bad.length ? bad : null;
+}
+
+// ── ২) OFFLINE ALARM ──────────────────────────────────────────────────────
+function showOfflineAlarm(on, why){
+  var id = 'cloudAlarmBar';
+  var el = document.getElementById(id);
+  if(!on){ if(el) el.remove(); return; }
+  if(!el){
+    el = document.createElement('div');
+    el.id = id;
+    el.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;background:var(--red,#e30613);color:#fff;'
+      + 'font-family:var(--fd,sans-serif);font-size:13px;font-weight:800;text-align:center;padding:9px 14px;'
+      + 'box-shadow:0 2px 10px rgba(0,0,0,.25);line-height:1.5';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = '⚠️ ' + (why||'Cloud-এ সেভ হচ্ছে না')
+    + ' — এখন যা লিখবেন তা শুধু এই ডিভাইসে থাকবে। '
+    + '<span style="font-weight:600;opacity:.95">পেজ রিফ্রেশ করুন, ঠিক না হলে ডেটা এন্ট্রি থামান।</span>';
+}
+function refreshCloudAlarm(){
+  if(!window._fbReady || !fsdb){ showOfflineAlarm(true, 'Cloud কানেকশন নেই'); return; }
+  if(!_cloudCustomersSeen){ showOfflineAlarm(true, 'Cloud ডেটা এখনো আসেনি'); return; }
+  showOfflineAlarm(false);
+}
+
+// ── ৩) DAILY SNAPSHOT ─────────────────────────────────────────────────────
+var SNAP_PREFIX = 'ctgsnap_';
+var SNAP_KEEP   = 5;
+function listSnapshots(){
+  var out = [];
+  try{
+    for(var i=0;i<localStorage.length;i++){
+      var k = localStorage.key(i);
+      if(k && k.indexOf(SNAP_PREFIX)===0) out.push(k.slice(SNAP_PREFIX.length));
+    }
+  }catch(e){}
+  return out.sort().reverse();
+}
+function snapshotStats(date){
+  try{
+    var raw = localStorage.getItem(SNAP_PREFIX+date); if(!raw) return null;
+    var o = JSON.parse(raw);
+    var inv = (o.crm&&o.crm.customers||[]).reduce(function(a,c){ return a+(c.invoices||[]).length; },0);
+    return { customers:(o.crm&&o.crm.customers||[]).length, invoices:inv,
+             batches:(o.stock&&o.stock.batches||[]).length, savedAt:o.savedAt||null };
+  }catch(e){ return null; }
+}
+// দিনে একবারই — এবং শুধু cloud ডেটা এসে যাওয়ার পর, যাতে খালি কপি সেভ না হয়
+function takeDailySnapshot(){
+  if(!_cloudCustomersSeen) return false;
+  if(!(db.customers||[]).length) return false;
+  var key = SNAP_PREFIX + TODAY;
+  try{
+    if(localStorage.getItem(key)) return false;
+    localStorage.setItem(key, JSON.stringify({ crm:db, stock:stockDB, savedAt:Date.now() }));
+  }catch(e){
+    // জায়গা না থাকলে সবচেয়ে পুরনোটি সরিয়ে একবার চেষ্টা
+    try{
+      var all = listSnapshots();
+      if(all.length){ localStorage.removeItem(SNAP_PREFIX+all[all.length-1]); localStorage.setItem(key, JSON.stringify({ crm:db, stock:stockDB, savedAt:Date.now() })); }
+    }catch(e2){ console.warn('snapshot failed:', e2); return false; }
+  }
+  var keys = listSnapshots();
+  while(keys.length > SNAP_KEEP){ try{ localStorage.removeItem(SNAP_PREFIX+keys.pop()); }catch(e){} }
+  return true;
+}
+function restoreSnapshotUI(){
+  var all = listSnapshots();
+  if(!all.length){ notify('কোনো snapshot নেই', true); return; }
+  var lines = all.map(function(d,i){
+    var st = snapshotStats(d);
+    return (i+1)+') '+d+(st?('  — '+st.customers+' customer, '+st.invoices+' invoice, '+st.batches+' batch'):'');
+  });
+  var pick = prompt('যে দিনের কপি ফিরিয়ে আনবেন তার নম্বর লিখুন:\n\n'+lines.join('\n'));
+  if(!pick) return;
+  var idx = parseInt(pick,10)-1;
+  if(isNaN(idx) || idx<0 || idx>=all.length){ notify('ভুল নম্বর', true); return; }
+  var date = all[idx], st = snapshotStats(date);
+  if(!st){ notify('এই snapshot পড়া যাচ্ছে না', true); return; }
+  if(!confirm(date+'-এর কপি ফিরিয়ে আনবেন?\n\n'
+      + st.customers+' customer · '+st.invoices+' invoice · '+st.batches+' batch\n\n'
+      + 'এখনকার ডেটা এতে চাপা পড়বে। নিশ্চিত?')) return;
+  try{
+    var o = JSON.parse(localStorage.getItem(SNAP_PREFIX+date));
+    if(o.crm){ db = o.crm; db.customers = (db.customers||[]).map(migrate); }
+    if(o.stock){ stockDB = o.stock; saveStock(); }
+    allowShrinkOnce();                       // মালিক সজ্ঞানে ফেরত আনছেন
+    saveDB(); syncToFirebase(); renderAll();
+    notify('✅ '+date+'-এর কপি ফিরিয়ে আনা হলো');
+  }catch(e){ notify('Restore failed', true); console.error(e); }
 }
 
 // Build-43b: একটি পুরনো ট্যাব বা পুরনো লোকাল কপি যেন cloud-এর নতুন ইনভয়েস
@@ -1200,6 +1332,16 @@ async function syncToFirebase(){
   if(!_cloudCustomersSeen){
     showSync('\u23F3 Cloud \u09A1\u09C7\u099F\u09BE \u0986\u09B8\u09BE\u09B0 \u0985\u09AA\u09C7\u0995\u09CD\u09B7\u09BE\u09AF\u09BC...');
     console.warn('syncToFirebase skipped: cloud customers not loaded yet');
+    return;
+  }
+  // Build-44: sync কখনো ইনভয়েস কমাতে পারবে না
+  var _shrink = _allowShrinkOnce ? null : findShrink();
+  _allowShrinkOnce = false;
+  if(_shrink){
+    var who = _shrink.map(function(x){ return x.name+' ('+x.was+'\u2192'+x.now+')'; }).join(', ');
+    showSync('\u{1F6D1} Sync \u09A5\u09BE\u09AE\u09BE\u09A8\u09CB \u09B9\u09AF\u09BC\u09C7\u099B\u09C7');
+    showOfflineAlarm(true, 'Sync \u09A5\u09BE\u09AE\u09BE\u09A8\u09CB \u09B9\u09AF\u09BC\u09C7\u099B\u09C7 \u2014 \u098F\u0987 \u0995\u09AA\u09BF\u09A4\u09C7 \u0987\u09A8\u09AD\u09AF\u09BC\u09C7\u09B8 \u0995\u09AE: '+who);
+    console.error('syncToFirebase BLOCKED — would delete invoices:', _shrink);
     return;
   }
   try{
@@ -1246,6 +1388,9 @@ function startRealtimeSync(){
     const custs = snap.docs.map(function(d){ return Object.assign({id: parseInt(d.id)||d.id}, d.data()); });
     db.customers = custs.map(function(c){ return migrate(c); });
     _cloudCustomersSeen = true;  // Build-43b: এখন থেকে লেখা নিরাপদ
+    noteCloudInvoiceCounts(db.customers);   // Build-44: shrink guard-এর ভিত্তি
+    takeDailySnapshot();
+    refreshCloudAlarm();
     runActivityBacklinkOnce();   // Build-43: cloud ডেটা আসার পরও বাঁধা হয়
     // reload intel
     try{
@@ -11679,6 +11824,7 @@ function removeInvoice(cid, invId){
   var _delInv=(c.invoices||[]).find(function(i){return i.id===invId;});c.invoices=(c.invoices||[]).filter(function(i){return i.id!==invId;});if(_delInv&&_delInv.items){_delInv.items.forEach(function(item){var matching=stockDB.batches.filter(function(b){return b.model&&(b.model.toLowerCase().includes(item.model.toLowerCase())||item.model.toLowerCase().includes(b.model.toLowerCase()));}).sort(function(a,b){return new Date(a.entryDate)-new Date(b.entryDate);});var rem=item.qty||1;matching.forEach(function(b){if(rem<=0)return;var s=Math.min(rem,b.qtySold||0);b.qtySold=Math.max(0,(b.qtySold||0)-s);rem-=s;if(s>0&&window._fbReady&&fsdb&&b._fbId){fsdb.collection('stockBatches').doc(b._fbId).set({qtySold:b.qtySold},{merge:true}).catch(function(){});}});});saveStock();}
   c.orders = c.invoices.length;
   c.sales = c.invoices.reduce(function(a,i){return a+(i.amt||0);},0);
+  allowShrinkOnce();          // Build-44: মালিক নিজে মুছেছেন — এটি বৈধ
   saveDB(); syncToFirebase();
   renderSalesDashboard();
   renderPipeline();
