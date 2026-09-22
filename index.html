@@ -1167,7 +1167,8 @@ function loadDB(){
   var bi=localStorage.getItem(BIZIMG_KEY);
   if(bi){try{bizImgDB=JSON.parse(bi);}catch(e){}}
   if(!bizImgDB.images) bizImgDB.images={};
-  runActivityBacklinkOnce();   // Build-43
+  // Build-43b: পেজ লোডের পুরনো স্ন্যাপশটে আর চালানো হয় না —
+  // cloud ডেটা আসার পর listener-এ চলে।
   ensureBizSystemDefaults();
 }
 function saveBizImgLocal(){ try{ localStorage.setItem(BIZIMG_KEY, JSON.stringify(bizImgDB)); }catch(e){ console.warn('bizImg local save:',e); } }
@@ -1189,8 +1190,18 @@ function showSync(msg){
   if(el){ el.textContent = msg; }
 }
 
+// Build-43b: একটি পুরনো ট্যাব বা পুরনো লোকাল কপি যেন cloud-এর নতুন ইনভয়েস
+// মুছে দিতে না পারে। Firestore-এ merge:true অ্যারে জোড়া লাগায় না — পুরো
+// invoices অ্যারে বদলে দেয়। তাই cloud থেকে একবারও ডেটা না আসা পর্যন্ত
+// কোনো customer doc লেখা হয় না।
+var _cloudCustomersSeen = false;
 async function syncToFirebase(){
   if(!window._fbReady || !fsdb){ showSync('\u26A0\uFE0F Offline mode'); return; }
+  if(!_cloudCustomersSeen){
+    showSync('\u23F3 Cloud \u09A1\u09C7\u099F\u09BE \u0986\u09B8\u09BE\u09B0 \u0985\u09AA\u09C7\u0995\u09CD\u09B7\u09BE\u09AF\u09BC...');
+    console.warn('syncToFirebase skipped: cloud customers not loaded yet');
+    return;
+  }
   try{
     showSync('\u{1F504} Syncing...');
     const batch = fsdb.batch();
@@ -1231,9 +1242,10 @@ function startRealtimeSync(){
 
   // ── Customers real-time listener ──
   const custUnsub = fsdb.collection('customers').onSnapshot(function(snap){
-    if(snap.empty){ db.customers = []; saveDB(); renderAll(); return; }
+    if(snap.empty){ _cloudCustomersSeen = true; db.customers = []; saveDB(); renderAll(); return; }
     const custs = snap.docs.map(function(d){ return Object.assign({id: parseInt(d.id)||d.id}, d.data()); });
     db.customers = custs.map(function(c){ return migrate(c); });
+    _cloudCustomersSeen = true;  // Build-43b: এখন থেকে লেখা নিরাপদ
     runActivityBacklinkOnce();   // Build-43: cloud ডেটা আসার পরও বাঁধা হয়
     // reload intel
     try{
@@ -2985,7 +2997,12 @@ function backlinkActivityInvoices(c){
 function runActivityBacklinkOnce(){
   var total = 0;
   (db.customers||[]).forEach(function(c){ total += backlinkActivityInvoices(c); });
-  if(total>0){ try{ saveDB(); if(typeof syncToFirebase==='function') syncToFirebase(); }catch(e){ console.warn('activity backlink sync:', e); } }
+  // লোকালেই রাখা হয় — এখান থেকে কখনো cloud-এ পাঠানো হয় না।
+  // কারণ: syncToFirebase() প্রতিটি customer doc merge:true দিয়ে লেখে, আর
+  // Firestore-এ merge অ্যারে জোড়া লাগায় না — পুরো invoices অ্যারে বদলে দেয়।
+  // পেজ লোডের সময় লোকাল ডেটা পুরনো থাকতে পারে, তাই তখন sync করলে অন্য
+  // ডিভাইসে সেভ হওয়া নতুন ইনভয়েস মুছে যেতে পারত।
+  if(total>0){ try{ saveDB(); }catch(e){ console.warn('activity backlink save:', e); } }
   return total;
 }
 
@@ -5817,7 +5834,16 @@ function ensureBizSystemDefaults(){
 
   if(_bizPillarsMigrated){
     _bizPillarsMigrated = false;
-    try{ saveDB(); if(typeof syncToFirebase==='function') syncToFirebase(); }catch(e){ console.warn('pillar migration sync:', e); }
+    // শুধু businessSystem ডকুমেন্টটাই লেখা হয় — customers/stock-এ হাত দেওয়া হয় না,
+    // নইলে পেজ লোডের পুরনো স্ন্যাপশট নতুন ইনভয়েস মুছে দিতে পারত।
+    try{
+      saveDB();
+      if(window._fbReady && fsdb){
+        fsdb.collection('meta').doc('businessSystem')
+          .set({businessSystem: db.businessSystem||{}, _savedAt: Date.now()}, {merge:true})
+          .catch(function(e){ console.warn('pillar migration sync:', e); });
+      }
+    }catch(e){ console.warn('pillar migration sync:', e); }
   }
 }
 
