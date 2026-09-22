@@ -1167,6 +1167,7 @@ function loadDB(){
   var bi=localStorage.getItem(BIZIMG_KEY);
   if(bi){try{bizImgDB=JSON.parse(bi);}catch(e){}}
   if(!bizImgDB.images) bizImgDB.images={};
+  runActivityBacklinkOnce();   // Build-43
   ensureBizSystemDefaults();
 }
 function saveBizImgLocal(){ try{ localStorage.setItem(BIZIMG_KEY, JSON.stringify(bizImgDB)); }catch(e){ console.warn('bizImg local save:',e); } }
@@ -1233,6 +1234,7 @@ function startRealtimeSync(){
     if(snap.empty){ db.customers = []; saveDB(); renderAll(); return; }
     const custs = snap.docs.map(function(d){ return Object.assign({id: parseInt(d.id)||d.id}, d.data()); });
     db.customers = custs.map(function(c){ return migrate(c); });
+    runActivityBacklinkOnce();   // Build-43: cloud ডেটা আসার পরও বাঁধা হয়
     // reload intel
     try{
       fsdb.collection('intel').get().then(function(iSnap){
@@ -2897,6 +2899,9 @@ function renderInvoiceCard(c, inv, showCustInfo){
     h+='</div>';
   }
 
+  // ── Build-43: এই ইনভয়েসের Activity Notes
+  h+=renderInvoiceActivityBlock(c, inv);
+
   // ── Action buttons
   h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;padding-top:8px;border-top:1px solid rgba(15,23,42,.06)">';
   h+='<button onclick="genPayReport('+c.id+','+inv.id+')" style="font-size:8px;padding:4px 10px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.3);color:#25d366;border-radius:4px;cursor:pointer;font-family:var(--fd);font-weight:700">\u{1F4F1} WA Report</button>';
@@ -2934,6 +2939,120 @@ function getVisibleDup(id){
   for(var i=0;i<els.length;i++){ if(els[i].closest('.modal-ov.open')) return els[i]; }
   for(var i=0;i<els.length;i++){ if(els[i].offsetParent!==null) return els[i]; }
   return els[0];
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Build-43 — Invoice-linked Activity Notes
+// প্রতিটি activity এখন একটি নির্দিষ্ট ইনভয়েসের সাথে বাঁধা থাকতে পারে (a.invNo)।
+// লেখা যায় দুই জায়গা থেকে — ইনভয়েস কার্ডে, আর Activity ট্যাবে ড্রপডাউন দিয়ে।
+// ডেটা একটাই, তাই এক জায়গায় লিখলে অন্য জায়গাতেও দেখা যায়।
+// ══════════════════════════════════════════════════════════════════════════
+function bizActsForInvoice(c, invNo){
+  var key = String(invNo||'').trim();
+  if(!key) return [];
+  return (c.actLog||[]).filter(function(a){ return String(a.invNo||'').trim()===key; });
+}
+
+// পুরনো entry-গুলোতে ইনভয়েস নম্বর লেখার ভিতরেই আছে ("Payment ৳66,000 — 1113")।
+// শুধু তখনই বাঁধা হয় যখন লেখার কোনো সংখ্যা এই কাস্টমারের আসল ইনভয়েস নম্বরের
+// সাথে হুবহু মেলে — অনুমান করে কিছু বাঁধা হয় না।
+function backlinkActivityInvoices(c){
+  var nos = {};
+  (c.invoices||[]).forEach(function(i){ var n=String(i.no||'').trim(); if(n) nos[n]=true; });
+  if(!Object.keys(nos).length) return 0;
+  var n = 0;
+  (c.actLog||[]).forEach(function(a){
+    if(a.invNo) return;                         // আগে থেকেই বাঁধা — হাত দেওয়া হয় না
+    var txt = String(a.action||'');
+    // টাকার অঙ্কে হাজারের কমা থাকে ("৳৬৬,০০০")। আগে না সরালে সংখ্যাটা ভেঙে
+    // "৬৬" ও "০০০" হয়ে যেত এবং ভুল ইনভয়েসে বসে যেতে পারত।
+    txt = txt.replace(/(\d),(?=\d)/g, '$1');
+    // ১) স্পষ্ট চিহ্ন থাকলে সেটাই — "Invoice #1065", "#1065"
+    var marked = txt.match(/(?:invoice\s*#?\s*|#)(\d+)/i);
+    if(marked && nos[marked[1]]){ a.invNo = marked[1]; n++; return; }
+    // ২) নইলে শেষ সংখ্যাটি — অ্যাপের নিজের ফরম্যাট "Payment ৳X — 1113"
+    var all = txt.match(/\d+/g);
+    if(all && all.length){
+      var last = all[all.length-1];
+      if(nos[last]){ a.invNo = last; n++; return; }
+    }
+  });
+  return n;
+}
+// ফ্ল্যাগ নেই ইচ্ছে করেই: প্রথম লোডে লোকাল ডেটা থাকে, আসল ডেটা Firestore থেকে
+// পরে আসে। শুধু যেগুলো এখনো বাঁধা হয়নি সেগুলোই দেখা হয়, তাই বারবার চললেও
+// কিছু দুবার বাঁধা পড়ে না।
+function runActivityBacklinkOnce(){
+  var total = 0;
+  (db.customers||[]).forEach(function(c){ total += backlinkActivityInvoices(c); });
+  if(total>0){ try{ saveDB(); if(typeof syncToFirebase==='function') syncToFirebase(); }catch(e){ console.warn('activity backlink sync:', e); } }
+  return total;
+}
+
+// ইনভয়েস কার্ডের ভিতরের নোট ব্লক
+function renderInvoiceActivityBlock(c, inv){
+  var acts = bizActsForInvoice(c, inv.no);
+  var uid = c.id+'_'+inv.id;
+  var h='<div style="margin-top:8px;background:rgba(59,130,246,.04);border:1px solid rgba(59,130,246,.18);border-radius:8px;padding:10px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+  h+='<div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--blue)">\u{1F4CB} Activity Notes — Invoice #'+escHtml(inv.no)+'</div>';
+  h+='<span style="font-family:var(--fm);font-size:9px;color:var(--text3)">'+acts.length+'</span>';
+  h+='</div>';
+  h+='<div style="display:grid;grid-template-columns:auto 1fr auto;gap:5px;align-items:center;margin-bottom:8px">';
+  h+='<select id="ian_t_'+uid+'" style="font-size:10px;padding:5px;border:1px solid var(--border);border-radius:5px;font-family:var(--fd)">';
+  ACT_TYPES.forEach(function(t){ h+='<option value="'+t.id+'"'+(t.id==='complaint'?' selected':'')+'>'+t.label+'</option>'; });
+  h+='</select>';
+  h+='<input id="ian_n_'+uid+'" placeholder="এই invoice-এ কি কথা হয়েছে / কি অভিযোগ..." onkeydown="if(event.key===\'Enter\')addInvoiceActivity('+c.id+','+inv.id+')" style="font-size:11px;padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-family:var(--fd)">';
+  h+='<button onclick="addInvoiceActivity('+c.id+','+inv.id+')" style="font-size:9px;padding:6px 12px;background:var(--blue);border:none;color:#fff;border-radius:5px;cursor:pointer;font-family:var(--fd);font-weight:700">+ Add</button>';
+  h+='</div>';
+  if(!acts.length){
+    h+='<div style="font-size:10px;color:var(--text3)">এই invoice-এ এখনো কোনো নোট নেই।</div>';
+  } else {
+    acts.forEach(function(a, ix){
+      var t = ACT_TYPES.filter(function(x){return x.id===a.type;})[0];
+      h+='<div style="display:flex;gap:7px;align-items:flex-start;padding:5px 0;border-top:1px solid rgba(15,23,42,.05)">';
+      h+='<div style="width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:5px;background:'+(a.color||(t?t.color:'var(--text3)'))+'"></div>';
+      h+='<div style="flex:1"><div style="font-size:11px;color:var(--text);line-height:1.6">'+escHtml(a.action)+'</div>';
+      h+='<div style="font-family:var(--fm);font-size:9px;color:var(--text3)">'+escHtml(a.date||'')+'</div></div>';
+      h+='<span onclick="deleteInvoiceActivity('+c.id+','+(a.id||0)+')" style="cursor:pointer;color:var(--text3);font-size:10px" title="Remove">✕</span>';
+      h+='</div>';
+    });
+  }
+  h+='</div>';
+  return h;
+}
+
+function addInvoiceActivity(cid, invId){
+  var c = db.customers.find(function(x){return x.id===cid;}); if(!c) return;
+  var inv = (c.invoices||[]).find(function(i){return i.id===invId;}); if(!inv) return;
+  var uid = cid+'_'+invId;
+  var tEl = getVisibleDup('ian_t_'+uid);
+  var nEl = getVisibleDup('ian_n_'+uid);
+  var note = (nEl && nEl.value || '').trim();
+  if(!note){ if(nEl) nEl.style.borderColor='var(--red)'; notify('আগে নোট লিখুন', true); return; }
+  if(nEl) nEl.style.borderColor='';
+  var type = (tEl && tEl.value) || 'complaint';
+  var t = ACT_TYPES.filter(function(x){return x.id===type;})[0];
+  if(!c.actLog) c.actLog=[];
+  c.actLog.unshift({ id:Date.now(), date:TODAY, action:(t?t.label:'Activity')+' — '+note,
+                     type:type, color:t?t.color:'var(--blue)', invNo:String(inv.no) });
+  if(!c.history) c.history=[];
+  c.history.unshift({date:TODAY, action:'Invoice #'+inv.no+' — '+note, color:t?t.color:'var(--blue)'});
+  if(nEl) nEl.value='';
+  saveDB(); syncToFirebase();
+  if(typeof renderSalesDashboard==='function') renderSalesDashboard();
+  showModalTab('invoice', cid);
+  notify('✅ Invoice #'+inv.no+'-এ নোট যোগ হলো');
+}
+
+function deleteInvoiceActivity(cid, actId){
+  var c = db.customers.find(function(x){return x.id===cid;}); if(!c || !actId) return;
+  var i = (c.actLog||[]).findIndex(function(a){ return a.id===actId; });
+  if(i<0) return;
+  if(!confirm('এই নোটটি মুছবেন?')) return;
+  c.actLog.splice(i,1);
+  saveDB(); syncToFirebase();
+  showModalTab('invoice', cid);
 }
 
 // ── Payment v2 (with method + reference) ─────────────────
@@ -3347,8 +3466,13 @@ const ACT_TYPES = [
   {id:'no_reply_7d',     label:'\u{1F507} No Reply 7d',       score:-5,  color:'var(--warn)'},
   {id:'promise_break',   label:'\u274C Promise Break',        score:-10, color:'var(--red)'},
   {id:'return_abuse',    label:'\u26A0\uFE0F Return Abuse',   score:-15, color:'var(--red)'},
+  // Build-43: মালিক ইনভয়েস ধরে অভিযোগ লিখতে চান — তাই আলাদা দুটি type
+  {id:'complaint',          label:'\u26A0\uFE0F \u0985\u09AD\u09BF\u09AF\u09CB\u0997',        score:-8,  color:'var(--red)'},
+  {id:'complaint_resolved', label:'\u2705 \u0985\u09AD\u09BF\u09AF\u09CB\u0997 \u09B8\u09AE\u09BE\u09A7\u09BE\u09A8', score:8, color:'var(--green)'},
 ];
 
+var _actInvFilter = {};
+function setActInvFilter(cid, val){ _actInvFilter[cid] = String(val||''); showModalTab('activity', cid); }
 function renderTabActivity(c){
   const el = document.getElementById('mtc_activity'); if(!el) return;
   const log = c.actLog||[];
@@ -3372,10 +3496,17 @@ function renderTabActivity(c){
   // Add activity
   h += '<div style="background:rgba(255,255,255,.9);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:13px">';
   h += '<div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:8px">+ Activity \u09AF\u09CB\u0997</div>';
-  h += '<div style="display:grid;grid-template-columns:1fr 1.5fr auto;gap:6px;align-items:end">';
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr 1.6fr auto;gap:6px;align-items:end">';
   h += '<div><label class="lbl">Type</label><select id="actType_'+c.id+'" style="font-size:11px">';
   ACT_TYPES.forEach(function(t){
     h += '<option value="'+t.id+'">'+t.label+(t.score!==0?' ('+(t.score>0?'+':'')+t.score+')':'')+'</option>';
+  });
+  h += '</select></div>';
+  // Build-43: কোন ইনভয়েস নিয়ে কথা — বেছে নেওয়া যায়, বাধ্যতামূলক নয়
+  h += '<div><label class="lbl">Invoice</label><select id="actInv_'+c.id+'" style="font-size:11px">';
+  h += '<option value="">\u2014 \u0995\u09CB\u09A8\u09CB invoice \u09A8\u09DF \u2014</option>';
+  (c.invoices||[]).slice().sort(function(a,b){ return (b.date||'')<(a.date||'')?-1:1; }).forEach(function(iv){
+    h += '<option value="'+escHtml(iv.no)+'">#'+escHtml(iv.no)+' \u00B7 '+escHtml(iv.date||'')+'</option>';
   });
   h += '</select></div>';
   h += '<div><label class="lbl">Note</label><input id="actNote_'+c.id+'" placeholder="\u09AC\u09BF\u09AC\u09B0\u09A3..." style="font-size:11px" onkeydown="if(event.key===\'Enter\')addActivityLog('+c.id+')"></div>';
@@ -3383,14 +3514,27 @@ function renderTabActivity(c){
   h += '</div></div>';
 
   // Log
-  h += '<div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Activity Log</div>';
-  if(!log.length) h += '<div style="color:var(--text3);font-size:11px;padding:8px">\u0995\u09CB\u09A8\u09CB activity \u09A8\u09C7\u0987</div>';
-  log.slice(0,20).forEach(function(a){
+  // Build-43: ইনভয়েস ধরে ছেঁকে দেখা
+  var _invFilter = _actInvFilter[c.id] || '';
+  var _linked = log.filter(function(a){ return a.invNo; }).length;
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">';
+  h += '<div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3)">Activity Log'+(_linked?' \u00B7 '+_linked+' invoice-\u098F \u09AC\u09BE\u0981\u09A7\u09BE':'')+'</div>';
+  h += '<select onchange="setActInvFilter('+c.id+',this.value)" style="font-size:10px;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-family:var(--fd)">';
+  h += '<option value="">\u09B8\u09AC invoice</option>';
+  (c.invoices||[]).slice().sort(function(a,b){ return (b.date||'')<(a.date||'')?-1:1; }).forEach(function(iv){
+    var n = bizActsForInvoice(c, iv.no).length;
+    h += '<option value="'+escHtml(iv.no)+'"'+(String(iv.no)===_invFilter?' selected':'')+'>#'+escHtml(iv.no)+' ('+n+')</option>';
+  });
+  h += '</select></div>';
+  var shown = _invFilter ? log.filter(function(a){ return String(a.invNo||'')===_invFilter; }) : log;
+  if(!shown.length) h += '<div style="color:var(--text3);font-size:11px;padding:8px">'+(_invFilter?'\u098F\u0987 invoice-\u098F \u0995\u09CB\u09A8\u09CB activity \u09A8\u09C7\u0987':'\u0995\u09CB\u09A8\u09CB activity \u09A8\u09C7\u0987')+'</div>';
+  shown.slice(0,40).forEach(function(a){
     const t = ACT_TYPES.find(x=>x.id===a.type);
     h += '<div class="act-row">';
     h += '<div class="act-dot" style="background:'+(a.color||(t?t.color:'var(--text3)'))+'"></div>';
-    h += '<div style="flex:1"><div style="font-size:11px;color:var(--text);font-family:var(--fu)">'+a.action+'</div>';
-    h += '<div style="font-family:var(--fm);font-size:9px;color:var(--text3)">'+a.date+(t&&t.score!==0?' \u00B7 <span style="color:'+(t.score>0?'var(--green)':'var(--red)')+'">'+(t.score>0?'+':'')+t.score+' pts</span>':'')+'</div></div>';
+    h += '<div style="flex:1"><div style="font-size:11px;color:var(--text);font-family:var(--fu)">'+escHtml(a.action)+'</div>';
+    h += '<div style="font-family:var(--fm);font-size:9px;color:var(--text3)">'+escHtml(a.date||'')+(t&&t.score!==0?' \u00B7 <span style="color:'+(t.score>0?'var(--green)':'var(--red)')+'">'+(t.score>0?'+':'')+t.score+' pts</span>':'')+'</div></div>';
+    if(a.invNo) h += '<span style="font-family:var(--fm);font-size:9px;font-weight:700;color:var(--blue);background:rgba(59,130,246,.1);border-radius:4px;padding:2px 6px;white-space:nowrap">#'+escHtml(a.invNo)+'</span>';
     h += '</div>';
   });
   el.innerHTML = h;
@@ -3404,8 +3548,12 @@ function addActivityLog(cid){
   const note = noteEl ? noteEl.value.trim() : '';
   const t = ACT_TYPES.find(x=>x.id===type);
   const action = (t?t.label:'Activity')+(note?' \u2014 '+note:'');
+  const invEl = document.getElementById('actInv_'+cid);
+  const invNo = invEl ? String(invEl.value||'').trim() : '';
   if(!c.actLog) c.actLog=[];
-  c.actLog.unshift({id:Date.now(), date:TODAY, action:action, type:type, color:t?t.color:'var(--blue)'});
+  const _entry = {id:Date.now(), date:TODAY, action:action, type:type, color:t?t.color:'var(--blue)'};
+  if(invNo) _entry.invNo = invNo;
+  c.actLog.unshift(_entry);
   if(!c.history) c.history=[];
   c.history.unshift({date:TODAY, action:action, color:t?t.color:'var(--blue)'});
   if(noteEl) noteEl.value='';
