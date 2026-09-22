@@ -308,6 +308,7 @@ body{max-width:100vw;overflow-x:hidden!important}
   <button class="btn btn-o" onclick="loadFromFirebase()" style="font-size:8px;padding:3px 10px">&#x2193; Firebase</button>
   <button class="btn btn-o" onclick="syncToFirebase()" style="font-size:8px;padding:3px 10px">&#x2191; Sync</button>
   <button class="btn btn-o" onclick="exportJSON()" style="font-size:8px;padding:3px 10px">&#x1F4BE; Backup</button>
+  <button class="btn btn-o" onclick="cleanDuplicateCloudBatches()" style="font-size:8px;padding:3px 10px" title="cloud-এ একই batch দুইবার থাকলে পরিষ্কার করুন">&#x1F9F9; Dup Fix</button>
   <button class="btn btn-o" onclick="restoreSnapshotUI()" style="font-size:8px;padding:3px 10px" title="প্রতিদিনের রক্ষিত কপি থেকে ফিরিয়ে আনুন">&#x1F570; Restore</button>
   <label class="btn btn-o" style="font-size:8px;padding:3px 10px;cursor:pointer">
     &#x1F4E5; Import<input type="file" accept=".json" onchange="importJSON(event)" style="display:none">
@@ -1156,6 +1157,7 @@ function loadDB(){
   const st = localStorage.getItem(STOCK_KEY);
   if(st){ try{ stockDB = JSON.parse(st); }catch(e){} }
   if(!stockDB.batches) stockDB.batches = [];
+  stockDB.batches = dedupeStockBatches(stockDB.batches);
   // Expense DB
   var es=localStorage.getItem('ctgexp_v1');
   if(es){try{expDB=JSON.parse(es);}catch(e){}}
@@ -1175,6 +1177,44 @@ function loadDB(){
 function saveBizImgLocal(){ try{ localStorage.setItem(BIZIMG_KEY, JSON.stringify(bizImgDB)); }catch(e){ console.warn('bizImg local save:',e); } }
 function saveDB(){ db._savedAt = Date.now(); localStorage.setItem(LS_KEY, JSON.stringify(db)); }
 function saveStock(){ localStorage.setItem(STOCK_KEY, JSON.stringify(stockDB)); }
+
+// ==== Build 49: Duplicate Batch Guard ====
+// Build 47-\u098F\u09B0 retryCloudSaves() \u09AA\u09CD\u09B0\u09A4\u09BF\u099F\u09BF batch-\u0995\u09C7 deterministic doc id (= batch.id) \u09A6\u09BF\u09AF\u09BC\u09C7
+// \u0986\u09AC\u09BE\u09B0 cloud-\u098F \u09B2\u09BF\u0996\u09C7\u099B\u09BF\u09B2, \u0995\u09BF\u09A8\u09CD\u09A4\u09C1 add() \u09A6\u09BF\u09AF\u09BC\u09C7 \u09A4\u09C8\u09B0\u09BF \u09AA\u09C1\u09B0\u09CB\u09A8\u09CB random-id doc-\u099F\u09BE\u0993 \u09B0\u09AF\u09BC\u09C7 \u0997\u09BF\u09AF\u09BC\u09C7\u099B\u09BF\u09B2\u0964
+// \u09A4\u09BE\u0987 \u098F\u0995\u0987 batch cloud-\u098F \u09A6\u09C1\u0987\u09AC\u09BE\u09B0 \u09AC\u09B8\u09C7\u099B\u09C7 \u2014 Buy Qty / Unsold Qty / Capital \u09A6\u09CD\u09AC\u09BF\u0997\u09C1\u09A3 \u09A6\u09C7\u0996\u09BE\u099A\u09CD\u099B\u09BF\u09B2,
+// \u0986\u09B0 computeBatchFifoSold()-\u098F res[b.id] \u098F\u0995\u0987 id-\u09B0 \u09B0\u09C7\u0995\u09B0\u09CD\u09A1 \u098F\u0995\u09C7 \u0985\u09AA\u09B0\u0995\u09C7 \u09AE\u09C1\u099B\u09C7 Sold Qty \u0995\u09AE \u09A6\u09C7\u0996\u09BE\u099A\u09CD\u099B\u09BF\u09B2\u0964
+function dedupeStockBatches(list){
+  var arr = list || [];
+  var map = {}, order = [];
+  arr.forEach(function(b){
+    if(!b) return;
+    if(b.id===undefined || b.id===null){ order.push(b); return; }
+    var k = String(b.id);
+    if(!map[k]){ map[k] = b; order.push(k); return; }
+    var cur = map[k];
+    var curDet = String(cur._fbId||'') === String(cur.id);
+    var newDet = String(b._fbId||'') === String(b.id);
+    var keep = (newDet && !curDet) ? b : cur;
+    var drop = (keep === b) ? cur : b;
+    keep.qtySold = Math.max(parseInt(keep.qtySold)||0, parseInt(drop.qtySold)||0);
+    if(!keep.expectedSellPrice && drop.expectedSellPrice) keep.expectedSellPrice = drop.expectedSellPrice;
+    if(!keep.note && drop.note) keep.note = drop.note;
+    map[k] = keep;
+  });
+  return order.map(function(k){ return (typeof k === 'string') ? map[k] : k; });
+}
+
+// \u098F\u0995\u0987 \u09AE\u09BF\u09B2\u09BF\u09B8\u09C7\u0995\u09C7\u09A8\u09CD\u09A1\u09C7 \u09A6\u09C1\u0987\u099F\u09BF batch \u09AF\u09CB\u0997 \u09B9\u09B2\u09C7\u0993 id \u0986\u09B2\u09BE\u09A6\u09BE \u09A5\u09BE\u0995\u09AC\u09C7\u0964
+function newBatchId(){
+  var used = {};
+  ((typeof stockDB!=='undefined' && stockDB && stockDB.batches) ? stockDB.batches : []).forEach(function(b){
+    if(b && b.id!==undefined && b.id!==null) used[String(b.id)] = true;
+  });
+  var c = Date.now(), guard = 0;
+  while(used[String(c)] && guard++ < 100000) c++;
+  return c;
+}
+
 
 var _rtListeners = [];
 // ── Firebase ────────────────────────────────────────────
@@ -1460,10 +1500,19 @@ async function cloudSaveVerified(collName, docId, data, label){
 
 // একটি stock batch সরাসরি cloud-এ — doc id = batch-এর নিজের id
 async function saveBatchToCloud(batch){
+  var oldDoc = String(batch._fbId||'');
   var ok = await cloudSaveVerified('stockBatches', batch.id,
              Object.assign({}, batch, {_fbId: undefined}),
              'Stock: ' + (batch.model||''));
-  if(ok){ batch._fbId = String(batch.id); saveStock(); }
+  if(ok){
+    // Build-49: \u09AA\u09C1\u09B0\u09CB\u09A8\u09CB random-id doc \u09B0\u09C7\u0996\u09C7 \u09A6\u09BF\u09B2\u09C7 \u098F\u0995\u0987 batch cloud-\u098F \u09A6\u09C1\u0987\u09AC\u09BE\u09B0 \u09AC\u09B8\u09C7 \u09AF\u09BE\u09AF\u09BC\u0964
+    // \u09A4\u09BE\u0987 \u09A8\u09A4\u09C1\u09A8 doc \u09AF\u09BE\u099A\u09BE\u0987 \u09B9\u0993\u09AF\u09BC\u09BE\u09B0 \u09AA\u09B0\u09C7\u0987 \u09AA\u09C1\u09B0\u09CB\u09A8\u09CB\u099F\u09BF \u09B8\u09B0\u09BE\u09A8\u09CB \u09B9\u09AF\u09BC\u0964
+    if(oldDoc && oldDoc !== String(batch.id)){
+      try{ await fsdb.collection('stockBatches').doc(oldDoc).delete(); }
+      catch(e){ console.warn('old batch doc cleanup:', oldDoc, e); }
+    }
+    batch._fbId = String(batch.id); saveStock();
+  }
   return ok;
 }
 
@@ -1489,6 +1538,76 @@ async function retryCloudSaves(){
     fails ? ('❌ ' + fails + 'টি এখনও যায়নি') : '✅ সব cloud-এ সেভ হয়েছে',
     fails ? 'retryCloudSaves()' : null);
   return fails;
+}
+
+// Build-49: cloud-\u098F \u098F\u0995\u0987 batch-\u098F\u09B0 \u09A6\u09C1\u0987\u099F\u09BF doc \u09A5\u09BE\u0995\u09B2\u09C7 \u0985\u09A4\u09BF\u09B0\u09BF\u0995\u09CD\u09A4\u099F\u09BF \u09B8\u09B0\u09BE\u09A8\u09CB\u09B0 \u098F\u0995\u09AC\u09BE\u09B0\u09C7\u09B0 \u0995\u09BE\u099C\u0964
+// \u09A8\u09BF\u09B0\u09BE\u09AA\u09A6: model + entryDate + qtyReceived \u09B9\u09C1\u09AC\u09B9\u09C1 \u09AE\u09BF\u09B2\u09B2\u09C7 \u09A4\u09AC\u09C7\u0987 \u09A1\u09C1\u09AA\u09CD\u09B2\u09BF\u0995\u09C7\u099F \u0997\u09A3\u09CD\u09AF\u0964
+async function scanDuplicateCloudBatches(){
+  if(!window._fbReady || !fsdb) return null;
+  var snap = await fsdb.collection('stockBatches').get({source:'server'});
+  var docs = [];
+  snap.forEach(function(d){ docs.push({doc:d.id, data:d.data()||{}}); });
+  var det = {};
+  docs.forEach(function(x){ if(String(x.doc)===String(x.data.id)) det[String(x.data.id)] = x; });
+  var redundant = [], orphans = [];
+  docs.forEach(function(x){
+    if(String(x.doc)===String(x.data.id)) return;
+    var twin = det[String(x.data.id)];
+    if(!twin){ orphans.push(x); return; }
+    var same = modelKey(twin.data.model)===modelKey(x.data.model)
+            && String(twin.data.entryDate||'')===String(x.data.entryDate||'')
+            && (parseInt(twin.data.qtyReceived)||0)===(parseInt(x.data.qtyReceived)||0);
+    if(same) redundant.push(x);
+  });
+  return {total:docs.length, deterministic:Object.keys(det).length, redundant:redundant, orphans:orphans};
+}
+
+async function cleanDuplicateCloudBatches(){
+  var scan;
+  try{ scan = await scanDuplicateCloudBatches(); }
+  catch(e){ notify('Cloud \u09AA\u09DC\u09BE \u09AF\u09BE\u09AF\u09BC\u09A8\u09BF: '+(e.message||e), true); return; }
+  if(!scan){ notify('Cloud \u0995\u09BE\u09A8\u09C7\u0995\u09B6\u09A8 \u09A8\u09C7\u0987', true); return; }
+  if(!scan.redundant.length && !scan.orphans.length){
+    notify('\u2705 \u0995\u09CB\u09A8\u09CB \u09A1\u09C1\u09AA\u09CD\u09B2\u09BF\u0995\u09C7\u099F \u09A8\u09C7\u0987 \u2014 cloud-\u098F '+scan.total+'\u099F\u09BF batch');
+    return;
+  }
+  var sample = scan.redundant.slice(0,5).map(function(x){
+    return '  \u2022 '+(x.data.model||'?')+' \u00B7 '+(x.data.entryDate||'?')+' \u00B7 '+(x.data.qtyReceived||0)+'pc';
+  }).join('\n');
+  var msg = 'Cloud-\u098F \u098F\u0996\u09A8 '+scan.total+'\u099F\u09BF batch \u09B0\u09C7\u0995\u09B0\u09CD\u09A1 \u0986\u099B\u09C7\u0964\n'
+          + scan.redundant.length+'\u099F\u09BF \u098F\u0995\u0987 batch-\u098F\u09B0 \u09A6\u09CD\u09AC\u09BF\u09A4\u09C0\u09AF\u09BC \u0995\u09AA\u09BF \u2014 \u098F\u0997\u09C1\u09B2\u09CB \u09B8\u09B0\u09BE\u09A8\u09CB \u09B9\u09AC\u09C7\u0964\n'
+          + (scan.orphans.length ? scan.orphans.length+'\u099F\u09BF \u09AA\u09C1\u09B0\u09CB\u09A8\u09CB id-\u098F\u09B0 \u09B0\u09C7\u0995\u09B0\u09CD\u09A1 \u09A8\u09A4\u09C1\u09A8 id-\u09A4\u09C7 \u09B8\u09B0\u09BF\u09AF\u09BC\u09C7 \u09A8\u09C7\u0993\u09AF\u09BC\u09BE \u09B9\u09AC\u09C7\u0964\n' : '')
+          + '\u0995\u09CB\u09A8\u09CB \u0986\u09B8\u09B2 batch \u09AE\u09C1\u099B\u09AC\u09C7 \u09A8\u09BE\u0964\n\n'
+          + (sample ? sample+'\n\n' : '')
+          + '\u099A\u09BE\u09B2\u09BF\u09AF\u09BC\u09C7 \u09AF\u09BE\u09AC\u09CB?';
+  if(!confirm(msg)) return;
+  cloudBadge('busy', '\u23F3 \u09A1\u09C1\u09AA\u09CD\u09B2\u09BF\u0995\u09C7\u099F \u09AA\u09B0\u09BF\u09B7\u09CD\u0995\u09BE\u09B0 \u09B9\u099A\u09CD\u099B\u09C7...');
+  var removed=0, moved=0, failed=0;
+  // \u09E7) orphan: \u0986\u0997\u09C7 \u09A8\u09A4\u09C1\u09A8 deterministic doc \u09B2\u09BF\u0996\u09C7 \u09AF\u09BE\u099A\u09BE\u0987, \u09A4\u09BE\u09B0\u09AA\u09B0 \u09AA\u09C1\u09B0\u09CB\u09A8\u09CB\u099F\u09BF \u09B8\u09B0\u09BE\u09A8\u09CB
+  for(const x of scan.orphans){
+    if(x.data.id===undefined || x.data.id===null){ continue; }
+    var ok=false;
+    try{ ok = await cloudSaveVerified('stockBatches', x.data.id,
+            Object.assign({}, x.data, {_fbId:undefined}), 'Stock: '+(x.data.model||'')); }catch(e){ ok=false; }
+    if(ok){
+      try{ await fsdb.collection('stockBatches').doc(x.doc).delete(); moved++; }
+      catch(e){ failed++; console.warn('orphan cleanup:', x.doc, e); }
+    } else failed++;
+  }
+  // \u09E8) \u09B8\u09CD\u09AA\u09B7\u09CD\u099F \u09A6\u09CD\u09AC\u09BF\u09A4\u09C0\u09AF\u09BC \u0995\u09AA\u09BF \u09B8\u09B0\u09BE\u09A8\u09CB
+  for(const x of scan.redundant){
+    try{ await fsdb.collection('stockBatches').doc(x.doc).delete(); removed++; }
+    catch(e){ failed++; console.warn('dup cleanup:', x.doc, e); }
+  }
+  stockDB.batches = dedupeStockBatches(stockDB.batches);
+  stockDB.batches.forEach(function(b){ if(b.id!==undefined) b._fbId = String(b.id); });
+  saveStock();
+  try{ renderAll(); }catch(e){}
+  cloudBadge(failed ? 'fail' : 'ok',
+    (failed ? '\u274C ' : '\u2705 ') + removed + '\u099F\u09BF \u09A1\u09C1\u09AA\u09CD\u09B2\u09BF\u0995\u09C7\u099F \u09B8\u09B0\u09BE\u09A8\u09CB \u09B9\u09AF\u09BC\u09C7\u099B\u09C7'
+    + (moved ? ', ' + moved + '\u099F\u09BF \u09B8\u09B0\u09BE\u09A8\u09CB \u09B9\u09AF\u09BC\u09C7\u099B\u09C7' : '')
+    + (failed ? ', ' + failed + '\u099F\u09BF \u09AA\u09BE\u09B0\u09C7\u09A8\u09BF' : ''),
+    failed ? 'cleanDuplicateCloudBatches()' : null);
 }
 
 // ── Real-time listeners ──────────────────────────────────
@@ -1562,7 +1681,8 @@ function startRealtimeSync(){
           if(b.id!==undefined) return !_cloudIds[String(b.id)];
           return !b._fbId;
         });
-        stockDB.batches=_merged.concat(_unsynced);
+        // Build-49: cloud-\u098F \u098F\u0995\u0987 batch \u09A6\u09C1\u0987 doc-\u098F \u09A5\u09BE\u0995\u09B2\u09C7\u0993 \u09B2\u09BF\u09B8\u09CD\u099F\u09C7 \u098F\u0995\u09AC\u09BE\u09B0\u0987 \u09AC\u09B8\u09AC\u09C7
+        stockDB.batches=dedupeStockBatches(_merged.concat(_unsynced));
         saveStock();
         if(_unsynced.length){
           console.warn('keeping '+_unsynced.length+' unsynced stock batch(es), pushing now');
@@ -4245,7 +4365,20 @@ function getModelReturnStats(modelName){
   return {retQty:retQty,retPct:retPct,totSold:totSold};
 }
 
-function computeBatchFifoSold(){var res={};var byM={};stockDB.batches.forEach(function(b){if(!byM[b.model])byM[b.model]=[];byM[b.model].push(b);});Object.keys(byM).forEach(function(m){var s=byM[m].slice().sort(function(a,b){return new Date(a.entryDate||'')-new Date(b.entryDate||'')}); var rem=getModelInvSold(m);s.forEach(function(b){var sold=Math.min(rem,b.qtyReceived||0);res[b.id]=sold;rem=Math.max(0,rem-sold);});});return res;}
+// Build-49: (\u09E7) \u098F\u0995\u0987 id-\u09B0 \u09A1\u09C1\u09AA\u09CD\u09B2\u09BF\u0995\u09C7\u099F \u09AC\u09BE\u09A6 \u09A6\u09C7\u0993\u09AF\u09BC\u09BE \u09B9\u09AF\u09BC\u0964
+// (\u09E8) \u09AE\u09A1\u09C7\u09B2 \u0997\u09CD\u09B0\u09C1\u09AA\u09BF\u0982 \u098F\u0996\u09A8 modelKey() \u09A6\u09BF\u09AF\u09BC\u09C7 \u2014 "HP EliteBook" \u0993 "HP Elitebook" \u0986\u09B2\u09BE\u09A6\u09BE \u09A7\u09B0\u09BE \u09B9\u09AC\u09C7 \u09A8\u09BE\u0964
+function computeBatchFifoSold(){
+  var res={};var byM={};
+  dedupeStockBatches(stockDB.batches).forEach(function(b){
+    var k=modelKey(b.model); if(!byM[k])byM[k]=[]; byM[k].push(b);
+  });
+  Object.keys(byM).forEach(function(m){
+    var s=byM[m].slice().sort(function(a,b){return new Date(a.entryDate||'')-new Date(b.entryDate||'');});
+    var rem=getModelInvSold(m);
+    s.forEach(function(b){var sold=Math.min(rem,b.qtyReceived||0);res[b.id]=sold;rem=Math.max(0,rem-sold);});
+  });
+  return res;
+}
 function getModelInvSold(m){var key=modelKey(m);var sold=0;(db||{customers:[]}).customers.forEach(function(c){(c.invoices||[]).forEach(function(inv){(inv.items||[]).forEach(function(it){if(modelKey(it.model)===key)sold+=(it.qty||0);});});});return sold;}
 
 // ════════════════════════════════════════════════════════
@@ -4624,7 +4757,7 @@ function addBatch(){
   if(q<1){ notify('Qty \u09A6\u09BF\u09A8', true); return; }
   if(cst<1){ notify('Cost/pc \u09A6\u09BF\u09A8', true); return; }
   var spEl=document.getElementById('sb_sp');
-  const batch = {id:Date.now(), model:m, brand:((document.getElementById('sb_brand')||{}).value||autoDetectBrandFromName(m)), entryDate:d, qtyReceived:q, qtySold:0, costPerPc:cst, expectedSellPrice:parseFloat(spEl&&spEl.value||0)||0, note:n, config:cfg||undefined, createdAt:TODAY};
+  const batch = {id:newBatchId(), model:m, brand:((document.getElementById('sb_brand')||{}).value||autoDetectBrandFromName(m)), entryDate:d, qtyReceived:q, qtySold:0, costPerPc:cst, expectedSellPrice:parseFloat(spEl&&spEl.value||0)||0, note:n, config:cfg||undefined, createdAt:TODAY};
   stockDB.batches.unshift(batch);
   saveStock();
   // Build-47: সাথে সাথে cloud-এ, এবং পড়ে যাচাই করে জানানো
