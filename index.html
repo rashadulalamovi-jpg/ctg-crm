@@ -6501,6 +6501,44 @@ function ensureBizSystemDefaults(){
   }
   if(mk && !mk.campaigns) mk.campaigns = [];
 
+  // ── Build-53: Customer Service Function — মালিকের ৩টি স্তম্ভ ──
+  // কার্ডের label-গুলো মালিকের নিজের শব্দ, value ফাঁকা — তিনি নিজে ভরবেন।
+  // coreRule / targetLine / summaryFormula / stopRules খসড়া, সম্পাদনযোগ্য।
+  var cs = db.businessSystem.functions.custservice;
+  if(cs && !cs.engines){
+    cs.coreRule = 'PROOF BEFORE DISPATCH \u00B7 UPDATE BEFORE ASKED';
+    cs.engines = [
+      { title:'\u{1F91D} 1. Dedicated Support Group',
+        fields:[
+          {label:'Order', value:''},
+          {label:'QC Video', value:''},
+          {label:'Payment Follow-Up', value:''},
+          {label:'Courier Follow-up', value:''},
+          {label:'Return Follow Up', value:''}
+        ], strategyTree:[], images:[], notes:'' },
+      { title:'\u{1F50D} 2. QC Transparency',
+        fields:[
+          {label:'QC Sticker', value:''},
+          {label:'QC Video', value:''}
+        ], strategyTree:[], images:[], notes:'' },
+      { title:'\u{1F4EC} 3. Productive One By One Update',
+        fields:[
+          {label:'Order', value:''},
+          {label:'Courier Booking', value:''},
+          {label:'Payment', value:''},
+          {label:'Courier Delivery', value:''},
+          {label:'Return', value:''}
+        ], strategyTree:[], images:[], notes:'' }
+    ];
+    cs.stopRules = [
+      'QC Video \u09A8\u09BE \u09A5\u09BE\u0995\u09B2\u09C7 \u0995\u09CB\u09A8\u09CB laptop courier-\u098F \u09AC\u09C1\u0995\u09BF\u0982 \u09A8\u09AF\u09BC \u2014 \u09AA\u09CD\u09B0\u09AE\u09BE\u09A3 \u0986\u0997\u09C7, \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u09AA\u09B0\u09C7',
+      'Customer \u099C\u09BF\u099C\u09CD\u099E\u09C7\u09B8 \u0995\u09B0\u09BE\u09B0 \u0986\u0997\u09C7\u0987 update \u09AF\u09BE\u09AC\u09C7 \u2014 \u099C\u09BF\u099C\u09CD\u099E\u09C7\u09B8 \u0995\u09B0\u09A4\u09C7 \u09B9\u09B2\u09C7 \u09B8\u09C7\u099F\u09BE\u0987 service failure',
+      'Customer \u09B8\u09AE\u09CD\u09AA\u09B0\u09CD\u0995 staff-\u098F\u09B0 \u09AC\u09CD\u09AF\u0995\u09CD\u09A4\u09BF\u0997\u09A4 \u09AB\u09CB\u09A8\u09C7 \u09A8\u09AF\u09BC \u2014 \u09B8\u09AC \u0995\u09A5\u09BE Support Group-\u098F'
+    ];
+    cs.targetLine = 'Return \u2264 5% \u00B7 Customer \u0995\u09C7 \u099C\u09BF\u099C\u09CD\u099E\u09C7\u09B8 \u0995\u09B0\u09A4\u09C7 \u09B9\u09AC\u09C7 \u09A8\u09BE \u00B7 \u09B8\u09AE\u09CD\u09AA\u09B0\u09CD\u0995 Brand-owned';
+    cs.summaryFormula = 'Dedicated Group \u00D7 QC Transparency \u00D7 One By One Update = \u0995\u09AE Return + \u09A6\u09CD\u09B0\u09C1\u09A4 Payment + Brand-owned Customer';
+  }
+
   // ── Build-38: Sales Function — 4 Strategy + Customer Success Roadmap ──
   var sl = db.businessSystem.functions.sales;
   // Build-42: pillar-গুলো এখন নিচের migration নিজেই বানায় (নতুন ইনস্টল ও পুরনো — দুটোতেই),
@@ -8370,6 +8408,7 @@ function renderBizDetail(key){
     var pillarLabel = (key==='purchase')  ? '\u{1F6A6} '+rec.engines.length+' Purchase Gates — চারটিই পাস করলে তবেই কেনা'
                     : (key==='marketing') ? '\u{1F4E3} '+rec.engines.length+' Marketing Rules — Sell Before Stock'
                     : (key==='sales')     ? '\u{1F4B0} 5 Sales Strategy'
+                    : (key==='custservice') ? '\u{1F91D} '+rec.engines.length+' Customer Service \u09B8\u09CD\u09A4\u09AE\u09CD\u09AD \u2014 Proof Before Dispatch'
                     : '\u{1F3D7}️ '+rec.engines.length+' Business Engines';
     h+='<div style="margin-bottom:18px">';
     h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">'+pillarLabel+'</div>';
