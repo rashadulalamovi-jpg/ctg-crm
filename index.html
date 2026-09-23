@@ -472,9 +472,10 @@ body{max-width:100vw;overflow-x:hidden!important}
   <div class="stab-c" id="sc_add">
     <div class="card">
       <div class="ctit">+ &#x09A8;&#x09A4;&#x09C1;&#x09A8; Stock Batch — এক সাথে একাধিক মডেল</div>
-      <div style="display:grid;grid-template-columns:130px 1fr 1.2fr;gap:8px;align-items:end;margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:130px 1fr 95px 1.1fr;gap:8px;align-items:end;margin-bottom:12px">
         <div><label class="lbl">Entry Date</label><input id="sb_d" type="date"></div>
         <div><label class="lbl">Supplier</label><input id="sb_sup" list="suplist" placeholder="সাপ্লায়ারের নাম" style="font-size:11px"><datalist id="suplist"></datalist></div>
+        <div><label class="lbl">Cargo ৳/pc</label><input id="sb_cargo" type="number" min="0" placeholder="0" style="font-size:11px;text-align:right;border-color:rgba(168,85,247,.35)" title="কার্গো চার্জ — প্রতি pc হিসাবে। এটি Cost/pc-এর বাইরে।"></div>
         <div><label class="lbl">Note — সব মডেলের জন্য</label><input id="sb_n" placeholder="Note (optional)..." style="font-size:11px"></div>
       </div>
       <div style="display:grid;grid-template-columns:2fr 90px 105px 70px 95px 100px 30px;gap:8px;margin-bottom:4px">
@@ -4321,6 +4322,12 @@ function autoDetectBrand(){
 // Weighted average cost for a model across batches
 function modelKey(m){ return (m||'').trim().toLowerCase(); }
 
+// Build-55: Landed Cost — মালিক জানিয়েছেন Cost/pc-এ কার্গো চার্জ ধরা থাকে না।
+// তাই আসল খরচ = Cost/pc + Cargo/pc। কার্গো না লেখা থাকলে 0 ধরা হয় —
+// অনুমান করা হয় না, বরং কত pcs-এ কার্গো লেখা আছে সেটাই Finance-এ দেখানো হয়।
+function batchCargoPerPc(b){ return Math.max(0, parseFloat(b && b.cargoPerPc)||0); }
+function batchLandedCost(b){ return (parseFloat(b && b.costPerPc)||0) + batchCargoPerPc(b); }
+
 // A return-batch only counts as SELLABLE stock once it's been marked "ready" (post QC/repair).
 // Mirrors the exact gate already used by the Invoice autofill/picker and the WA stock list
 // generator (addInvAutoFill, refreshStockList, buildSimpleStockList) — this makes the Stock
@@ -4963,6 +4970,9 @@ function addBatch(){
   sbReadDOM();
   const d = (document.getElementById('sb_d')||{}).value;
   const sup = ((document.getElementById('sb_sup')||{}).value||'').trim();
+  // Build-55: \u0995\u09be\u09b0\u09cd\u0997\u09cb \u099a\u09be\u09b0\u09cd\u099c Cost/pc-\u098f \u09a7\u09b0\u09be \u09a5\u09be\u0995\u09c7 \u09a8\u09be \u2014 \u09ae\u09be\u09b2\u09bf\u0995\u09c7\u09b0 \u09a8\u09bf\u09b7\u09cd\u09aa\u09a4\u09cd\u09a4\u09bf\u0964
+  // \u09a4\u09be\u0987 \u0986\u09b2\u09be\u09a6\u09be \u09b0\u09be\u0996\u09be \u09b9\u09af\u09bc, \u0986\u09b0 Landed Cost = Cost/pc + Cargo/pc\u0964
+  const cargo = Math.max(0, parseFloat((document.getElementById('sb_cargo')||{}).value)||0);
   const sharedNote = ((document.getElementById('sb_n')||{}).value||'').trim();
   if(!d){ notify('Entry Date \u09A6\u09BF\u09A8', true); return; }
 
@@ -4986,7 +4996,8 @@ function addBatch(){
   rows.forEach(function(r){
     var batch = {id:newBatchId(), model:r.model, brand:r.brand, entryDate:d,
       qtyReceived:r.qty, qtySold:0, costPerPc:r.cost, expectedSellPrice:r.sell,
-      supplier: sup||undefined, note:sharedNote, config:r.config||undefined, createdAt:TODAY};
+      supplier: sup||undefined, cargoPerPc: cargo||undefined,
+      note:sharedNote, config:r.config||undefined, createdAt:TODAY};
     stockDB.batches.unshift(batch);
     created.push(batch);
   });
@@ -6507,6 +6518,71 @@ function ensureBizSystemDefaults(){
   // ── Build-54: Operations Function — মালিকের ৫টি ধাপ ──
   // ছবির ৬টির মধ্যে "Customer Support Execution" মালিক নিজেই বাদ দিয়েছেন —
   // ওটি Customer Service-এর কাজ। Operations = শারীরিক কাজ, ট্র্যাকিং ও CRM আপডেট।
+  // ── Build-55: Finance Function — মালিকের ৬টি ফিল্ড ──
+  // ফিল্ডের নাম মালিকের, ভেতরের metric-গুলো আমাদের যৌথ বিশ্লেষণ থেকে — মান ফাঁকা।
+  var fi = db.businessSystem.functions.finance;
+  if(fi && !fi.engines){
+    fi.coreRule = 'CASH ROTATION > SALES VOLUME';
+    fi.engines = [
+      { title:'\u{1F504} 1. Working Capital Cycle',
+        fields:[
+          {label:'Stock \u09A6\u09BF\u09A8 (DIO)', value:''},
+          {label:'Collection \u09A6\u09BF\u09A8 (DSO)', value:''},
+          {label:'Supplier Payment \u09A6\u09BF\u09A8 (DPO)', value:''},
+          {label:'\u09AE\u09CB\u099F Cycle \u09A6\u09BF\u09A8', value:''}
+        ], strategyTree:[], images:[], notes:'' },
+      { title:'\u{1F4B0} 2. Accounts Receivable Management',
+        fields:[
+          {label:'\u09AE\u09CB\u099F \u09AC\u0995\u09C7\u09AF\u09BC\u09BE', value:''},
+          {label:'Overdue \u09A8\u09BF\u09AF\u09BC\u09AE', value:''},
+          {label:'\u09AC\u09AF\u09BC\u09B8 \u0985\u09A8\u09C1\u09AF\u09BE\u09AF\u09BC\u09C0 \u09AD\u09BE\u0997', value:''},
+          {label:'Customer Concentration \u09B8\u09C0\u09AE\u09BE', value:''},
+          {label:'Collection \u09AA\u09A6\u09CD\u09A7\u09A4\u09BF', value:''}
+        ], strategyTree:[], images:[], notes:'' },
+      { title:'\u{1F9FE} 3. Daily Office Expense Management',
+        fields:[
+          {label:'Salary', value:''},
+          {label:'Courier Bill', value:''},
+          {label:'\u0985\u09AB\u09BF\u09B8 \u099A\u09BE\u09B2\u09C1 \u0996\u09B0\u099A', value:''},
+          {label:'Bank EMI', value:''},
+          {label:'\u09A6\u09C8\u09A8\u09BF\u0995 \u098F\u09A8\u09CD\u099F\u09CD\u09B0\u09BF\u09B0 \u09A8\u09BF\u09AF\u09BC\u09AE', value:''}
+        ], strategyTree:[], images:[], notes:'' },
+      { title:'\u{1F4E6} 4. Purchase Finance Management',
+        fields:[
+          {label:'Dubai \u0995\u09CD\u09B0\u09AF\u09BC\u09AE\u09C2\u09B2\u09CD\u09AF', value:''},
+          {label:'Cargo Charge', value:''},
+          {label:'Landed Cost \u09B9\u09BF\u09B8\u09BE\u09AC', value:''},
+          {label:'Supplier Payment Terms', value:''},
+          {label:'Funding Source (\u09A8\u09BF\u099C \u09AA\u09C1\u0981\u099C\u09BF / Customer Advance)', value:''}
+        ], strategyTree:[], images:[], notes:'' },
+      { title:'\u{1F331} 5. Reinvestment Management',
+        fields:[
+          {label:'\u09B2\u09BE\u09AD\u09C7\u09B0 \u0995\u09A4 % \u09B8\u09CD\u099F\u0995\u09C7 \u09AB\u09C7\u09B0\u09A4', value:''},
+          {label:'Owner Draw %', value:''},
+          {label:'Buffer / Reserve', value:''},
+          {label:'Reinvestment \u09A8\u09BF\u09AF\u09BC\u09AE', value:''}
+        ], strategyTree:[], images:[], notes:'' },
+      { title:'\u{1F3E6} 6. Net Worth Management',
+        fields:[
+          {label:'\u09A8\u0997\u09A6 \u0993 \u09AC\u09CD\u09AF\u09BE\u0982\u0995', value:''},
+          {label:'\u09B8\u09CD\u099F\u0995 \u09AE\u09C2\u09B2\u09CD\u09AF', value:''},
+          {label:'\u09AA\u09BE\u0993\u09A8\u09BE (Receivable)', value:''},
+          {label:'\u09B8\u09CD\u09A5\u09BE\u09AF\u09BC\u09C0 \u09B8\u09AE\u09CD\u09AA\u09A6', value:''},
+          {label:'\u098B\u09A3 \u0993 EMI', value:''},
+          {label:'Net Worth', value:''}
+        ], strategyTree:[], images:[], notes:'' }
+    ];
+    fi.stopRules = [
+      'Previous Due \u09A5\u09BE\u0995\u09B2\u09C7 \u09A8\u09A4\u09C1\u09A8 Booking \u09A8\u09AF\u09BC \u2014 Sales-\u098F\u09B0 \u09A8\u09BF\u09AF\u09BC\u09AE Finance-\u0993 \u09AA\u09BE\u09B9\u09BE\u09B0\u09BE \u09A6\u09C7\u09AF\u09BC',
+      '\u098F\u0995 Customer-\u098F\u09B0 \u0995\u09BE\u099B\u09C7 \u09AE\u09CB\u099F \u09AC\u0995\u09C7\u09AF\u09BC\u09BE\u09B0 \u09AC\u09DC \u0985\u0982\u09B6 \u099C\u09AE\u09A4\u09C7 \u09A6\u09C7\u0993\u09AF\u09BC\u09BE \u09AF\u09BE\u09AC\u09C7 \u09A8\u09BE',
+      'Cargo \u099B\u09BE\u09DC\u09BE ROI \u09B9\u09BF\u09B8\u09BE\u09AC \u0995\u09B0\u09BE \u09AF\u09BE\u09AC\u09C7 \u09A8\u09BE \u2014 Landed Cost-\u0987 \u0986\u09B8\u09B2 \u0996\u09B0\u099A',
+      '\u0996\u09B0\u099A \u098F\u09A8\u09CD\u099F\u09CD\u09B0\u09BF \u099B\u09BE\u09DC\u09BE \u09AE\u09BE\u09B8 \u09AC\u09A8\u09CD\u09A7 \u09A8\u09AF\u09BC \u2014 Gross \u09A6\u09BF\u09AF\u09BC\u09C7 \u09B8\u09BF\u09A6\u09CD\u09A7\u09BE\u09A8\u09CD\u09A4 \u09A8\u09AF\u09BC, Net \u09A6\u09BF\u09AF\u09BC\u09C7'
+    ];
+    fi.targetLine = 'ROI \u09A8\u09CD\u09AF\u09C2\u09A8\u09A4\u09AE \u09E7\u09E6% \u00B7 \u09B2\u0995\u09CD\u09B7\u09CD\u09AF \u09E7\u09EB\u2013\u09E8\u09E6% \u00B7 Return \u2264\u09EB% \u00B7 Cash Cycle \u09AF\u09A4 \u099B\u09CB\u099F \u09A4\u09A4 \u09AD\u09BE\u09B2\u09CB';
+    fi.summaryFormula = 'Fast Cash Cycle \u00D7 Clean Receivable \u00D7 Controlled Expense \u00D7 High Reinvestment = Growing Net Worth';
+  }
+  if(fi && fi.supplierPayDays===undefined) fi.supplierPayDays = null;  // DPO — মালিক নিজে বসাবেন
+
   var op = db.businessSystem.functions.operations;
   if(op && !op.engines){
     op.coreRule = 'NOTHING WITHOUT ENTRY \u00B7 NOTHING PENDING WITHOUT OWNER';
@@ -6751,6 +6827,128 @@ function getBizSysFinanceKPIs(){
   var totDue = Math.max(0, totInvoiced-totCollected);
   var collectionPct = totInvoiced>0 ? Math.round(totCollected/totInvoiced*100) : null;
   return { totInvoiced:totInvoiced, totCollected:totCollected, totDue:totDue, overdueAmt:overdueAmt, overdueCnt:overdueCnt, collectionPct:collectionPct };
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Build-55 — Finance Intelligence
+// মালিকের ৬টি Finance ফিল্ডের প্রতিটির জন্য আসল ডেটা থেকে সংখ্যা।
+// যেখানে ডেটা নেই সেখানে null — কখনো অনুমান করা হয় না, রেন্ডারার স্পষ্ট করে
+// বলে দেয় কোন সংখ্যাটা কেন নেই এবং কী এন্ট্রি দিলে আসবে।
+// ══════════════════════════════════════════════════════════════════════════
+function getBizFinanceIntel(){
+  if(typeof db==='undefined' || !db.customers) return null;
+  var fin = (db.businessSystem && db.businessSystem.functions && db.businessSystem.functions.finance) || {};
+
+  // ── ২. Accounts Receivable ──
+  var invoiced=0, collected=0, invCount=0, openCount=0;
+  var ageing={d7:0,d15:0,d30:0,d60:0,d60p:0};
+  var byCust={}, overdueAmt=0, overdueCnt=0, oldest=null;
+  db.customers.forEach(function(c){
+    (c.invoices||[]).forEach(function(inv){
+      var iA=(inv.items||[]).reduce(function(a,x){return a+x.qty*(x.price||0);},0);
+      var iPd=(inv.payments||[]).reduce(function(a,p){return a+p.amount;},0);
+      invCount++; invoiced+=iA; collected+=iPd;
+      var d=Math.max(0,iA-iPd);
+      if(d<=0) return;
+      openCount++;
+      var age=getAge(inv.date);
+      if(age<=7) ageing.d7+=d; else if(age<=15) ageing.d15+=d;
+      else if(age<=30) ageing.d30+=d; else if(age<=60) ageing.d60+=d; else ageing.d60p+=d;
+      byCust[c.name]=(byCust[c.name]||0)+d;
+      if(!oldest || age>oldest.age) oldest={name:c.name, no:inv.no, age:age, due:d};
+      var tk = (typeof computeTracker==='function') ? computeTracker(inv,iA,iPd,inv.payments||[]) : null;
+      if(tk && tk.overdueDays>0){ overdueAmt+=d; overdueCnt++; }
+    });
+  });
+  if(invCount===0) return null;
+  var due=Math.max(0,invoiced-collected);
+  var debtors=Object.keys(byCust).map(function(n){return {name:n, due:byCust[n]};})
+                .sort(function(a,b){return b.due-a.due;});
+  var topShare = (due>0 && debtors.length) ? Math.round(debtors[0].due/due*100) : null;
+
+  // ── ১. Working Capital Cycle ──
+  var fifo = computeBatchFifoSold();
+  var unsoldPcs=0, stockCapital=0, landedCapital=0;
+  var cargoPcs=0, totalPcs=0, dubaiSpend=0, cargoSpend=0;
+  dedupeStockBatches(stockDB.batches||[]).forEach(function(b){
+    var r=parseInt(b.qtyReceived)||0, sd=fifo[b.id]||0, av=Math.max(0,r-sd);
+    var c=parseFloat(b.costPerPc)||0, cg=batchCargoPerPc(b);
+    unsoldPcs+=av; stockCapital+=av*c; landedCapital+=av*(c+cg);
+    totalPcs+=r; dubaiSpend+=r*c; cargoSpend+=r*cg;
+    if(cg>0) cargoPcs+=r;
+  });
+  var sold90=0;
+  db.customers.forEach(function(c){(c.invoices||[]).forEach(function(inv){
+    if(getAge(inv.date)<=90) (inv.items||[]).forEach(function(it){ sold90+=(it.qty||0); });
+  });});
+  var velocity = sold90>0 ? sold90/90 : 0;
+  var dio = velocity>0 ? Math.round(unsoldPcs/velocity) : null;
+  var payDays=[];
+  db.customers.forEach(function(c){(c.invoices||[]).forEach(function(inv){
+    var iA=(inv.items||[]).reduce(function(a,x){return a+x.qty*(x.price||0);},0);
+    var iPd=(inv.payments||[]).reduce(function(a,p){return a+p.amount;},0);
+    var tk=(typeof computeTracker==='function')?computeTracker(inv,iA,iPd,inv.payments||[]):null;
+    if(tk && tk.payDays!==null && tk.payDays!==undefined) payDays.push(tk.payDays);
+  });});
+  var dso = payDays.length ? Math.round(payDays.reduce(function(a,b){return a+b;},0)/payDays.length) : null;
+  var dpo = (fin.supplierPayDays===null||fin.supplierPayDays===undefined||fin.supplierPayDays==='')
+              ? null : Math.max(0, parseInt(fin.supplierPayDays)||0);
+  var ccc = (dio!==null && dso!==null && dpo!==null) ? (dio+dso-dpo) : null;
+
+  // ── ৩. Daily Office Expense ──
+  var exps=(typeof expDB!=='undefined' && expDB.expenses)||[];
+  var eOffice=0, eReturnFix=0, ePersonal=0, eDays={};
+  exps.forEach(function(e){
+    var a=parseFloat(e.amount)||0;
+    if(e.expenseType==='personal') ePersonal+=a;
+    else if(e.expenseType==='return_fix') eReturnFix+=a;
+    else eOffice+=a;
+    if(e.date) eDays[String(e.date).slice(0,10)]=true;
+  });
+  var expDayCount=Object.keys(eDays).length;
+
+  // ── ৫. Reinvestment ──
+  var gross = (typeof getGrossProfitForPeriod==='function') ? getGrossProfitForPeriod(null,null) : null;
+  // আসল খরচ = Dubai cost + cargo। cargo বাদ পড়লে gross বেশি দেখায়।
+  var soldPcsAll = totalPcs - unsoldPcs;
+  var cargoOnSold = (totalPcs>0) ? Math.round(cargoSpend/totalPcs*soldPcsAll) : 0;
+  var grossAfterCargo = (gross===null) ? null : Math.max(0, gross - cargoOnSold);
+  var net = (grossAfterCargo===null) ? null : (grossAfterCargo - eOffice - eReturnFix);
+  var reinvestPct = (net!==null && net>0 && ePersonal>0) ? Math.round((net-ePersonal)/net*100) : null;
+
+  // ── ৬. Net Worth ──
+  var known = landedCapital + due;
+  var missing=[];
+  if(!(typeof assetsDB!=='undefined' && assetsDB.snapshots && assetsDB.snapshots.length)) missing.push('\u09a8\u0997\u09a6 \u0993 \u09ac\u09cd\u09af\u09be\u0982\u0995 \u09ac\u09cd\u09af\u09be\u09b2\u09c7\u09a8\u09cd\u09b8');
+  if(!(typeof assetsDB!=='undefined' && assetsDB.emis && assetsDB.emis.length)) missing.push('\u098b\u09a3 \u0993 EMI');
+  missing.push('\u09a6\u09c1\u09ac\u09be\u0987-\u09b8\u09be\u0987\u09a1 AED');
+  missing.push('\u09b8\u09cd\u09a5\u09be\u09af\u09bc\u09c0 \u09b8\u09ae\u09cd\u09aa\u09a6');
+
+  return {
+    ar:{invoiced:invoiced, collected:collected, due:due, collectionPct: invoiced>0?Math.round(collected/invoiced*100):null,
+        overdueAmt:overdueAmt, overdueCnt:overdueCnt, openCount:openCount, ageing:ageing,
+        debtors:debtors.slice(0,5), topShare:topShare, oldest:oldest},
+    wc:{dio:dio, dso:dso, dpo:dpo, ccc:ccc, unsoldPcs:unsoldPcs, velocity:Math.round(velocity*10)/10, sold90:sold90},
+    exp:{office:eOffice, returnFix:eReturnFix, personal:ePersonal, total:eOffice+eReturnFix+ePersonal,
+         entries:exps.length, dayCount:expDayCount},
+    pf:{dubaiSpend:Math.round(dubaiSpend), cargoSpend:Math.round(cargoSpend),
+        landedSpend:Math.round(dubaiSpend+cargoSpend), totalPcs:totalPcs,
+        cargoCoverPct: totalPcs>0 ? Math.round(cargoPcs/totalPcs*100) : 0,
+        stockCapital:Math.round(stockCapital), landedCapital:Math.round(landedCapital)},
+    ri:{gross:gross, cargoOnSold:cargoOnSold, grossAfterCargo:grossAfterCargo,
+        net:net, ownerDraw:ePersonal, reinvestPct:reinvestPct},
+    nw:{stockValue:Math.round(landedCapital), receivables:Math.round(due),
+        known:Math.round(known), missing:missing}
+  };
+}
+
+function saveFinSupplierPayDays(v){
+  var fin = db.businessSystem.functions.finance;
+  var n = String(v).trim();
+  fin.supplierPayDays = (n==='') ? null : Math.max(0, parseInt(n)||0);
+  saveDB();
+  try{ saveBizSystemToCloud('Finance — Supplier Pay Days', true); }catch(e){}
+  renderBizDetail('finance');
 }
 
 // ── KPI: Customer Service (return rate + stage mix, business-wide) ──
@@ -8275,6 +8473,114 @@ function renderBizSystemsTree(key, rec){
   return h;
 }
 
+function renderBizFinanceIntel(){
+  var d = getBizFinanceIntel();
+  var h='<div style="margin-bottom:22px">';
+  h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px">\u{1F4CA} Finance Intelligence</div>';
+  h+='<div style="font-size:11px;color:var(--text3);margin-bottom:12px">Invoice, Stock \u0993 Expense \u09a5\u09c7\u0995\u09c7 \u09b8\u09b0\u09be\u09b8\u09b0\u09bf \u2014 \u09af\u09c7 \u09b8\u0982\u0996\u09cd\u09af\u09be\u09b0 \u09a1\u09c7\u099f\u09be \u09a8\u09c7\u0987 \u09b8\u09c7\u099f\u09bf \u0985\u09a8\u09c1\u09ae\u09be\u09a8 \u0995\u09b0\u09be \u09b9\u09af\u09bc \u09a8\u09be, \u09ac\u09b2\u09be \u09b9\u09af\u09bc \u0995\u09c7\u09a8 \u09a8\u09c7\u0987\u0964</div>';
+  if(!d){
+    h+='<div style="font-size:12px;color:var(--text3);padding:14px;background:rgba(15,23,42,.03);border-radius:10px">\u26a0\ufe0f \u098f\u0996\u09a8\u09cb Invoice \u09a1\u09c7\u099f\u09be \u09a8\u09c7\u0987\u0964</div></div>';
+    return h;
+  }
+  function M(n){ return '\u09f3'+Math.round(n||0).toLocaleString('en-IN'); }
+  function L(n){ var v=Math.round((n||0)/100000*10)/10; return '\u09f3'+v+'L'; }
+  function card(lbl,val,sub,clr){
+    return '<div style="background:var(--bg2);border-radius:10px;padding:11px 13px;border-left:3px solid '+clr+'">'
+      +'<div style="font-size:10px;color:var(--text3);margin-bottom:3px">'+lbl+'</div>'
+      +'<div style="font-family:var(--fm);font-size:17px;font-weight:700;color:'+clr+'">'+val+'</div>'
+      +'<div style="font-size:10px;color:var(--text3);margin-top:2px">'+(sub||'')+'</div></div>';
+  }
+  function gap(msg){
+    return '<div style="background:rgba(227,6,19,.05);border:1px solid rgba(227,6,19,.25);border-radius:8px;padding:9px 12px;font-size:11px;color:#b7050f;margin-top:8px">\u26a0\ufe0f '+msg+'</div>';
+  }
+  function head(t){ return '<div style="font-size:11px;font-weight:700;color:var(--text2);margin:14px 0 7px">'+t+'</div>'; }
+  var G='var(--green)', R='var(--red)', W='var(--warn)', B='var(--cyan)', P='#a855f7';
+
+  // ── ১. Working Capital Cycle ──
+  h+=head('\u{1F504} 1. Working Capital Cycle');
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px">';
+  h+=card('Stock \u09a6\u09bf\u09a8 (DIO)', d.wc.dio===null?'\u2014':d.wc.dio+' \u09a6\u09bf\u09a8',
+          d.wc.unsoldPcs+' pcs \u00b7 \u09a6\u09c8\u09a8\u09bf\u0995 '+d.wc.velocity, d.wc.dio!==null&&d.wc.dio<10?W:B);
+  h+=card('Collection \u09a6\u09bf\u09a8 (DSO)', d.wc.dso===null?'\u2014':d.wc.dso+' \u09a6\u09bf\u09a8','\u0997\u09dc',G);
+  h+=card('Supplier Payment (DPO)', d.wc.dpo===null?'\u09a1\u09c7\u099f\u09be \u09a8\u09c7\u0987':d.wc.dpo+' \u09a6\u09bf\u09a8','\u09a6\u09c1\u09ac\u09be\u0987',d.wc.dpo===null?R:G);
+  h+=card('\u09ae\u09cb\u099f Cash Cycle', d.wc.ccc===null?'\u2014':d.wc.ccc+' \u09a6\u09bf\u09a8','DIO + DSO \u2212 DPO',d.wc.ccc===null?R:G);
+  h+='</div>';
+  h+='<div style="margin-top:8px;font-size:11px;color:var(--text3)">Dubai supplier-\u0995\u09c7 \u0995\u09a4 \u09a6\u09bf\u09a8 \u09aa\u09b0\u09c7 \u099f\u09be\u0995\u09be \u09a6\u09c7\u09a8? '
+    +'<input type="number" min="0" value="'+(d.wc.dpo===null?'':d.wc.dpo)+'" placeholder="\u09a6\u09bf\u09a8" onblur="saveFinSupplierPayDays(this.value)" style="width:70px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-family:var(--fm);font-size:11px;text-align:center"> \u09a6\u09bf\u09a8</div>';
+  if(d.wc.dpo===null) h+=gap('DPO \u09a8\u09be \u09ac\u09b8\u09be\u09b2\u09c7 Cash Cycle \u09b9\u09bf\u09b8\u09be\u09ac \u0995\u09b0\u09be \u09af\u09be\u09ac\u09c7 \u09a8\u09be \u2014 Dubai Purchase CRM \u09a5\u09c7\u0995\u09c7 \u09b8\u0982\u0996\u09cd\u09af\u09be\u099f\u09bf \u09ac\u09b8\u09be\u09a8\u09cb \u09a6\u09b0\u0995\u09be\u09b0\u0964');
+  if(d.wc.dio!==null && d.wc.dio<10) h+=gap('\u09b8\u09cd\u099f\u0995 \u09ae\u09be\u09a4\u09cd\u09b0 '+d.wc.dio+' \u09a6\u09bf\u09a8\u09c7\u09b0 \u2014 \u098f\u099f\u09bf \u09a6\u0995\u09cd\u09b7\u09a4\u09be \u09a8\u09af\u09bc, stock-out \u09dd\u09c1\u0981\u0995\u09bf\u0964 \u09a6\u09c1\u09ac\u09be\u0987 \u09a5\u09c7\u0995\u09c7 \u09ae\u09be\u09b2 \u0986\u09b8\u09a4\u09c7 \u098f\u09b0 \u099a\u09c7\u09af\u09bc\u09c7 \u09ac\u09c7\u09b6\u09bf \u09b8\u09ae\u09af\u09bc \u09b2\u09be\u0997\u09c7\u0964');
+
+  // ── ২. Accounts Receivable ──
+  h+=head('\u{1F4B0} 2. Accounts Receivable');
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px">';
+  h+=card('\u09ae\u09cb\u099f Invoice', L(d.ar.invoiced), d.ar.collectionPct+'% \u0986\u09a6\u09be\u09af\u09bc', B);
+  h+=card('\u09ac\u0995\u09c7\u09af\u09bc\u09be', M(d.ar.due), d.ar.openCount+'\u099f\u09bf invoice', d.ar.due>0?W:G);
+  h+=card('Overdue', M(d.ar.overdueAmt), d.ar.overdueCnt+'\u099f\u09bf', d.ar.overdueCnt>0?R:G);
+  h+=card('\u09b8\u09ac\u099a\u09c7\u09af\u09bc\u09c7 \u09aa\u09c1\u09b0\u09cb\u09a8\u09cb', d.ar.oldest?d.ar.oldest.age+' \u09a6\u09bf\u09a8':'\u2014',
+          d.ar.oldest?(d.ar.oldest.name+' \u00b7 #'+d.ar.oldest.no):'', d.ar.oldest&&d.ar.oldest.age>30?R:G);
+  h+='</div>';
+  var ag=d.ar.ageing;
+  h+='<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px"><thead><tr style="color:var(--text3);border-bottom:1px solid var(--border)">';
+  ['\u09ac\u09af\u09bc\u09b8','\u099f\u09be\u0995\u09be','\u0985\u09ac\u09b8\u09cd\u09a5\u09be'].forEach(function(c){h+='<th style="padding:5px 8px;text-align:left;font-weight:500">'+c+'</th>';});
+  h+='</tr></thead><tbody>';
+  [['0\u20137 \u09a6\u09bf\u09a8',ag.d7,G,'\u09b8\u09cd\u09ac\u09be\u09ad\u09be\u09ac\u09bf\u0995'],['8\u201315 \u09a6\u09bf\u09a8',ag.d15,G,'\u09b8\u09cd\u09ac\u09be\u09ad\u09be\u09ac\u09bf\u0995'],
+   ['16\u201330 \u09a6\u09bf\u09a8',ag.d30,W,'\u09a8\u099c\u09b0\u09c7 \u09b0\u09be\u0996\u09c1\u09a8'],['31\u201360 \u09a6\u09bf\u09a8',ag.d60,W,'\u09dd\u09c1\u0981\u0995\u09bf'],
+   ['60+ \u09a6\u09bf\u09a8',ag.d60p,R,'\u09ac\u09bf\u09aa\u09a6']].forEach(function(row){
+    h+='<tr style="border-bottom:1px solid var(--border)"><td style="padding:5px 8px">'+row[0]+'</td>'
+      +'<td style="padding:5px 8px;font-family:var(--fm);font-weight:600;color:'+(row[1]>0?row[2]:'var(--text3)')+'">'+M(row[1])+'</td>'
+      +'<td style="padding:5px 8px;font-size:11px;color:'+(row[1]>0?row[2]:'var(--text3)')+'">'+(row[1]>0?row[3]:'\u2014')+'</td></tr>';
+  });
+  h+='</tbody></table>';
+  if(d.ar.topShare!==null && d.ar.debtors.length){
+    var tc=d.ar.debtors[0];
+    if(d.ar.topShare>=30) h+=gap('\u09ae\u09cb\u099f \u09ac\u0995\u09c7\u09af\u09bc\u09be\u09b0 <b>'+d.ar.topShare+'%</b> \u098f\u0995\u09be\u0987 '+tc.name+'-\u098f\u09b0 \u0995\u09be\u099b\u09c7 ('+M(tc.due)+') \u2014 concentration \u09dd\u09c1\u0981\u0995\u09bf\u0964');
+  }
+
+  // ── ৩. Daily Office Expense ──
+  h+=head('\u{1F9FE} 3. Daily Office Expense');
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px">';
+  h+=card('\u0985\u09ab\u09bf\u09b8 \u0996\u09b0\u099a', M(d.exp.office), '\u09b8\u09ac \u09b8\u09ae\u09af\u09bc\u09c7\u09b0', d.exp.office>0?B:R);
+  h+=card('Return Fix', M(d.exp.returnFix), '', B);
+  h+=card('Owner Draw', M(d.exp.personal), 'Rashad Personal', d.exp.personal>0?P:R);
+  h+=card('\u098f\u09a8\u09cd\u099f\u09cd\u09b0\u09bf', d.exp.entries+'\u099f\u09bf', d.exp.dayCount+' \u09a6\u09bf\u09a8\u09c7\u09b0', d.exp.dayCount<10?R:G);
+  h+='</div>';
+  if(d.exp.office===0) h+=gap('\u0985\u09ab\u09bf\u09b8 \u0996\u09b0\u099a \u098f\u0995\u099f\u09bf\u0993 \u09b2\u09c7\u0996\u09be \u09b9\u09af\u09bc\u09a8\u09bf \u2014 \u09ac\u09c7\u09a4\u09a8, \u0995\u09c1\u09b0\u09bf\u09af\u09bc\u09be\u09b0, \u0985\u09ab\u09bf\u09b8 \u0996\u09b0\u099a \u09a8\u09be \u09ac\u09b8\u09be\u09b2\u09c7 Net Profit \u09ac\u09c7\u09b0 \u0995\u09b0\u09be \u09af\u09be\u09ac\u09c7 \u09a8\u09be\u0964');
+  else if(d.exp.dayCount<10) h+=gap('\u09ae\u09be\u09a4\u09cd\u09b0 '+d.exp.dayCount+' \u09a6\u09bf\u09a8\u09c7\u09b0 \u0996\u09b0\u099a \u09b2\u09c7\u0996\u09be \u0986\u099b\u09c7 \u2014 \u09aa\u09cd\u09b0\u09a4\u09bf\u09a6\u09bf\u09a8 \u098f\u09a8\u09cd\u099f\u09cd\u09b0\u09bf \u09a8\u09be \u09b9\u09b2\u09c7 Net \u09b8\u0982\u0996\u09cd\u09af\u09be \u09ac\u09bf\u09b6\u09cd\u09ac\u09be\u09b8\u09af\u09cb\u0997\u09cd\u09af \u09a8\u09af\u09bc\u0964');
+
+  // ── ৪. Purchase Finance ──
+  h+=head('\u{1F4E6} 4. Purchase Finance');
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px">';
+  h+=card('Dubai \u0995\u09cd\u09b0\u09af\u09bc\u09ae\u09c2\u09b2\u09cd\u09af', L(d.pf.dubaiSpend), d.pf.totalPcs+' pcs', B);
+  h+=card('Cargo Charge', M(d.pf.cargoSpend), d.pf.cargoCoverPct+'% pcs-\u098f \u09b2\u09c7\u0996\u09be', d.pf.cargoCoverPct>0?P:R);
+  h+=card('Landed Cost', L(d.pf.landedSpend), 'Dubai + Cargo', G);
+  h+=card('\u09b8\u09cd\u099f\u0995\u09c7 \u0986\u099f\u0995\u09be', M(d.pf.landedCapital), d.wc.unsoldPcs+' pcs', W);
+  h+='</div>';
+  if(d.pf.cargoCoverPct<100) h+=gap('\u0995\u09be\u09b0\u09cd\u0997\u09cb \u099a\u09be\u09b0\u09cd\u099c \u09ae\u09be\u09a4\u09cd\u09b0 '+d.pf.cargoCoverPct+'% pcs-\u098f \u09b2\u09c7\u0996\u09be \u0986\u099b\u09c7 \u2014 \u09ac\u09be\u0995\u09bf\u0997\u09c1\u09b2\u09cb\u09b0 ROI \u098f\u0996\u09a8\u0993 \u09ac\u09be\u09dc\u09bf\u09af\u09bc\u09c7 \u09a6\u09c7\u0996\u09be\u099a\u09cd\u099b\u09c7\u0964');
+
+  // ── ৫. Reinvestment ──
+  h+=head('\u{1F331} 5. Reinvestment');
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px">';
+  h+=card('Gross Profit', d.ri.gross===null?'\u2014':M(d.ri.gross), 'Cargo \u09ac\u09be\u09a6\u09c7', B);
+  h+=card('Cargo \u0995\u09be\u099f\u09be\u09b0 \u09aa\u09b0', d.ri.grossAfterCargo===null?'\u2014':M(d.ri.grossAfterCargo), '\u2212'+M(d.ri.cargoOnSold), P);
+  h+=card('Net Profit', d.ri.net===null?'\u2014':M(d.ri.net), '\u0996\u09b0\u099a \u0995\u09be\u099f\u09be\u09b0 \u09aa\u09b0', d.ri.net!==null&&d.ri.net>0?G:R);
+  h+=card('Reinvestment %', d.ri.reinvestPct===null?'\u09a1\u09c7\u099f\u09be \u09a8\u09c7\u0987':d.ri.reinvestPct+'%', 'Owner Draw \u09ac\u09be\u09a6\u09c7', d.ri.reinvestPct===null?R:G);
+  h+='</div>';
+  if(d.ri.reinvestPct===null) h+=gap('Owner Draw \u098f\u0995\u099f\u09bf\u0993 \u09b2\u09c7\u0996\u09be \u09a8\u09c7\u0987 \u2014 \u09b2\u09be\u09ad\u09c7\u09b0 \u0995\u09a4 \u09b6\u09a4\u09be\u0982\u09b6 \u09ac\u09cd\u09af\u09ac\u09b8\u09be\u09af\u09bc \u09ab\u09bf\u09b0\u099b\u09c7 \u09a4\u09be \u099c\u09be\u09a8\u09be \u09af\u09be\u099a\u09cd\u099b\u09c7 \u09a8\u09be\u0964 \u09eb \u09ac\u099b\u09b0\u09c7 \u09e7\u09e6\u09e6 \u0995\u09cb\u099f\u09bf\u09b0 \u09b2\u0995\u09cd\u09b7\u09cd\u09af\u09c7 \u098f\u099f\u09be\u0987 \u09b8\u09ac\u099a\u09c7\u09af\u09bc\u09c7 \u0997\u09c1\u09b0\u09c1\u09a4\u09cd\u09ac\u09aa\u09c2\u09b0\u09cd\u09a3 \u09b8\u0982\u0996\u09cd\u09af\u09be\u0964');
+
+  // ── ৬. Net Worth ──
+  h+=head('\u{1F3E6} 6. Net Worth');
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px">';
+  h+=card('\u09b8\u09cd\u099f\u0995 \u09ae\u09c2\u09b2\u09cd\u09af', M(d.nw.stockValue), 'Landed', B);
+  h+=card('\u09aa\u09be\u0993\u09a8\u09be', M(d.nw.receivables), d.ar.openCount+'\u099f\u09bf invoice', B);
+  h+=card('\u09af\u09a4\u099f\u09c1\u0995\u09c1 \u099c\u09be\u09a8\u09be', M(d.nw.known), '\u09b8\u09cd\u099f\u0995 + \u09aa\u09be\u0993\u09a8\u09be', W);
+  h+=card('Net Worth', '\u09b9\u09bf\u09b8\u09be\u09ac \u0985\u09b8\u09ae\u09cd\u09ad\u09ac', d.nw.missing.length+'\u099f\u09bf \u0989\u09aa\u09be\u09a6\u09be\u09a8 \u09a8\u09c7\u0987', R);
+  h+='</div>';
+  h+=gap('Net Worth \u09ac\u09c7\u09b0 \u0995\u09b0\u09a4\u09c7 \u098f\u0996\u09a8\u0993 \u09a6\u09b0\u0995\u09be\u09b0: '+d.nw.missing.join(' \u00b7 '));
+
+  h+='</div>';
+  return h;
+}
+
 function renderBizStockCashIntel(){
   var d = getBizStockCashIntel();
   var h='<div style="margin-bottom:22px">';
@@ -8473,6 +8779,7 @@ function renderBizDetail(key){
                     : (key==='sales')     ? '\u{1F4B0} 5 Sales Strategy'
                     : (key==='custservice') ? '\u{1F91D} '+rec.engines.length+' Customer Service \u09B8\u09CD\u09A4\u09AE\u09CD\u09AD \u2014 Proof Before Dispatch'
                     : (key==='operations') ? '\u2699\uFE0F '+rec.engines.length+' Operations \u09A7\u09BE\u09AA \u2014 Daily Office Activity Management'
+                    : (key==='finance') ? '\u{1F4CA} '+rec.engines.length+' Finance \u09AB\u09BF\u09B2\u09CD\u09A1 \u2014 Cash Rotation > Sales Volume'
                     : '\u{1F3D7}️ '+rec.engines.length+' Business Engines';
     h+='<div style="margin-bottom:18px">';
     h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">'+pillarLabel+'</div>';
@@ -8491,6 +8798,9 @@ function renderBizDetail(key){
       h+=renderBizOrderSize();
       h+=renderBizAccountPlans();
       h+=renderBizPushSummary();
+    }
+    if(key==='finance'){
+      h+=renderBizFinanceIntel();
     }
     if(key==='marketing'){
       h+=renderBizAcquisition();
