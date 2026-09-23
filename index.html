@@ -471,18 +471,22 @@ body{max-width:100vw;overflow-x:hidden!important}
   </div>
   <div class="stab-c" id="sc_add">
     <div class="card">
-      <div class="ctit">+ &#x09A8;&#x09A4;&#x09C1;&#x09A8; Stock Batch</div>
-      <div style="display:grid;grid-template-columns:2fr 90px 80px 80px 90px 90px auto;gap:8px;align-items:end;margin-bottom:10px">
-        <div><label class="lbl">Model Name</label><input id="sb_m" placeholder="HP EliteBook 845 G8" list="mlist" style="font-family:var(--fm)" oninput="autoDetectBrand()"></div>
-        <div><label class="lbl">Brand</label><select id="sb_brand" style="font-size:11px"><option value="HP">HP</option><option value="Dell">Dell</option><option value="Lenovo">Lenovo</option><option value="Asus">Asus</option><option value="Acer">Acer</option><option value="Other">Other</option></select></div>
-        <div><label class="lbl">Config</label><input id="sb_desc" type="text" placeholder="Config e.g. 8/256" style="font-family:var(--fm);font-size:11px;width:105px;padding:4px 7px" maxlength="30"></div>
+      <div class="ctit">+ &#x09A8;&#x09A4;&#x09C1;&#x09A8; Stock Batch — এক সাথে একাধিক মডেল</div>
+      <div style="display:grid;grid-template-columns:130px 1fr 1.2fr;gap:8px;align-items:end;margin-bottom:12px">
         <div><label class="lbl">Entry Date</label><input id="sb_d" type="date"></div>
-        <div><label class="lbl">Qty</label><input id="sb_q" type="number" min="1" placeholder="0" style="text-align:center"></div>
-        <div><label class="lbl">Cost/pc ৳</label><input id="sb_c" type="number" min="0" placeholder="0" style="text-align:right;border-color:rgba(249,115,22,.3)"></div>
-        <div style="min-width:90px"><label class="lbl">Sell Price ৳</label><input id="sb_sp" type="number" min="0" placeholder="0" style="text-align:right;border-color:rgba(52,211,153,.3)"></div>
-        <div style="padding-top:16px"><button class="btn btn-r" onclick="addBatch()">+ Add</button></div>
+        <div><label class="lbl">Supplier</label><input id="sb_sup" list="suplist" placeholder="সাপ্লায়ারের নাম" style="font-size:11px"><datalist id="suplist"></datalist></div>
+        <div><label class="lbl">Note — সব মডেলের জন্য</label><input id="sb_n" placeholder="Note (optional)..." style="font-size:11px"></div>
       </div>
-      <input id="sb_n" placeholder="Note (optional)..." style="width:100%">
+      <div style="display:grid;grid-template-columns:2fr 90px 105px 70px 95px 100px 30px;gap:8px;margin-bottom:4px">
+        <span class="lbl">Model Name</span><span class="lbl">Brand</span><span class="lbl">Config</span>
+        <span class="lbl">Qty</span><span class="lbl">Cost/pc ৳</span><span class="lbl">Sell Price ৳</span><span></span>
+      </div>
+      <div id="sbRows"></div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px">
+        <button class="btn btn-o" onclick="sbAddRow()" style="font-size:11px">+ আরও একটি মডেল</button>
+        <div id="sbTot" style="flex:1;font-family:var(--fm);font-size:11px;color:var(--text3)"></div>
+        <button class="btn btn-r" onclick="addBatch()">✅ সব Batch সেভ করুন</button>
+      </div>
     </div>
     <div class="card" style="margin-top:0">
       <div class="ctit">&#x1F550; Recent Batches</div>
@@ -1372,6 +1376,9 @@ var _cloudCustomersSeen = false;
 var _pendingSync = false;
 async function syncToFirebase(){
   if(!window._fbReady || !fsdb){ showSync('\u26A0\uFE0F Offline mode'); return; }
+  // Build-50: Business System \u09b8\u09ac\u09be\u09b0 \u0986\u0997\u09c7 \u0993 \u0986\u09b2\u09be\u09a6\u09be\u09ad\u09be\u09ac\u09c7 \u09aa\u09be\u09a0\u09be\u09a8\u09cb \u09b9\u09af\u09bc, \u09af\u09be\u09a4\u09c7 \u09a8\u09bf\u099a\u09c7\u09b0 \u0995\u09cb\u09a8\u09cb
+  // early return \u09a4\u09be\u09b0 \u09b2\u09c7\u0996\u09be \u0986\u099f\u0995\u09c7 \u09a6\u09bf\u09a4\u09c7 \u09a8\u09be \u09aa\u09be\u09b0\u09c7\u0964 \u0986\u0997\u09c7 \u09a0\u09bf\u0995 \u098f\u0996\u09be\u09a8\u09c7\u0987 \u09b2\u09c7\u0996\u09be \u0986\u099f\u0995\u09c7 \u09af\u09c7\u09a4\u0964
+  try{ saveBizSystemToCloud(null, true); }catch(e){ console.warn('bizSystem push:', e); }
   if(!_cloudCustomersSeen){
     // Build-45: আগে এখানে চুপচাপ ফিরে যাওয়া হতো — এবং তারপর listener এসে
     // লোকাল কপি চাপা দিয়ে দিত, ফলে সদ্য লেখা এন্ট্রি হারিয়ে যেত।
@@ -1472,30 +1479,75 @@ function cloudBadge(state, text, retryFn){
 }
 
 // একটি ডকুমেন্ট লিখে, সার্ভার থেকে পড়ে নিশ্চিত করে
-async function cloudSaveVerified(collName, docId, data, label){
+// Build-50: opts.merge=false দিলে পুরো ডকুমেন্ট বদলে যায় (মুছে ফেলা অংশ cloud-এ থেকে যায় না),
+//           opts.quiet=true দিলে নিচের ব্যাজ দেখানো হয় না।
+async function cloudSaveVerified(collName, docId, data, label, opts){
+  opts = opts || {};
+  var quiet = !!opts.quiet;
+  var useMerge = (opts.merge === undefined) ? true : !!opts.merge;
+  function badge(st, tx, rt){ if(!quiet) cloudBadge(st, tx, rt); }
   if(!window._fbReady || !fsdb){
-    cloudBadge('fail', '❌ Cloud কানেকশন নেই — ' + label + ' শুধু এই ডিভাইসে');
+    badge('fail', '❌ Cloud কানেকশন নেই — ' + label + ' শুধু এই ডিভাইসে');
     return false;
   }
   _cloudPending++;
-  cloudBadge('busy', '⏳ ' + label + ' cloud-এ পাঠানো হেচ্ছে...');
+  badge('busy', '⏳ ' + label + ' cloud-এ পাঠানো হচ্ছে...');
   try{
-    await fsdb.collection(collName).doc(String(docId)).set(sanitize(data), {merge:true});
+    await fsdb.collection(collName).doc(String(docId)).set(sanitize(data), useMerge ? {merge:true} : {});
     // সার্ভার থেকেই পড়া — cache থেকে নয়, নইলে যাচাইয়ের কোনো মানে থাকে না
     var chk = await fsdb.collection(collName).doc(String(docId)).get({source:'server'});
     _cloudPending--;
     if(chk.exists){
-      cloudBadge('ok', '✅ ' + label + ' cloud-এ সেভ হয়েছে');
+      badge('ok', '✅ ' + label + ' cloud-এ সেভ হয়েছে');
       return true;
     }
-    cloudBadge('fail', '❌ ' + label + ' cloud-এ পৌঁছায়নি', 'retryCloudSaves()');
+    badge('fail', '❌ ' + label + ' cloud-এ পৌঁছায়নি', 'retryCloudSaves()');
     return false;
   }catch(e){
     _cloudPending--;
     console.error('cloudSaveVerified failed', collName, docId, e);
-    cloudBadge('fail', '❌ ' + label + ' cloud-এ যায়নি (' + (e.code||'error') + ')', 'retryCloudSaves()');
+    badge('fail', '❌ ' + label + ' cloud-এ যায়নি (' + (e.code||'error') + ')', 'retryCloudSaves()');
     return false;
   }
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// Build-50 — Business System-এর লেখা আর হারাবে না
+// দুটি ত্রুটি একসাথে কাজ করছিল:
+//   ১) Business System শুধু syncToFirebase()-এর ভেতরে লেখা হতো। সেই ফাংশনের
+//      দুটি early return (cloud ডেটা আসেনি / shrink guard) থাকলে businessSystem
+//      ডকুমেন্টটি কখনোই cloud-এ যেত না — লেখা শুধু এই ডিভাইসেই পড়ে থাকত।
+//   ২) তারপর listener এসে db.businessSystem-কে cloud কপি দিয়ে সরাসরি বদলে দিত।
+//      cloud কপিটা পুরোনো, তাই লেখা ও ছবির রেফারেন্স সব মুছে যেত।
+// ══════════════════════════════════════════════════════════════════════════
+
+// একটি businessSystem কপিতে কত "লেখা" আছে তা গোনা — গঠন যাই হোক কাজ করে।
+// _ দিয়ে শুরু কী (যেমন _savedAt) বাদ, কারণ ওগুলো বিষয়বস্তু নয়।
+function bizContentWeight(bs){
+  var n = 0, visited = 0;
+  (function walk(v){
+    if(v===null || v===undefined) return;
+    if(visited++ > 300000) return;
+    if(typeof v === 'string'){ if(v.trim()) n++; return; }
+    if(typeof v === 'number' || typeof v === 'boolean') return;
+    if(Array.isArray(v)){ v.forEach(walk); return; }
+    if(typeof v === 'object'){
+      Object.keys(v).forEach(function(k){ if(k.charAt(0) !== '_') walk(v[k]); });
+    }
+  })(bs);
+  return n;
+}
+
+// Business System সরাসরি cloud-এ — যাচাই সহ, syncToFirebase()-এর উপর নির্ভর নয়।
+// merge:false — নইলে মুছে ফেলা অংশ cloud-এ থেকে গিয়ে আবার ফিরে আসত।
+async function saveBizSystemToCloud(label, quiet){
+  if(!db.businessSystem) db.businessSystem = {};
+  db.businessSystem._savedAt = Date.now();
+  saveDB();
+  return await cloudSaveVerified('meta', 'businessSystem',
+    { businessSystem: db.businessSystem, _savedAt: db.businessSystem._savedAt },
+    label || 'Business System', { merge:false, quiet: !!quiet });
 }
 
 // একটি stock batch সরাসরি cloud-এ — doc id = batch-এর নিজের id
@@ -1711,7 +1763,25 @@ function startRealtimeSync(){
       if(docSnap.exists){
         const data = docSnap.data();
         if(data && data.businessSystem){
-          db.businessSystem = data.businessSystem;
+          // Build-50: \u0986\u0997\u09c7 \u098f\u0996\u09be\u09a8\u09c7 \u09b8\u09b0\u09be\u09b8\u09b0\u09bf \u099a\u09be\u09aa\u09be \u09a6\u09c7\u0993\u09af\u09bc\u09be \u09b9\u09a4\u09cb\u0964 cloud \u0995\u09aa\u09bf \u09aa\u09c1\u09b0\u09cb\u09a8\u09cb \u09b9\u09b2\u09c7
+          // Business System-\u098f \u09b2\u09c7\u0996\u09be \u09b8\u09ac (\u0993 \u099b\u09ac\u09bf\u09b0 \u09b0\u09c7\u09ab\u09be\u09b0\u09c7\u09a8\u09cd\u09b8) \u09ae\u09c1\u099b\u09c7 \u09af\u09c7\u09a4\u0964
+          var _inc = data.businessSystem;
+          var _localW = bizContentWeight(db.businessSystem);
+          var _cloudW = bizContentWeight(_inc);
+          var _localAt = (db.businessSystem && db.businessSystem._savedAt) || 0;
+          var _cloudAt = data._savedAt || _inc._savedAt || 0;
+          // \u099b\u09cb\u099f \u0995\u09aa\u09bf \u09a8\u09c7\u0993\u09af\u09bc\u09be \u09b9\u09af\u09bc \u09b6\u09c1\u09a7\u09c1 \u09a4\u0996\u09a8\u0987, \u09af\u0996\u09a8 \u09b8\u09c7\u099f\u09bf \u09b8\u09cd\u09aa\u09b7\u09cd\u099f\u09a4\u0987 \u09a8\u09a4\u09c1\u09a8 \u098f\u09ac\u0982
+          // \u09aa\u09be\u09b0\u09cd\u09a5\u0995\u09cd\u09af \u09b8\u09be\u09ae\u09be\u09a8\u09cd\u09af (\u0985\u09a8\u09cd\u09af \u09a1\u09bf\u09ad\u09be\u0987\u09b8 \u09a5\u09c7\u0995\u09c7 \u09b8\u09a4\u09cd\u09af\u09bf\u0995\u09be\u09b0\u09c7\u09b0 \u09ae\u09c1\u099b\u09c7 \u09ab\u09c7\u09b2\u09be)\u0964
+          // cloud কপি নতুন হলে স্বাভাবিক মুছে ফেলা মেনে নেওয়া হয়,
+          // কিন্তু অর্ধেকের বেশি লেখা একসাথে উধাও হলে সেটি দুর্ঘটনা — তখন লোকালই রাখা হয়।
+          var _okToShrink = (_cloudAt > _localAt) && (_cloudW >= _localW * 0.5);
+          if(_cloudW < _localW && !_okToShrink){
+            console.warn('BizSystem: cloud copy smaller — keeping local', {local:_localW, cloud:_cloudW});
+            try{ showOfflineAlarm(true, 'Business System-\u098f\u09b0 cloud \u0995\u09aa\u09bf \u099b\u09cb\u099f \u099b\u09bf\u09b2 \u2014 \u098f\u0987 \u09a1\u09bf\u09ad\u09be\u0987\u09b8\u09c7\u09b0 \u09b2\u09c7\u0996\u09be \u09b0\u09be\u0996\u09be \u09b9\u09af\u09bc\u09c7\u099b\u09c7'); }catch(e){}
+            try{ saveBizSystemToCloud('Business System (\u09b2\u09cb\u0995\u09be\u09b2 \u0995\u09aa\u09bf \u09b0\u0995\u09cd\u09b7\u09be)'); }catch(e){}
+            return;
+          }
+          db.businessSystem = _inc;
           ensureBizSystemDefaults();
           saveDB();
           if(document.getElementById('bizsystem')&&document.getElementById('bizsystem').classList.contains('active') && !bizIsEditing()){
@@ -4746,26 +4816,145 @@ function delCust(cid){
 }
 
 
+// ══════════════════════════════════════════════════════════════════════════
+// Build-51 — এক সাথে একাধিক মডেল + Supplier
+// Entry Date, Supplier আর Note একবার লেখা হয় (এক ট্রিপ = এক সাপ্লাইয়ার),
+// আর নিচে যত মডেল দরকার তত সারি। প্রতিটি সারি আলাদা batch হয়ে cloud-এ যায়।
+// ══════════════════════════════════════════════════════════════════════════
+var _sbData = [];
+
+function sbBlankRow(){ return {m:'',brand:'HP',desc:'',q:'',c:'',sp:''}; }
+
+// DOM থেকে লেখা মানগুলো _sbData-তে তুলে রাখা — re-render-এ কিছু হারায় না
+function sbReadDOM(){
+  _sbData.forEach(function(r,i){
+    function v(pre){ var e=document.getElementById(pre+i); return e ? e.value : undefined; }
+    var x;
+    if((x=v('sb_m_'))!==undefined) r.m=x;
+    if((x=v('sb_brand_'))!==undefined) r.brand=x;
+    if((x=v('sb_desc_'))!==undefined) r.desc=x;
+    if((x=v('sb_q_'))!==undefined) r.q=x;
+    if((x=v('sb_c_'))!==undefined) r.c=x;
+    if((x=v('sb_sp_'))!==undefined) r.sp=x;
+  });
+}
+
+function sbBrandOptions(sel){
+  return ['HP','Dell','Lenovo','Asus','Acer','Other'].map(function(b){
+    return '<option value="'+b+'"'+(b===sel?' selected':'')+'>'+b+'</option>';
+  }).join('');
+}
+
+function sbRenderRows(){
+  var host=document.getElementById('sbRows'); if(!host) return;
+  if(!_sbData.length) _sbData=[sbBlankRow()];
+  var multi=_sbData.length>1;
+  var esc=function(v){ return String(v==null?'':v).replace(/"/g,'&quot;'); };
+  var h='';
+  _sbData.forEach(function(r,i){
+    h+='<div style="display:grid;grid-template-columns:2fr 90px 105px 70px 95px 100px 30px;gap:8px;margin-bottom:6px;align-items:center">';
+    h+='<input id="sb_m_'+i+'" list="mlist" value="'+esc(r.m)+'" placeholder="HP EliteBook 845 G8" oninput="sbAutoBrand('+i+')" style="font-family:var(--fm)">';
+    h+='<select id="sb_brand_'+i+'" style="font-size:11px">'+sbBrandOptions(r.brand)+'</select>';
+    h+='<input id="sb_desc_'+i+'" value="'+esc(r.desc)+'" maxlength="30" placeholder="8/256" style="font-family:var(--fm);font-size:11px">';
+    h+='<input id="sb_q_'+i+'" type="number" min="1" value="'+esc(r.q)+'" placeholder="0" oninput="sbTotals()" style="text-align:center">';
+    h+='<input id="sb_c_'+i+'" type="number" min="0" value="'+esc(r.c)+'" placeholder="0" oninput="sbTotals()" style="text-align:right;border-color:rgba(249,115,22,.3)">';
+    h+='<input id="sb_sp_'+i+'" type="number" min="0" value="'+esc(r.sp)+'" placeholder="0" style="text-align:right;border-color:rgba(52,211,153,.3)">';
+    h+= multi
+      ? '<button onclick="sbRemoveRow('+i+')" title="\u098f\u0987 \u09b8\u09be\u09b0\u09bf \u09ac\u09be\u09a6" style="background:transparent;border:1px solid var(--border);color:var(--red);border-radius:6px;cursor:pointer;padding:5px 0;font-size:11px">\u2715</button>'
+      : '<span></span>';
+    h+='</div>';
+  });
+  host.innerHTML=h;
+  sbTotals();
+}
+
+function sbAddRow(){ sbReadDOM(); _sbData.push(sbBlankRow()); sbRenderRows();
+  var el=document.getElementById('sb_m_'+(_sbData.length-1)); if(el) el.focus(); }
+
+function sbRemoveRow(i){ sbReadDOM(); _sbData.splice(i,1); if(!_sbData.length) _sbData=[sbBlankRow()]; sbRenderRows(); }
+
+function sbResetRows(){ _sbData=[sbBlankRow()]; sbRenderRows(); }
+
+function sbAutoBrand(i){
+  var m=document.getElementById('sb_m_'+i), br=document.getElementById('sb_brand_'+i);
+  if(!m||!br) return;
+  br.value=autoDetectBrandFromName(m.value);
+}
+
+function sbTotals(){
+  sbReadDOM();
+  var el=document.getElementById('sbTot'); if(!el) return;
+  var rows=0,pcs=0,val=0;
+  _sbData.forEach(function(r){
+    var q=parseInt(r.q)||0, c=parseInt(r.c)||0;
+    if(!(r.m||'').trim() || q<1) return;
+    rows++; pcs+=q; val+=q*c;
+  });
+  el.innerHTML = rows
+    ? '<b style="color:var(--green)">'+rows+'</b> \u09ae\u09a1\u09c7\u09b2 \u00b7 <b style="color:var(--green)">'+pcs+'</b> pcs \u00b7 \u09ae\u09cb\u099f <b style="color:var(--gold)">\u09f3'+val.toLocaleString('en-IN')+'</b>'
+    : '';
+}
+
+// সাপ্লাইয়ারের নাম আগে যা ব্যবহার হয়েছে, তা থেকেই সাজেশন
+function sbRefreshSupplierList(){
+  var dl=document.getElementById('suplist'); if(!dl) return;
+  var seen={};
+  (stockDB.batches||[]).forEach(function(b){ var v=(b.supplier||'').trim(); if(v) seen[v]=true; });
+  dl.innerHTML=Object.keys(seen).sort().map(function(v){
+    return '<option value="'+v.replace(/"/g,'&quot;')+'">';
+  }).join('');
+}
+
 function addBatch(){
-  const m = ((document.getElementById('sb_m')||{}).value||'').trim();
+  sbReadDOM();
   const d = (document.getElementById('sb_d')||{}).value;
-  const q = parseInt((document.getElementById('sb_q')||{}).value)||0;
-  const cst = parseInt((document.getElementById('sb_c')||{}).value)||0;
-  const n = ((document.getElementById('sb_n')||{}).value||'').trim(); const cfg = ((document.getElementById('sb_desc')||{}).value||'').trim();
-  if(!m){ notify('Model \u09A6\u09BF\u09A8', true); return; }
+  const sup = ((document.getElementById('sb_sup')||{}).value||'').trim();
+  const sharedNote = ((document.getElementById('sb_n')||{}).value||'').trim();
   if(!d){ notify('Entry Date \u09A6\u09BF\u09A8', true); return; }
-  if(q<1){ notify('Qty \u09A6\u09BF\u09A8', true); return; }
-  if(cst<1){ notify('Cost/pc \u09A6\u09BF\u09A8', true); return; }
-  var spEl=document.getElementById('sb_sp');
-  const batch = {id:newBatchId(), model:m, brand:((document.getElementById('sb_brand')||{}).value||autoDetectBrandFromName(m)), entryDate:d, qtyReceived:q, qtySold:0, costPerPc:cst, expectedSellPrice:parseFloat(spEl&&spEl.value||0)||0, note:n, config:cfg||undefined, createdAt:TODAY};
-  stockDB.batches.unshift(batch);
+
+  // যাচাই — একটা সারিতেও ভুল থাকলে কিছুই সেভ হবে না
+  var rows=[], errs=[];
+  _sbData.forEach(function(r,i){
+    var m=(r.m||'').trim();
+    var q=parseInt(r.q)||0, c=parseInt(r.c)||0;
+    var empty = !m && !q && !c;
+    if(empty) return;                       // খালি সারি বাদ
+    if(!m){ errs.push((i+1)+' \u09a8\u0982 \u09b8\u09be\u09b0\u09bf\u09a4\u09c7 Model \u09a8\u09c7\u0987'); return; }
+    if(q<1){ errs.push(m+' \u2014 Qty \u09a6\u09bf\u09a8'); return; }
+    if(c<1){ errs.push(m+' \u2014 Cost/pc \u09a6\u09bf\u09a8'); return; }
+    rows.push({model:m, brand:(r.brand||autoDetectBrandFromName(m)), config:(r.desc||'').trim(),
+               qty:q, cost:c, sell:parseFloat(r.sp)||0});
+  });
+  if(errs.length){ notify(errs[0], true); return; }
+  if(!rows.length){ notify('\u0995\u09ae\u09aa\u0995\u09cd\u09b7\u09c7 \u098f\u0995\u099f\u09bf \u09ae\u09a1\u09c7\u09b2 \u09a6\u09bf\u09a8', true); return; }
+
+  var created=[];
+  rows.forEach(function(r){
+    var batch = {id:newBatchId(), model:r.model, brand:r.brand, entryDate:d,
+      qtyReceived:r.qty, qtySold:0, costPerPc:r.cost, expectedSellPrice:r.sell,
+      supplier: sup||undefined, note:sharedNote, config:r.config||undefined, createdAt:TODAY};
+    stockDB.batches.unshift(batch);
+    created.push(batch);
+  });
   saveStock();
-  // Build-47: সাথে সাথে cloud-এ, এবং পড়ে যাচাই করে জানানো
-  saveBatchToCloud(batch);
-  ['sb_m','sb_q','sb_c','sb_sp','sb_n','sb_desc'].forEach(function(id){ const el=document.getElementById(id); if(el) el.value=''; });
+
+  // Build-47: সাথে সাথে cloud-এ, প্রতিটি যাচাই করে
+  (async function(){
+    var okCount=0;
+    for(const b of created){ if(await saveBatchToCloud(b)) okCount++; }
+    if(okCount===created.length){
+      cloudBadge('ok', '\u2705 '+okCount+'\u099f\u09bf batch cloud-\u098f \u09b8\u09c7\u09ad \u09b9\u09af\u09bc\u09c7\u099b\u09c7');
+    }else{
+      cloudBadge('fail', '\u274c '+(created.length-okCount)+'\u099f\u09bf batch cloud-\u098f \u09af\u09be\u09af\u09bc\u09a8\u09bf', 'retryCloudSaves()');
+    }
+  })();
+
+  sbResetRows();
+  const sn=document.getElementById('sb_n'); if(sn) sn.value='';
   const de=document.getElementById('sb_d'); if(de) de.value=TODAY;
+  sbRefreshSupplierList();
   renderStockAll();
-  notify('\u2705 Batch added \u2014 '+m);
+  notify('\u2705 '+created.length+'\u099f\u09bf Batch \u09af\u09cb\u0997 \u09b9\u09b2\u09cb'+(sup?' \u00b7 '+sup:''));
 }
 
 function renderAgeTable(minDays, containerId){
@@ -4826,7 +5015,7 @@ function switchStab(tab){
   });
   var capEl=document.getElementById('capitalBlockers');
   if(capEl) capEl.style.display=(tab==='all')?'':'none';
-  if(tab==='add'){ var d=document.getElementById('sb_d'); if(d&&!d.value) d.value=TODAY; }
+  if(tab==='add'){ var d=document.getElementById('sb_d'); if(d&&!d.value) d.value=TODAY; try{ sbRenderRows(); sbRefreshSupplierList(); }catch(e){} }
   if(tab==='history'){ renderModelBuyHistory(); return; }
   if(tab==='buylist'){ renderBuyList(); return; }
   if(tab==='returnin'){ renderReturnIn(); return; }
@@ -4849,10 +5038,20 @@ function renderBuyList(){
   if(af==='today') batches=batches.filter(function(b){return (b.entryDate||b.createdAt||'').slice(0,10)===TODAY;});
   else if(af==='week') batches=batches.filter(function(b){return (b.entryDate||b.createdAt||'').slice(0,10)>=weekStr;});
   else if(af==='month') batches=batches.filter(function(b){return (b.entryDate||b.createdAt||'').slice(0,10)>=monthStr;});
-  if(searchVal) batches=batches.filter(function(b){return (b.model||'').toLowerCase().indexOf(searchVal.toLowerCase())!==-1;});
+  // Build-51: Model \u09ac\u09be Supplier \u2014 \u09a6\u09c1\u0987\u099f\u09be\u09a4\u09c7\u0987 \u0996\u09c1\u0981\u099c\u09c7 \u09a6\u09c7\u0996\u09be \u09b9\u09af\u09bc
+  if(searchVal){
+    var _sv=searchVal.toLowerCase();
+    batches=batches.filter(function(b){
+      return (b.model||'').toLowerCase().indexOf(_sv)!==-1 || (b.supplier||'').toLowerCase().indexOf(_sv)!==-1;
+    });
+  }
+  var _supFilter=window._blSupplier||'';
+  if(_supFilter) batches=batches.filter(function(b){return (b.supplier||'')===_supFilter;});
   var totalQty=0,totalVal=0,modelCount={};
-  batches.forEach(function(b){var qty=parseInt(b.qtyReceived)||0;totalQty+=qty;totalVal+=(qty*(parseFloat(b.costPerPc)||0));var m=b.model||'Unknown';modelCount[m]=(modelCount[m]||0)+qty;});
+  var supCount={};
+  batches.forEach(function(b){var qty=parseInt(b.qtyReceived)||0;totalQty+=qty;totalVal+=(qty*(parseFloat(b.costPerPc)||0));var m=b.model||'Unknown';modelCount[m]=(modelCount[m]||0)+qty;var sp=(b.supplier||'').trim();if(sp)supCount[sp]=(supCount[sp]||0)+qty;});
   var topModel=Object.keys(modelCount).sort(function(a,b){return modelCount[b]-modelCount[a];})[0]||'-';
+  var topSup=Object.keys(supCount).sort(function(a,b){return supCount[b]-supCount[a];})[0]||'\u2014';
   batches.sort(function(a,b){var da=(a.entryDate||a.createdAt||''),db=(b.entryDate||b.createdAt||'');return db>da?1:db<da?-1:0;});
   var grouped={},dateOrder=[];
   batches.forEach(function(b){var d=(b.entryDate||b.createdAt||'').slice(0,10)||'Unknown';if(!grouped[d]){grouped[d]=[];dateOrder.push(d);}grouped[d].push(b);});
@@ -4863,10 +5062,22 @@ function renderBuyList(){
     var f=pair[0],lbl=pair[1],ac=af===f;
     h+='<button data-f="'+f+'" onclick="blFilter(this.dataset.f)" style="padding:4px 10px;border-radius:12px;border:1px solid '+(ac?'var(--blue)':'var(--border)')+';background:'+(ac?'var(--blue)':'transparent')+';color:'+(ac?'#fff':'var(--txt)')+';cursor:pointer;font-size:12px">'+lbl+'</button>';
   });
-  h+='<input type="text" placeholder="Model search..." value="'+searchVal.replace(/"/g,'&quot;')+'" oninput="blSearch(this.value)" style="padding:4px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--txt);font-size:11px;min-width:120px">';
+  h+='<input type="text" placeholder="Model / Supplier search..." value="'+searchVal.replace(/"/g,'&quot;')+'" oninput="blSearch(this.value)" style="padding:4px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--txt);font-size:11px;min-width:150px">';
+  // Build-51: \u09b8\u09be\u09aa\u09cd\u09b2\u09be\u09df\u09be\u09b0 \u09a7\u09b0\u09c7 \u09ab\u09bf\u09b2\u09cd\u099f\u09be\u09b0
+  var _allSup={};
+  ((parsed.batches)||[]).forEach(function(b){var v=(b.supplier||'').trim(); if(v)_allSup[v]=true;});
+  var _supKeys=Object.keys(_allSup).sort();
+  if(_supKeys.length){
+    h+='<select onchange="blSupplier(this.value)" style="padding:4px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--txt);font-size:11px">';
+    h+='<option value=""'+(_supFilter?'':' selected')+'>\u09b8\u09ac Supplier</option>';
+    _supKeys.forEach(function(v){
+      h+='<option value="'+v.replace(/"/g,'&quot;')+'"'+(v===_supFilter?' selected':'')+'>'+v+'</option>';
+    });
+    h+='</select>';
+  }
   h+='</div>';
   h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px">';
-  var kpis=[{label:'Total Batches',val:batches.length,col:'var(--blue)'},{label:'Total Qty',val:totalQty+' pcs',col:'var(--green)'},{label:'Total Value',val:'৳'+Math.round(totalVal).toLocaleString(),col:'var(--yellow)'},{label:'Top Model',val:topModel,col:'var(--purple)'}];
+  var kpis=[{label:'Total Batches',val:batches.length,col:'var(--blue)'},{label:'Total Qty',val:totalQty+' pcs',col:'var(--green)'},{label:'Total Value',val:'৳'+Math.round(totalVal).toLocaleString(),col:'var(--yellow)'},{label:'Top Model',val:topModel,col:'var(--purple)'},{label:'Top Supplier',val:topSup,col:'var(--cyan)'}];
   kpis.forEach(function(k){h+='<div style="background:var(--bg2);border-radius:10px;padding:10px;border-left:3px solid '+k.col+'"><div style="font-size:11px;color:var(--txt2)">'+k.label+'</div><div style="font-size:15px;font-weight:700;color:'+k.col+'">'+k.val+'</div></div>';});
   h+='</div>';
   if(!batches.length){h+='<div style="text-align:center;padding:30px;color:var(--txt2)">কোনো data নেই</div>';el.innerHTML=h;return;}
@@ -4875,17 +5086,19 @@ function renderBuyList(){
     h+='<div style="background:var(--bg2);border-radius:10px;margin-bottom:10px;overflow:hidden">';
     h+='<div style="background:var(--bg3);padding:8px 12px;font-size:12px;font-weight:600;color:var(--blue)">'+date+' <span style="font-weight:400;color:var(--txt2)">('+list.length+' batches)</span></div>';
     h+='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="color:var(--txt2);border-bottom:1px solid var(--border)">';
-    ['Brand','Model','Qty','Cost/pc','Total','Note'].forEach(function(c){h+='<th style="padding:6px 10px;text-align:left;font-weight:500">'+c+'</th>';});
+    ['Brand','Model','Supplier','Qty','Cost/pc','Total','Note'].forEach(function(c){h+='<th style="padding:6px 10px;text-align:left;font-weight:500">'+c+'</th>';});
     h+='</tr></thead><tbody>';
     list.forEach(function(b){
       var qty=parseInt(b.qtyReceived)||0,cost=parseFloat(b.costPerPc)||0;
-      h+='<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px">'+(b.brand||'-')+'</td><td style="padding:6px 10px;font-weight:600">'+(b.model||'-')+'</td><td style="padding:6px 10px">'+qty+'</td><td style="padding:6px 10px">৳'+Math.round(cost).toLocaleString()+'</td><td style="padding:6px 10px;font-weight:600;color:var(--green)">৳'+Math.round(qty*cost).toLocaleString()+'</td><td style="padding:6px 10px;color:var(--txt2);font-size:11px">'+(b.note||'-')+'</td></tr>';
+      var _sup=(b.supplier||'').trim();
+      h+='<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px">'+(b.brand||'-')+'</td><td style="padding:6px 10px;font-weight:600">'+(b.model||'-')+'</td><td style="padding:6px 10px;color:'+(_sup?'var(--cyan)':'var(--txt2)')+'">'+(_sup||'\u2014')+'</td><td style="padding:6px 10px">'+qty+'</td><td style="padding:6px 10px">৳'+Math.round(cost).toLocaleString()+'</td><td style="padding:6px 10px;font-weight:600;color:var(--green)">৳'+Math.round(qty*cost).toLocaleString()+'</td><td style="padding:6px 10px;color:var(--txt2);font-size:11px">'+(b.note||'-')+'</td></tr>';
     });
     h+='</tbody></table></div>';
   });
   el.innerHTML=h;
 }
 function blFilter(f){window._blActiveFilter=f;renderBuyList();}
+function blSupplier(v){window._blSupplier=v;renderBuyList();}
 function blSearch(val){window._blSearchVal=val;renderBuyList();}
 function renderReturnIn(){
   var el=document.getElementById('sc_returnin'); if(!el) return;
@@ -8327,12 +8540,14 @@ function bizStoreImage(meta, cb){
   var id = 'img'+Date.now()+Math.floor(Math.random()*1000);
   bizImgDB.images[id] = { id:id, data:meta.data, name:meta.name, w:meta.w, h:meta.h, addedAt:Date.now() };
   saveBizImgLocal();
+  // Build-50: ছবিও যাচাই করে পাঠানো হয় — আগে চুপচাপ ব্যর্থ হলে ছবি চিরতরে
+  // "⏳ load হচ্ছে" অবস্থায় আটকে থাকত।
   try{
-    if(typeof fsdb!=='undefined' && fsdb){
-      fsdb.collection('bizImages').doc(id).set({ data:meta.data, name:meta.name, w:meta.w, h:meta.h, addedAt:Date.now() })
-        .catch(function(err){ console.warn('bizImage upload:',err); notify('ছবি cloud-এ যায়নি (লোকালে আছে)', true); });
-    }
-  }catch(e){}
+    cloudSaveVerified('bizImages', id,
+      { data:meta.data, name:meta.name, w:meta.w, h:meta.h, addedAt:Date.now() },
+      'ছবি: ' + (meta.name||''))
+      .then(function(ok){ if(!ok) console.warn('bizImage not verified:', id); });
+  }catch(e){ console.warn('bizImage upload:', e); }
   cb(id);
 }
 
@@ -11795,6 +12010,7 @@ document.addEventListener('DOMContentLoaded', function(){
   loadDB();
   // Set stock date default
   const sd = document.getElementById('sb_d'); if(sd) sd.value=TODAY;
+  try{ sbRenderRows(); sbRefreshSupplierList(); }catch(e){}
   // Render
   renderAll();
   // First load: offer options
