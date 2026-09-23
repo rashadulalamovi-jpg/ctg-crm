@@ -1413,7 +1413,8 @@ async function syncToFirebase(){
       if(c.intel) batch.set(fsdb.collection('intel').doc(String(c.id)), sanitize(c.intel), {merge:true});
     });
     batch.set(fsdb.collection('meta').doc('tasks'), {tasks: db.tasks||[], _savedAt: Date.now()});
-    batch.set(fsdb.collection('meta').doc('businessSystem'), {businessSystem: db.businessSystem||{}, _savedAt: Date.now()});
+    // Build-52: businessSystem আর এই batch-এ লেখা হয় না — saveBizSystemToCloud()
+    // উপরে আলাদাভাবে, গেট সহ পাঠায়। এখানে রাখলে গেটটা এড়িয়ে যেত।
     await batch.commit();
     await syncStockBatches();
     showSync('\u2705 Synced ' + new Date().toLocaleTimeString());
@@ -1539,15 +1540,47 @@ function bizContentWeight(bs){
   return n;
 }
 
+// ── Build-52: নতুন Build deploy-এর পর লেখা হারানো বন্ধ ──
+// আসল ফাঁকটা ছিল লেখার দিকে, পড়ার দিকে নয়।
+// নতুন build আসার পর ব্রাউজারের site data মুছে গেলে (hard reload / cache clear /
+// অন্য ব্রাউজার) localStorage খালি হয়ে যায়। তখন ensureBizSystemDefaults() ফাঁকা
+// ডিফল্ট বসায়, আর প্রথম sync-ই সেই ফাঁকা কপি merge:false দিয়ে cloud-এ লিখে
+// দিত — সব ডিভাইসের আসল লেখা এক লেখাতেই শেষ।
+// এখন নিয়ম: cloud কপি একবারও না দেখে businessSystem কখনো cloud-এ লেখা হবে না।
+var _cloudBizSeen = false;    // cloud থেকে একবারও businessSystem এসেছে কি না
+var _cloudBizWeight = -1;     // সর্বশেষ দেখা cloud কপিতে কত লেখা ছিল
+var _bizPendingSync = false;  // cloud আসার আগে করা সম্পাদনা জমা থাকে, হারায় না
+
 // Business System সরাসরি cloud-এ — যাচাই সহ, syncToFirebase()-এর উপর নির্ভর নয়।
 // merge:false — নইলে মুছে ফেলা অংশ cloud-এ থেকে গিয়ে আবার ফিরে আসত।
 async function saveBizSystemToCloud(label, quiet){
   if(!db.businessSystem) db.businessSystem = {};
+  var w = bizContentWeight(db.businessSystem);
+
+  // গেট ১ — cloud কপি একবারও দেখিনি, তাই এই ডিভাইসের কপি বিশ্বাসযোগ্য নয়
+  if(!_cloudBizSeen){
+    _bizPendingSync = true;
+    saveDB();
+    console.warn('BizSystem write queued — cloud copy not seen yet');
+    return false;
+  }
+
+  // গেট ২ — cloud-এ যা দেখেছি তার অর্ধেকের কমে নেমে গেলে এটি দুর্ঘটনা,
+  // সজ্ঞানে মুছে ফেলা নয়। এমন কপি আপলোড করা হয় না।
+  if(_cloudBizWeight > 0 && w < _cloudBizWeight * 0.5){
+    saveDB();
+    console.error('BizSystem write BLOCKED — would wipe cloud', {local:w, cloud:_cloudBizWeight});
+    try{ showOfflineAlarm(true, 'Business System-এর এই কপিতে লেখা অনেক কম — cloud-এ লেখা হয়নি'); }catch(e){}
+    return false;
+  }
+
   db.businessSystem._savedAt = Date.now();
   saveDB();
-  return await cloudSaveVerified('meta', 'businessSystem',
+  var ok = await cloudSaveVerified('meta', 'businessSystem',
     { businessSystem: db.businessSystem, _savedAt: db.businessSystem._savedAt },
     label || 'Business System', { merge:false, quiet: !!quiet });
+  if(ok){ _cloudBizWeight = w; _bizPendingSync = false; }
+  return ok;
 }
 
 // একটি stock batch সরাসরি cloud-এ — doc id = batch-এর নিজের id
@@ -1760,6 +1793,16 @@ function startRealtimeSync(){
   // ── Business System real-time listener (Build-26) ──
   try{
     const bizUnsub = fsdb.collection('meta').doc('businessSystem').onSnapshot(function(docSnap){
+      // Build-52: cloud-এ ডকুমেন্টই নেই (একদম নতুন ইনস্টল) — তখনও "দেখা হয়েছে"
+      // ধরা হয়, নইলে গেটটা চিরকাল বন্ধ থেকে কখনো কিছু সেভ হতো না।
+      if(!docSnap.exists || !(docSnap.data()||{}).businessSystem){
+        if(!_cloudBizSeen){
+          _cloudBizSeen = true; _cloudBizWeight = 0;
+          if(_bizPendingSync){ _bizPendingSync = false;
+            try{ saveBizSystemToCloud('Business System (প্রথমবার)'); }catch(e){} }
+        }
+        return;
+      }
       if(docSnap.exists){
         const data = docSnap.data();
         if(data && data.businessSystem){
@@ -1774,6 +1817,10 @@ function startRealtimeSync(){
           // \u09aa\u09be\u09b0\u09cd\u09a5\u0995\u09cd\u09af \u09b8\u09be\u09ae\u09be\u09a8\u09cd\u09af (\u0985\u09a8\u09cd\u09af \u09a1\u09bf\u09ad\u09be\u0987\u09b8 \u09a5\u09c7\u0995\u09c7 \u09b8\u09a4\u09cd\u09af\u09bf\u0995\u09be\u09b0\u09c7\u09b0 \u09ae\u09c1\u099b\u09c7 \u09ab\u09c7\u09b2\u09be)\u0964
           // cloud কপি নতুন হলে স্বাভাবিক মুছে ফেলা মেনে নেওয়া হয়,
           // কিন্তু অর্ধেকের বেশি লেখা একসাথে উধাও হলে সেটি দুর্ঘটনা — তখন লোকালই রাখা হয়।
+          // Build-52: cloud কপি এসেছে — এখন থেকে লেখার অনুমতি আছে
+          var _wasFirst = !_cloudBizSeen;
+          _cloudBizSeen = true;
+          _cloudBizWeight = _cloudW;
           var _okToShrink = (_cloudAt > _localAt) && (_cloudW >= _localW * 0.5);
           if(_cloudW < _localW && !_okToShrink){
             console.warn('BizSystem: cloud copy smaller — keeping local', {local:_localW, cloud:_cloudW});
@@ -1784,6 +1831,13 @@ function startRealtimeSync(){
           db.businessSystem = _inc;
           ensureBizSystemDefaults();
           saveDB();
+          // Build-52: cloud আসার আগে জমে থাকা সম্পাদনা এখন পাঠানো হয়
+          if(_bizPendingSync && !_wasFirst){
+            _bizPendingSync = false;
+            try{ saveBizSystemToCloud('Business System (জমে থাকা লেখা)'); }catch(e){}
+          } else if(_bizPendingSync){
+            _bizPendingSync = false;
+          }
           if(document.getElementById('bizsystem')&&document.getElementById('bizsystem').classList.contains('active') && !bizIsEditing()){
             if(_bizCurrentKey) renderBizDetail(_bizCurrentKey); else renderBizSystem();
           }
@@ -6539,11 +6593,10 @@ function ensureBizSystemDefaults(){
     // নইলে পেজ লোডের পুরনো স্ন্যাপশট নতুন ইনভয়েস মুছে দিতে পারত।
     try{
       saveDB();
-      if(window._fbReady && fsdb){
-        fsdb.collection('meta').doc('businessSystem')
-          .set({businessSystem: db.businessSystem||{}, _savedAt: Date.now()}, {merge:true})
-          .catch(function(e){ console.warn('pillar migration sync:', e); });
-      }
+      // Build-52: migration-ও একই গেট দিয়ে যায় — cloud কপি না দেখে কিছু লেখা হবে না।
+      // আগে এটি সরাসরি লিখত, তাই খালি localStorage-এ migration চললে cloud মুছে যেত।
+      try{ saveBizSystemToCloud('Business System (structure update)', true); }
+      catch(e){ console.warn('pillar migration sync:', e); }
     }catch(e){ console.warn('pillar migration sync:', e); }
   }
 }
