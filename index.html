@@ -6504,6 +6504,69 @@ function ensureBizSystemDefaults(){
   // ── Build-53: Customer Service Function — মালিকের ৩টি স্তম্ভ ──
   // কার্ডের label-গুলো মালিকের নিজের শব্দ, value ফাঁকা — তিনি নিজে ভরবেন।
   // coreRule / targetLine / summaryFormula / stopRules খসড়া, সম্পাদনযোগ্য।
+  // ── Build-54: Operations Function — মালিকের ৫টি ধাপ ──
+  // ছবির ৬টির মধ্যে "Customer Support Execution" মালিক নিজেই বাদ দিয়েছেন —
+  // ওটি Customer Service-এর কাজ। Operations = শারীরিক কাজ, ট্র্যাকিং ও CRM আপডেট।
+  var op = db.businessSystem.functions.operations;
+  if(op && !op.engines){
+    op.coreRule = 'NOTHING WITHOUT ENTRY \u00B7 NOTHING PENDING WITHOUT OWNER';
+    op.engines = [
+      { title:'\u{1F69A} 1. Laptop Receiving',
+        fields:[
+          {label:'Courier + Hand Carry', value:''},
+          {label:'Count', value:''},
+          {label:'Serial', value:''},
+          {label:'Condition', value:''},
+          {label:'Received Date', value:''}
+        ], strategyTree:[], images:[], notes:'' },
+      { title:'\u{1F4CB} 2. Customer Booking',
+        fields:[
+          {label:'Order Match', value:''},
+          {label:'Stock Allocation', value:''},
+          {label:'Booking Status', value:''},
+          {label:'Dispatch Handover', value:''}
+        ], strategyTree:[], images:[], notes:'' },
+      { title:'\u{1F4EC} 3. Daily Customer Update',
+        fields:[
+          {label:'Booking Update', value:''},
+          {label:'Courier Reached', value:''},
+          {label:'Payment Update', value:''},
+          {label:'Delivery Status', value:''}
+        ], strategyTree:[], images:[], notes:'' },
+      { title:'\u21A9\uFE0F 4. Return Handling',
+        fields:[
+          {label:'Receive', value:''},
+          {label:'Serial Verify', value:''},
+          {label:'Issue Record', value:''},
+          {label:'QC Handover', value:''},
+          {label:'Status Update', value:''}
+        ], strategyTree:[], images:[], notes:'' },
+      { title:'\u{1F4CA} 5. CRM Daily Update',
+        fields:[
+          {label:'Stock', value:''},
+          {label:'Booking', value:''},
+          {label:'Courier', value:''},
+          {label:'Payment', value:''},
+          {label:'Return', value:''},
+          {label:'Next Action', value:''}
+        ], strategyTree:[], images:[], notes:'' }
+    ];
+    // Daily Control Check — মালিকের নিজের চারটি নিয়ম, হুবহু
+    op.stopRules = [
+      'Nothing Received Without Entry \u2014 \u098F\u09A8\u09CD\u099F\u09CD\u09B0\u09BF \u099B\u09BE\u09DC\u09BE \u0995\u09BF\u099B\u09C1 \u09B0\u09BF\u09B8\u09BF\u09AD \u09A8\u09AF\u09BC',
+      'Nothing Booked Without Allocation \u2014 Stock \u09AC\u09B0\u09BE\u09A6\u09CD\u09A6 \u099B\u09BE\u09DC\u09BE \u09AC\u09C1\u0995\u09BF\u0982 \u09A8\u09AF\u09BC',
+      'Nothing Returned Without Serial & Reason \u2014 Serial \u0993 \u0995\u09BE\u09B0\u09A3 \u099B\u09BE\u09DC\u09BE \u09B0\u09BF\u099F\u09BE\u09B0\u09CD\u09A8 \u09A8\u09AF\u09BC',
+      'Nothing Pending Without Owner & Next Action \u2014 \u09AE\u09BE\u09B2\u09BF\u0995 \u0993 \u09AA\u09B0\u09AC\u09B0\u09CD\u09A4\u09C0 \u09AA\u09A6\u0995\u09CD\u09B7\u09C7\u09AA \u099B\u09BE\u09DC\u09BE \u0995\u09BF\u099B\u09C1 \u09DD\u09C1\u09B2\u09C7 \u09A5\u09BE\u0995\u09AC\u09C7 \u09A8\u09BE'
+    ];
+    op.targetLine = 'DAILY OFFICE ACTIVITY MANAGEMENT \u2014 Discipline \u00B7 Tracking \u00B7 Better Operations';
+    op.summaryFormula = 'Accurate Stock + Fast Booking + Controlled Returns + Updated CRM = Smooth Daily Operations';
+    // Responsibility Boundary \u2014 \u09AE\u09BE\u09B2\u09BF\u0995\u09C7\u09B0 \u09A8\u09BF\u099C\u09C7\u09B0 \u09AD\u09BE\u0997
+    op.strategy = (op.strategy ? op.strategy + '\n\n' : '')
+      + '\u2500\u2500 RESPONSIBILITY BOUNDARY \u2500\u2500\n'
+      + 'CUSTOMER SERVICE = Communication & Relationship\n'
+      + 'OPERATIONS = Physical Execution, Tracking & CRM Update';
+  }
+
   var cs = db.businessSystem.functions.custservice;
   if(cs && !cs.engines){
     cs.coreRule = 'PROOF BEFORE DISPATCH \u00B7 UPDATE BEFORE ASKED';
@@ -8409,13 +8472,13 @@ function renderBizDetail(key){
                     : (key==='marketing') ? '\u{1F4E3} '+rec.engines.length+' Marketing Rules — Sell Before Stock'
                     : (key==='sales')     ? '\u{1F4B0} 5 Sales Strategy'
                     : (key==='custservice') ? '\u{1F91D} '+rec.engines.length+' Customer Service \u09B8\u09CD\u09A4\u09AE\u09CD\u09AD \u2014 Proof Before Dispatch'
+                    : (key==='operations') ? '\u2699\uFE0F '+rec.engines.length+' Operations \u09A7\u09BE\u09AA \u2014 Daily Office Activity Management'
                     : '\u{1F3D7}️ '+rec.engines.length+' Business Engines';
     h+='<div style="margin-bottom:18px">';
     h+='<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">'+pillarLabel+'</div>';
     h+=renderBizModelEngines(rec);
     h+='</div>';
     h+=renderBizPillarFooter(key, rec);
-    h+=renderBizSystemsTree(key, rec);
     if(key==='purchase'){
       h+=renderBizStockCashIntel();
       h+=renderBizPurchaseQtyGuide();
@@ -8435,6 +8498,10 @@ function renderBizDetail(key){
       h+=renderBizMktCampaigns(rec);
     }
   }
+
+  // Build-54: \u2699\uFE0F Business Systems \u098F\u0996\u09A8 \u09AA\u09CD\u09B0\u09A4\u09BF\u099F\u09BF function-\u098F \u2014 \u0986\u0997\u09C7 \u09B6\u09C1\u09A7\u09C1
+  // \u09AF\u09C7 function-\u098F pillar \u0986\u099B\u09C7 \u09B8\u09C7\u0996\u09BE\u09A8\u09C7\u0987 \u09A6\u09C7\u0996\u09BE\u09A4, \u09A4\u09BE\u0987 HR / Finance / Legal-\u098F \u098F\u099F\u09BF \u099B\u09BF\u09B2 \u09A8\u09BE\u0964
+  h+=renderBizSystemsTree(key, rec);
 
   // Live Performance
   h+='<div style="margin-bottom:18px">';
