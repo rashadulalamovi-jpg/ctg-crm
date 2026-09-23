@@ -1236,7 +1236,8 @@ try{
 try{
   window.addEventListener('DOMContentLoaded', function(){
     try{ refreshCloudAlarm(); }catch(e){}
-    setInterval(function(){ try{ refreshCloudAlarm(); }catch(e){} }, 15000);
+    // Build-56: শুরুতে ঘন ঘন দেখা হয়, যাতে ডেটা এলেই বারটা সাথে সাথে সরে যায়
+    setInterval(function(){ try{ refreshCloudAlarm(); }catch(e){} }, 3000);
   });
 }catch(e){}
 
@@ -1294,9 +1295,37 @@ function showOfflineAlarm(on, why){
     + ' — এখন যা লিখবেন তা শুধু এই ডিভাইসে থাকবে। '
     + '<span style="font-weight:600;opacity:.95">পেজ রিফ্রেশ করুন, ঠিক না হলে ডেটা এন্ট্রি থামান।</span>';
 }
+// Build-56: পেজ খোলার প্রথম ৪৫ সেকেন্ড "এখনো আসেনি" কোনো সমস্যা নয় —
+// ৯৪০KB ফাইল ধীর লাইনে নামতেই সময় লাগে। এই সময়ে লাল আতঙ্কের বার্তা নয়,
+// শান্ত "লোড হচ্ছে" দেখানো হয়। ৪৫ সেকেন্ড পেরোলে তবেই আসল সতর্কবার্তা।
+var _appStartedAt = Date.now();
+var CLOUD_GRACE_MS = 45000;
+function showLoadingBar(on){
+  var id='cloudLoadBar', el=document.getElementById(id);
+  if(!on){ if(el) el.remove(); return; }
+  if(!el){
+    el=document.createElement('div'); el.id=id;
+    el.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99998;background:#0f172a;color:#fff;'
+      +'font-family:var(--fd,sans-serif);font-size:12px;font-weight:700;text-align:center;padding:7px 14px;'
+      +'box-shadow:0 2px 10px rgba(0,0,0,.2)';
+    document.body.appendChild(el);
+  }
+  el.textContent = '\u23F3 Cloud \u09a5\u09c7\u0995\u09c7 \u09a1\u09c7\u099f\u09be \u0986\u09b8\u099b\u09c7... \u0995\u09df\u09c7\u0995 \u09b8\u09c7\u0995\u09c7\u09a8\u09cd\u09a1 \u0985\u09aa\u09c7\u0995\u09cd\u09b7\u09be \u0995\u09b0\u09c1\u09a8';
+}
 function refreshCloudAlarm(){
-  if(!window._fbReady || !fsdb){ showOfflineAlarm(true, 'Cloud কানেকশন নেই'); return; }
-  if(!_cloudCustomersSeen){ showOfflineAlarm(true, 'Cloud ডেটা এখনো আসেনি'); return; }
+  var young = (Date.now() - _appStartedAt) < CLOUD_GRACE_MS;
+  // জমা কাজ থাকলে গ্রেস পিরিয়ড খাটে না — লেখা হয়ে গেছে অথচ cloud-এ যায়নি,
+  // এটা ধীর লোড নয়, সত্যিকারের ঝুঁকি। তাই সাথে সাথেই লাল বার।
+  if(_pendingSync){ showLoadingBar(false); showOfflineAlarm(true, 'কিছু কাজ এখনো Cloud-এ যায়নি'); return; }
+  if(!window._fbReady || !fsdb){
+    if(young){ showOfflineAlarm(false); showLoadingBar(true); return; }
+    showLoadingBar(false); showOfflineAlarm(true, 'Cloud কানেকশন নেই'); return;
+  }
+  if(!_cloudCustomersSeen){
+    if(young){ showOfflineAlarm(false); showLoadingBar(true); return; }
+    showLoadingBar(false); showOfflineAlarm(true, 'Cloud ডেটা এখনো আসেনি'); return;
+  }
+  showLoadingBar(false);
   if(_pendingSync){ showOfflineAlarm(true, 'কিছু কাজ এখনো Cloud-এ যায়নি'); return; }
   showOfflineAlarm(false);
 }
@@ -14096,7 +14125,7 @@ function _openChallan(d){
 <!-- PWA Mobile Nav -->
 <nav id="m-nav"><div class="m-bar"><button class="m-nb active" onclick="goTo('pipeline',null);mNB(this);mMC()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="14" width="7" height="7"/></svg>Pipeline</button><button class="m-nb" onclick="goTo('invoice',null);mNB(this);mMC()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>Sales</button><button class="m-nb" onclick="goTo('dashboard',null);mNB(this);mMC()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>Dashboard</button><button class="m-nb" onclick="goTo('stockage',null);mNB(this);mMC()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>Stock</button><button class="m-nb" id="m-more-btn" onclick="mMT()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>More</button></div></nav>
 <div id="m-more-menu"><button class="m-more-item" onclick="goTo('modeldemand',null);mMC()"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Model Demand</button><button class="m-more-item" onclick="goTo('returns',null);mMC()"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>Returns</button><button class="m-more-item" onclick="goTo('expensepage',null);mMC()"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Expenses</button><button class="m-more-item" onclick="goTo('assetspage',null);mMC()"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>Assets</button></div>
-<script>if('serviceWorker'in navigator)window.addEventListener('load',function(){navigator.serviceWorker.register('/ctg-crm/sw.js').then(function(r){console.log('[SW]',r.scope)}).catch(function(e){console.warn('[SW]',e)})});function mNB(el){document.querySelectorAll('.m-nb').forEach(function(b){b.classList.remove('active')});if(el)el.classList.add('active')}function mMT(){var m=document.getElementById('m-more-menu');m.classList.toggle('open')}function mMC(){var m=document.getElementById('m-more-menu');if(m)m.classList.remove('open')}document.addEventListener('click',function(e){var mn=document.getElementById('m-more-menu');var mb=document.getElementById('m-more-btn');if(mn&&mb&&!mn.contains(e.target)&&!mb.contains(e.target))mMC()})</script>
+<script>if('serviceWorker'in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').then(function(r){console.log('[SW]',r.scope)}).catch(function(e){console.warn('[SW]',e)})});navigator.serviceWorker.addEventListener('message',function(ev){if(ev.data&&ev.data.type==='CTG_UPDATE_READY'){var b=document.getElementById('ctgUpdBar');if(b)return;b=document.createElement('div');b.id='ctgUpdBar';b.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#059669;color:#fff;font-family:var(--fd,sans-serif);font-size:13px;font-weight:700;text-align:center;padding:10px';b.innerHTML='\u2728 \u09a8\u09a4\u09c1\u09a8 \u09ad\u09be\u09b0\u09cd\u09b8\u09a8 \u098f\u09b8\u09c7\u099b\u09c7 <button onclick="location.reload()" style="margin-left:10px;background:#fff;color:#059669;border:none;border-radius:6px;padding:5px 14px;font-family:inherit;font-weight:800;cursor:pointer">\u09b0\u09bf\u09ab\u09cd\u09b0\u09c7\u09b6 \u0995\u09b0\u09c1\u09a8</button>';document.body.appendChild(b);}});}function mNB(el){document.querySelectorAll('.m-nb').forEach(function(b){b.classList.remove('active')});if(el)el.classList.add('active')}function mMT(){var m=document.getElementById('m-more-menu');m.classList.toggle('open')}function mMC(){var m=document.getElementById('m-more-menu');if(m)m.classList.remove('open')}document.addEventListener('click',function(e){var mn=document.getElementById('m-more-menu');var mb=document.getElementById('m-more-btn');if(mn&&mb&&!mn.contains(e.target)&&!mb.contains(e.target))mMC()})</script>
 </body>
 </html>
 
