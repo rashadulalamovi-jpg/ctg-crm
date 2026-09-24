@@ -3683,7 +3683,7 @@ function addInvoiceActivity(cid, invId){
   var t = ACT_TYPES.filter(function(x){return x.id===type;})[0];
   if(!c.actLog) c.actLog=[];
   c.actLog.unshift({ id:Date.now(), date:TODAY, action:(t?t.label:'Activity')+' — '+note,
-                     type:type, color:t?t.color:'var(--blue)', invNo:String(inv.no) });
+                     type:type, color:t?t.color:'var(--blue)', invNo:String(inv.no), manual:true });
   if(!c.history) c.history=[];
   c.history.unshift({date:TODAY, action:'Invoice #'+inv.no+' — '+note, color:t?t.color:'var(--blue)'});
   if(nEl) nEl.value='';
@@ -3727,7 +3727,7 @@ function addPaymentV2(cid, invId){
   if(iPd>=iA) inv.status='completed';
   else if(iPd>0) inv.status='due';
   if(!c.actLog) c.actLog=[];
-  c.actLog.unshift({id:Date.now(),date:TODAY,action:'Payment \u09F3'+fmtNum(amt)+' \u2014 '+inv.no,type:'payment',color:'var(--green)'});
+  c.actLog.unshift({id:Date.now(),date:TODAY,action:'Payment \u09F3'+fmtNum(amt)+' \u2014 '+inv.no,type:'payment',color:'var(--green)',manual:false});
   saveDB(); syncToFirebase();
   renderSalesDashboard();
   renderPipeline();
@@ -3826,7 +3826,7 @@ function courierArrivalWA(cid, invId){
   inv.reminderCount=(inv.reminderCount||0)+1;
   inv.lastReminderDate=TODAY;
   if(!c.actLog)c.actLog=[];
-  c.actLog.unshift({id:Date.now(),date:TODAY,action:'Courier Arrival WA \u2014 Invoice '+inv.no,type:'wa_offer',color:'var(--blue)'});
+  c.actLog.unshift({id:Date.now(),date:TODAY,action:'Courier Arrival WA \u2014 Invoice '+inv.no,type:'wa_offer',color:'var(--blue)',manual:false});
   saveDB(); syncToFirebase();
   navigator.clipboard.writeText(msg)
     .then(function(){notify('\u{1F4E6} Courier Arrival WA copied!');})
@@ -3865,7 +3865,7 @@ function courierPickupWA(cid, invId){
   inv.reminderCount=(inv.reminderCount||0)+1;
   inv.lastReminderDate=TODAY;
   if(!c.actLog)c.actLog=[];
-  c.actLog.unshift({id:Date.now(),date:TODAY,action:'Courier Pickup Reminder \u2014 Invoice '+inv.no,type:'due_reminder',color:'var(--warn)'});
+  c.actLog.unshift({id:Date.now(),date:TODAY,action:'Courier Pickup Reminder \u2014 Invoice '+inv.no,type:'due_reminder',color:'var(--warn)',manual:false});
   saveDB(); syncToFirebase();
   navigator.clipboard.writeText(msg)
     .then(function(){notify('\u23F0 Pickup Reminder WA copied!');})
@@ -4161,6 +4161,9 @@ function renderTabActivity(c){
   h += '<button class="btn btn-r" onclick="addActivityLog('+c.id+')" style="font-size:9px;height:34px">+ Add</button>';
   h += '</div></div>';
 
+  // Build-57: মালিকের হাতে লেখা নোট আলাদা বাক্সে — নিচের Activity Log অপরিবর্তিত
+  h += renderManualNotesBox(c);
+
   // Log
   // Build-43: ইনভয়েস ধরে ছেঁকে দেখা
   var _invFilter = _actInvFilter[c.id] || '';
@@ -4188,6 +4191,67 @@ function renderTabActivity(c){
   el.innerHTML = h;
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// Build-57 — হাতে লেখা নোট আলাদা
+// সমস্যা: c.actLog-এ সিস্টেমের নিজের লেখা (Payment, Courier, Return, Reminder)
+// আর মালিকের হাতে লেখা নোট একই তালিকায় মিশে থাকে, তাই নিজের লেখা নোট
+// একটার পর একটা পিছনে পড়ে হারিয়ে যায়।
+// সমাধান: নতুন এন্ট্রিতে manual:true বসে। পুরোনো এন্ট্রিতে ওই পতাকা নেই,
+// তাই সিস্টেমের লেখার নির্দিষ্ট শুরুর শব্দ মিলিয়ে বাদ দেওয়া হয় — ডেটা
+// বদলানো হয় না, শুধু পড়ার সময় আলাদা করা হয়।
+var AUTO_ACT_PREFIXES = [
+  'Payment \u09F3',
+  'WA Reminder #',
+  'Courier Arrival WA',
+  'Courier Pickup Reminder',
+  'Promise Date set:',
+  '\u21A9\uFE0F Return Credit Adjusted',
+  '\u21A9\uFE0F Return \u2014',
+  '\u{1F4B5} Cash Refund',
+  'Reactivation campaign started'
+];
+
+function isManualActivity(a){
+  if(!a) return false;
+  if(a.manual === true) return true;      // নতুন এন্ট্রি — পতাকা আছে
+  if(a.manual === false) return false;
+  var act = String(a.action||'');
+  for(var i=0;i<AUTO_ACT_PREFIXES.length;i++){
+    if(act.indexOf(AUTO_ACT_PREFIXES[i]) === 0) return false;
+  }
+  return act.trim().length > 0;           // বাকি সব মালিকের নিজের লেখা
+}
+
+function manualNotesOf(c){
+  return ((c && c.actLog) || []).filter(isManualActivity);
+}
+
+// শুধু মালিকের হাতে লেখা নোটের বাক্স — Activity তালিকা অপরিবর্তিত থাকে
+function renderManualNotesBox(c){
+  var notes = manualNotesOf(c);
+  var h = '<div style="background:rgba(255,255,255,.9);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:var(--r);padding:12px;margin-bottom:13px">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+  h += '<div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold)">\u{1F4DD} \u0986\u09AE\u09BE\u09B0 \u09B2\u09C7\u0996\u09BE \u09A8\u09CB\u099F</div>';
+  h += '<div style="font-family:var(--fm);font-size:11px;font-weight:700;color:var(--text2)">'+notes.length+'</div>';
+  h += '</div>';
+  if(!notes.length){
+    h += '<div style="color:var(--text3);font-size:11px;padding:6px 2px">\u098F\u0996\u09A8\u09CB \u09B9\u09BE\u09A4\u09C7 \u09B2\u09C7\u0996\u09BE \u0995\u09CB\u09A8\u09CB \u09A8\u09CB\u099F \u09A8\u09C7\u0987\u0964</div>';
+    return h + '</div>';
+  }
+  notes.slice(0,40).forEach(function(a){
+    var t = ACT_TYPES.filter(function(x){return x.id===a.type;})[0];
+    h += '<div class="act-row">';
+    h += '<div class="act-dot" style="background:'+(a.color||(t?t.color:'var(--gold)'))+'"></div>';
+    h += '<div style="flex:1"><div style="font-size:12px;color:var(--text);font-family:var(--fu);line-height:1.6">'+escHtml(a.action)+'</div>';
+    h += '<div style="font-family:var(--fm);font-size:9px;color:var(--text3)">'+escHtml(a.date||'')+'</div></div>';
+    if(a.invNo) h += '<span style="font-family:var(--fm);font-size:9px;font-weight:700;color:var(--blue);background:rgba(59,130,246,.1);border-radius:4px;padding:2px 6px;white-space:nowrap">#'+escHtml(a.invNo)+'</span>';
+    h += '<span onclick="deleteInvoiceActivity('+c.id+','+a.id+')" title="\u09AE\u09C1\u099B\u09C1\u09A8" style="cursor:pointer;color:var(--text3);font-size:12px;padding:0 4px">\u2715</span>';
+    h += '</div>';
+  });
+  h += '</div>';
+  return h;
+}
+
 function addActivityLog(cid){
   const c = db.customers.find(x=>x.id===cid); if(!c) return;
   const typeEl = document.getElementById('actType_'+cid);
@@ -4199,7 +4263,7 @@ function addActivityLog(cid){
   const invEl = document.getElementById('actInv_'+cid);
   const invNo = invEl ? String(invEl.value||'').trim() : '';
   if(!c.actLog) c.actLog=[];
-  const _entry = {id:Date.now(), date:TODAY, action:action, type:type, color:t?t.color:'var(--blue)'};
+  const _entry = {id:Date.now(), date:TODAY, action:action, type:type, color:t?t.color:'var(--blue)', manual:true};
   if(invNo) _entry.invNo = invNo;
   c.actLog.unshift(_entry);
   if(!c.history) c.history=[];
