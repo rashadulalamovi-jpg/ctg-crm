@@ -309,6 +309,7 @@ body{max-width:100vw;overflow-x:hidden!important}
   <button class="btn btn-o" onclick="syncToFirebase()" style="font-size:8px;padding:3px 10px">&#x2191; Sync</button>
   <button class="btn btn-o" onclick="exportJSON()" style="font-size:8px;padding:3px 10px">&#x1F4BE; Backup</button>
   <button class="btn btn-o" onclick="cleanDuplicateCloudBatches()" style="font-size:8px;padding:3px 10px" title="cloud-এ একই batch দুইবার থাকলে পরিষ্কার করুন">&#x1F9F9; Dup Fix</button>
+  <button class="btn btn-o" onclick="migrateInvoicesToCollection()" style="font-size:8px;padding:3px 10px" title="প্রতিটি invoice আলাদা ডকুমেন্টে সরানো হবে — একবারই চাপতে হয়">&#x1F4E6; Invoice Split</button>
   <button class="btn btn-o" onclick="restoreSnapshotUI()" style="font-size:8px;padding:3px 10px" title="প্রতিদিনের রক্ষিত কপি থেকে ফিরিয়ে আনুন">&#x1F570; Restore</button>
   <label class="btn btn-o" style="font-size:8px;padding:3px 10px;cursor:pointer">
     &#x1F4E5; Import<input type="file" accept=".json" onchange="importJSON(event)" style="display:none">
@@ -1266,6 +1267,10 @@ function allowShrinkOnce(){ _allowShrinkOnce = true; }
 function noteCloudInvoiceCounts(list){
   var m = {};
   (list||[]).forEach(function(c){ m[String(c.id)] = (c.invoices||[]).length; });
+  // Build-60: split-এর পর customer doc-এ invoice থাকে না, তাই গোনা হয় invoice doc থেকে
+  if(typeof _invSplitDone !== 'undefined' && _invSplitDone && _cloudInvSeen){
+    Object.keys(m).forEach(function(k){ m[k] = (_cloudInvDocs[k]||[]).length; });
+  }
   _cloudInvCount = m;
 }
 // ফেরত দেয় null (সব ঠিক) অথবা কোথায় কমে যাচ্ছে তার তালিকা
@@ -1404,6 +1409,9 @@ function restoreSnapshotUI(){
 // invoices অ্যারে বদলে দেয়। তাই cloud থেকে একবারও ডেটা না আসা পর্যন্ত
 // কোনো customer doc লেখা হয় না।
 var _cloudCustomersSeen = false;
+// Build-60: মাইগ্রেশন শেষ হয়েছে কিনা (cloud meta/invoiceSplit থেকে আসে)।
+// ঘোষণাটি এখানে, কারণ নিচের syncToFirebase() ও saveCustomerToCloud() এটি পড়ে।
+var _invSplitDone = false;
 // Build-45: cloud ডেটা আসার আগে করা কাজ জমা থাকে, হারিয়ে যায় না
 var _pendingSync = false;
 async function syncToFirebase(){
@@ -1441,6 +1449,7 @@ async function syncToFirebase(){
     db.customers.forEach(function(c){
       const d = sanitize(Object.assign({}, c));
       delete d.intel;
+      if(_invSplitDone) delete d.invoices;   // Build-60
       batch.set(fsdb.collection('customers').doc(String(c.id)), d, {merge:true});
       if(c.intel) batch.set(fsdb.collection('intel').doc(String(c.id)), sanitize(c.intel), {merge:true});
     });
@@ -1686,13 +1695,15 @@ function mergeKeepLocalInvoices(cloudList, localList){
 }
 
 // একটি customer (তার সব invoice সহ) সরাসরি cloud-এ
-async function saveCustomerToCloud(c, label){
+async function saveCustomerToCloud(c, label, quiet){
   var d = Object.assign({}, c); delete d.intel;
+  // Build-60: invoice এখন নিজের ডকুমেন্টে — customer doc-এ আর ভারী array যায় না
+  if(_invSplitDone) delete d.invoices;
   // Build-59: লেখা শেষ না হওয়া পর্যন্ত listener এই customer-কে ছোঁবে না
   _inFlightCust[String(c.id)] = true;
   var ok;
   try{
-    ok = await cloudSaveVerified('customers', c.id, d, label || ('Customer: ' + (c.name||'')));
+    ok = await cloudSaveVerified('customers', c.id, d, label || ('Customer: ' + (c.name||'')), {quiet: !!quiet});
   } finally {
     delete _inFlightCust[String(c.id)];
   }
@@ -1700,6 +1711,160 @@ async function saveCustomerToCloud(c, label){
     try{ await fsdb.collection('intel').doc(String(c.id)).set(sanitize(c.intel), {merge:true}); }catch(e){}
   }
   return ok;
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// Build-60 — প্রতিটি Invoice এখন নিজের আলাদা ডকুমেন্টে
+//
+// আগের সমস্যা: সব invoice customer ডকুমেন্টের ভেতরে একটা array-তে ছিল।
+// একটা invoice সেভ করতে গেলে পুরো customer (Alpha Tech = ২৮.৮ KB) আবার
+// লিখতে হতো, অথচ একটা invoice মাত্র ০.৭১ KB। আর Firestore array merge
+// করে না — replace করে। তাই লেখার মাঝপথে পুরনো snapshot এলে নতুন invoice
+// মুছে যেত (568352 ঠিক এভাবেই হারিয়েছিল)।
+//
+// এখন: invoices/{cid__invId} — একেকটা invoice একেকটা ডকুমেন্ট।
+//   • সেভ = ০.৭১ KB, সাথে সাথে
+//   • array replace-এর প্রশ্নই নেই → এই কারণে আর ডেটা হারাবে না
+//   • একই invoice দুইবার হওয়া অসম্ভব (doc id ইউনিক)
+// ══════════════════════════════════════════════════════════════════════════
+var _cloudInvDocs = {};      // { cid: [invoice,...] } — cloud থেকে আসা
+var _cloudInvSeen = false;   // invoices listener একবারও ডেটা দিয়েছে কিনা
+var _inFlightInv = {};       // এই মুহূর্তে যেগুলো cloud-এ লেখা হচ্ছে
+
+function invDocId(cid, invId){ return String(cid) + '__' + String(invId); }
+
+function invSortDesc(list){
+  return (list||[]).slice().sort(function(a,b){
+    var da = String((a&&a.date)||''), dz = String((b&&b.date)||'');
+    if(da !== dz) return da < dz ? 1 : -1;
+    return (parseInt(b&&b.id)||0) - (parseInt(a&&a.id)||0);
+  });
+}
+
+// পুরনো (customer doc-এর ভেতরের) আর নতুন (নিজস্ব doc) — দুটো মিলিয়ে এক তালিকা।
+// একই id থাকলে নিজস্ব doc জেতে, কারণ সেটিই সর্বশেষ লেখা।
+function unionInvoices(embedded, docs){
+  var byId = {}, order = [];
+  function put(i){
+    if(!i || i.id === undefined || i.id === null) return;
+    var k = String(i.id);
+    if(!byId[k]) order.push(k);
+    byId[k] = i;
+  }
+  (embedded||[]).forEach(put);
+  (docs||[]).forEach(put);
+  return invSortDesc(order.map(function(k){ return byId[k]; }));
+}
+
+// ── মালিক নিজে মুছেছেন এমন invoice যেন rescue করে ফিরে না আসে ──
+function invTombstones(){ if(!db._delInv) db._delInv = {}; return db._delInv; }
+function pruneInvTombstones(){
+  var t = invTombstones(), cutoff = Date.now() - 90*24*3600*1000;
+  Object.keys(t).forEach(function(k){ if(!(t[k] > cutoff)) delete t[k]; });
+}
+function markInvoiceDeleted(cid, invId){
+  invTombstones()[invDocId(cid, invId)] = Date.now();
+  pruneInvTombstones();
+}
+function isInvoiceDeleted(cid, invId){ return !!invTombstones()[invDocId(cid, invId)]; }
+
+// cloud-এর invoice doc থেকে প্রতিটি customer-এর তালিকা তৈরি।
+// যে invoice এই ডিভাইসে আছে কিন্তু cloud-এ নেই, সেটি কখনো মুছে ফেলা হয় না —
+// রেখে দিয়ে আবার পাঠানো হয়। মালিক নিজে মুছলে tombstone আটকে দেয়।
+function applyInvoiceDocs(){
+  if(!_cloudInvSeen) return [];
+  var rescued = [];
+  (db.customers||[]).forEach(function(c){
+    if(!c) return;
+    var docs  = _cloudInvDocs[String(c.id)] || [];
+    var local = c.invoices || [];
+    if(!_invSplitDone){ c.invoices = unionInvoices(local, docs); return; }
+    var have = {};
+    docs.forEach(function(i){ if(i && i.id !== undefined) have[String(i.id)] = true; });
+    var keep = docs.slice();
+    local.forEach(function(li){
+      if(!li || li.id === undefined || li.id === null) return;
+      if(have[String(li.id)]) return;
+      if(isInvoiceDeleted(c.id, li.id)) return;
+      if(_inFlightInv[invDocId(c.id, li.id)]){ keep.push(li); return; }  // এখনই লেখা হচ্ছে
+      keep.push(li);
+      rescued.push({cid:c.id, cust:c.name||'', no:String(li.no||''), inv:li});
+    });
+    c.invoices = invSortDesc(keep);
+  });
+  return rescued;
+}
+
+// একটি invoice cloud-এ — যাচাই সহ। merge:false, কারণ payment/return মুছলে
+// merge:true পুরনো এন্ট্রি ফিরিয়ে আনত।
+async function saveInvoiceToCloud(cid, inv, label, opts){
+  if(!inv || inv.id === undefined || inv.id === null) return false;
+  var key = invDocId(cid, inv.id);
+  _inFlightInv[key] = true;
+  var ok = false;
+  try{
+    ok = await cloudSaveVerified('invoices', key,
+      Object.assign({}, sanitize(inv), {cid: String(cid), _savedAt: Date.now()}),
+      label || ('Invoice ' + (inv.no || '')),
+      {merge:false, quiet: !!(opts && opts.quiet)});
+  } finally { delete _inFlightInv[key]; }
+  return ok;
+}
+
+async function deleteInvoiceFromCloud(cid, invId){
+  markInvoiceDeleted(cid, invId);
+  saveDB();
+  if(!window._fbReady || !fsdb) return false;
+  try{ await fsdb.collection('invoices').doc(invDocId(cid, invId)).delete(); return true; }
+  catch(e){ console.warn('invoice delete:', e); return false; }
+}
+
+// ── মাইগ্রেশন: copy-first, যাচাই না মিললে পুরনো ডেটায় হাত পড়বে না ──
+async function migrateInvoicesToCollection(){
+  if(!window._fbReady || !fsdb){ notify('Cloud কানেকশন নেই', true); return false; }
+  if(!_cloudCustomersSeen){ notify('Cloud ডেটা এখনো আসেনি — একটু পরে চেষ্টা করুন', true); return false; }
+  var custs = db.customers || [];
+  var total = custs.reduce(function(n,c){ return n + ((c.invoices||[]).length); }, 0);
+  if(!total){ notify('সরানোর মতো invoice নেই', true); return false; }
+  if(!confirm('মোট ' + total + 'টি invoice আলাদা ডকুমেন্টে সরানো হবে।\n\n'
+    + 'পুরনো ডেটা যাচাই শেষ না হওয়া পর্যন্ত মুছবে না।\n'
+    + 'Backup নিয়েছেন? OK চাপলে শুরু হবে।')) return false;
+
+  cloudBadge('busy', '⏳ Invoice মাইগ্রেশন চলছে (0/' + total + ')...');
+  var written = 0, failed = [];
+  for(const c of custs){
+    for(const inv of (c.invoices||[])){
+      var ok = false;
+      try{ ok = await saveInvoiceToCloud(c.id, inv, null, {quiet:true}); }catch(e){}
+      if(ok){ written++; cloudBadge('busy', '⏳ Invoice মাইগ্রেশন (' + written + '/' + total + ')...'); }
+      else failed.push((c.name||'') + ' / ' + (inv.no||''));
+    }
+  }
+  if(failed.length){
+    console.error('migration failed for:', failed);
+    cloudBadge('fail', '❌ ' + failed.length + 'টি invoice যায়নি — পুরনো ডেটা অক্ষত আছে', 'migrateInvoicesToCollection()');
+    return false;
+  }
+  var snap;
+  try{ snap = await fsdb.collection('invoices').get({source:'server'}); }
+  catch(e){ cloudBadge('fail', '❌ যাচাই করা গেল না — পুরনো ডেটা অক্ষত', 'migrateInvoicesToCollection()'); return false; }
+  if(snap.size < total){
+    cloudBadge('fail', '❌ যাচাইয়ে মিলল না (' + snap.size + '/' + total + ') — পুরনো ডেটা অক্ষত', 'migrateInvoicesToCollection()');
+    return false;
+  }
+  // যাচাই মিলেছে — এখন customer doc থেকে পুরনো array সরানো নিরাপদ
+  var FV = firebase.firestore.FieldValue;
+  var cleared = 0;
+  for(const c of custs){
+    try{ await fsdb.collection('customers').doc(String(c.id)).update({invoices: FV.delete()}); cleared++; }
+    catch(e){ console.warn('array clear failed:', c.name, e); }
+  }
+  try{ await fsdb.collection('meta').doc('invoiceSplit').set({done:true, at:Date.now(), count:total}, {merge:true}); }
+  catch(e){ console.warn('split flag:', e); }
+  _invSplitDone = true;
+  cloudBadge('ok', '✅ ' + written + 'টি invoice আলাদা হয়েছে (' + cleared + ' customer পরিষ্কার) — এখন সেভ সাথে সাথে হবে');
+  return true;
 }
 
 // যা এখনো cloud-এ পৌঁছায়নি, সব আবার পাঠানোর চেষ্টা
@@ -1830,6 +1995,8 @@ function startRealtimeSync(){
     // 568352 ঠিক এখানেই হারিয়েছিল — লেখার মাঝপথে পুরোনো snapshot চাপা দিয়েছিল।
     var _rescued = mergeKeepLocalInvoices(cloudList, db.customers);
     db.customers = cloudList;
+    // Build-60: invoice এখন আলাদা ডকুমেন্টে — customer snapshot বসানোর সাথে সাথেই মেলানো হয়
+    try{ applyInvoiceDocs(); }catch(e){ console.warn('applyInvoiceDocs:', e); }
     if(_rescued.length){
       console.warn('rescued from cloud snapshot:', _rescued);
       try{ showOfflineAlarm(true, _rescued.length + '\u099f\u09bf \u098f\u09a8\u09cd\u099f\u09cd\u09b0\u09bf cloud-\u098f \u099b\u09bf\u09b2 \u09a8\u09be \u2014 \u09b0\u0995\u09cd\u09b7\u09be \u0995\u09b0\u09c7 \u0986\u09ac\u09be\u09b0 \u09aa\u09be\u09a0\u09be\u09a8\u09cb \u09b9\u099a\u09cd\u099b\u09c7'); }catch(e){}
@@ -1860,6 +2027,54 @@ function startRealtimeSync(){
     console.error('Customer listener error:', err);
   });
   _rtListeners.push(custUnsub);
+
+  // ── Build-60: Invoices real-time listener (এক invoice = এক ডকুমেন্ট) ──
+  try{
+    const invUnsub = fsdb.collection('invoices').onSnapshot(function(snap){
+      var map = {};
+      snap.docs.forEach(function(d){
+        var v = d.data() || {};
+        var parts = String(d.id).split('__');
+        var cid = String(v.cid || parts[0]);
+        var inv = Object.assign({}, v);
+        delete inv.cid; delete inv._savedAt;
+        if(inv.id === undefined || inv.id === null){ inv.id = parseInt(parts[1]) || parts[1]; }
+        (map[cid] = map[cid] || []).push(migrateInvoice(inv));
+      });
+      _cloudInvDocs = map;
+      _cloudInvSeen = true;
+      var rescued = [];
+      try{ rescued = applyInvoiceDocs(); }catch(e){ console.warn('applyInvoiceDocs:', e); }
+      (db.customers||[]).forEach(function(c){
+        c.orders = (c.invoices||[]).length;
+        c.sales  = (c.invoices||[]).reduce(function(a,i){ return a + (i.amt||0); }, 0);
+      });
+      saveDB();
+      if(rescued.length){
+        console.warn('invoice rescued (cloud-এ ছিল না):', rescued);
+        try{ showOfflineAlarm(true, rescued.length + '\u099f\u09bf invoice cloud-\u098f \u099b\u09bf\u09b2 \u09a8\u09be \u2014 \u0986\u09ac\u09be\u09b0 \u09aa\u09be\u09a0\u09be\u09a8\u09cb \u09b9\u099a\u09cd\u099b\u09c7'); }catch(e){}
+        rescued.forEach(function(r){
+          try{ saveInvoiceToCloud(r.cid, r.inv, '\u09b0\u0995\u09cd\u09b7\u09be: Invoice ' + r.no); }catch(e){}
+        });
+      }
+      renderAll();
+    }, function(err){ console.error('Invoice listener error:', err); });
+    _rtListeners.push(invUnsub);
+  }catch(e){ console.warn('invoice listener:', e); }
+
+  // ── Build-60: মাইগ্রেশন শেষ হয়েছে কিনা তা সব ডিভাইস একসাথে জানে ──
+  try{
+    const splitUnsub = fsdb.collection('meta').doc('invoiceSplit').onSnapshot(function(d){
+      var v = (d && d.exists) ? (d.data()||{}) : {};
+      var was = _invSplitDone;
+      _invSplitDone = !!v.done;
+      if(_invSplitDone !== was){
+        try{ applyInvoiceDocs(); }catch(e){}
+        saveDB(); renderAll();
+      }
+    }, function(e){ console.warn('invoiceSplit flag:', e); });
+    _rtListeners.push(splitUnsub);
+  }catch(e){ console.warn('split flag listener:', e); }
 
   // ── Stock real-time listener ──
   try{
@@ -3479,7 +3694,11 @@ function saveAddInvoice(){
   saveDB();
   // Build-47: এই কাস্টমারের ডকুমেন্ট সাথে সাথেই cloud-এ, যাচাই সহ।
   // যে batch-গুলোর qtySold বদলেছে সেগুলোও নির্দিষ্ট id দিয়ে লেখা হয়।
-  saveCustomerToCloud(c, 'Invoice ' + no).then(function(){ return syncStockBatches(); });
+  // Build-60: আগে invoice নিজের ডকুমেন্টে (০.৭১ KB, সাথে সাথে), তারপর customer-এর বাকি তথ্য
+  var _newInv = c.invoices[0];
+  saveInvoiceToCloud(c.id, _newInv, 'Invoice ' + no)
+    .then(function(){ return saveCustomerToCloud(c, 'Customer: ' + (c.name||''), true); })
+    .then(function(){ return syncStockBatches(); });
   closeModal('addInvModal');
   renderSalesDashboard();
   renderPipeline();
@@ -4024,7 +4243,9 @@ function addPaymentV2(cid, invId){
   else if(iPd>0) inv.status='due';
   if(!c.actLog) c.actLog=[];
   c.actLog.unshift({id:Date.now(),date:TODAY,action:'Payment \u09F3'+fmtNum(amt)+' \u2014 '+inv.no,type:'payment',color:'var(--green)',manual:false});
-  saveDB(); syncToFirebase();
+  saveDB();
+  try{ saveInvoiceToCloud(c.id, inv, 'Payment \u2014 ' + (inv.no||'')); }catch(e){}   // Build-60
+  syncToFirebase();
   renderSalesDashboard();
   renderPipeline();
   if(typeof _detailId!=='undefined'&&_detailId) showModalTab('invoice',_detailId);
@@ -13213,7 +13434,9 @@ function saveReturn(){
       saveExpenseDB();
     }
 
-    saveDB(); syncToFirebase();
+    saveDB();
+    try{ saveInvoiceToCloud(c.id, inv, 'Return \u2014 ' + (inv.no||'')); }catch(e){}   // Build-60
+    syncToFirebase();
     closeModal('retModal');
     renderSalesDashboard();
     renderPipeline();
@@ -13242,6 +13465,7 @@ function removeInvoice(cid, invId){
   c.orders = c.invoices.length;
   c.sales = c.invoices.reduce(function(a,i){return a+(i.amt||0);},0);
   allowShrinkOnce();          // Build-44: মালিক নিজে মুছেছেন — এটি বৈধ
+  try{ deleteInvoiceFromCloud(cid, invId); }catch(e){ console.warn('inv doc delete:', e); }   // Build-60
   saveDB(); syncToFirebase();
   renderSalesDashboard();
   renderPipeline();
@@ -13256,7 +13480,9 @@ function deletePayment(cid, invId, payId){
   const iA = (inv.items||[]).reduce(function(a,x){return a+x.qty*(x.price||0);},0);
   const iPd = inv.payments.reduce(function(a,p){return a+p.amount;},0);
   inv.status = iPd>=iA && iA>0 ? 'completed' : iPd>0 ? 'due' : 'transit';
-  saveDB(); syncToFirebase();
+  saveDB();
+  try{ saveInvoiceToCloud(c.id, inv, 'Payment delete \u2014 ' + (inv.no||'')); }catch(e){}   // Build-60
+  syncToFirebase();
   renderSalesDashboard();
   if(_detailId===cid) showModalTab('invoice', cid);
   notify('Payment deleted');
