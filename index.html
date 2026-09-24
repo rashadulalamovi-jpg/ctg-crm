@@ -801,6 +801,7 @@ body{max-width:100vw;overflow-x:hidden!important}
         <button class="mtab"        id="mt_intelligence"  onclick="showModalTab('intelligence')">&#x1F9E0; Intelligence</button>
         <button class="mtab"        id="mt_models"        onclick="showModalTab('models')">📈 Models</button>
         <button class="mtab"        id="mt_activity"      onclick="showModalTab('activity')">&#x1F4CB; Activity</button>
+        <button class="mtab"        id="mt_psych"         onclick="showModalTab('psych')">&#x1FAC0; সাইকোলোজি</button>
         <button class="mtab"        id="mt_checklist"     onclick="showModalTab('checklist')">&#x2705; Checklist</button>
       </div>
       <div class="mtab-c active" id="mtc_overview"></div>
@@ -808,6 +809,7 @@ body{max-width:100vw;overflow-x:hidden!important}
       <div class="mtab-c"        id="mtc_intelligence"></div>
       <div class="mtab-c"        id="mtc_models"></div>
       <div class="mtab-c"        id="mtc_activity"></div>
+      <div class="mtab-c"        id="mtc_psych"></div>
       <div class="mtab-c"        id="mtc_checklist"></div>
     </div>
   </div>
@@ -2567,7 +2569,7 @@ function openDetail(id){
 
 function showModalTab(tab, id){
   const cid = id || _detailId;
-  ['overview','invoice','intelligence','models','activity','checklist'].forEach(function(t){
+  ['overview','invoice','intelligence','models','activity','psych','checklist'].forEach(function(t){
     const btn = document.getElementById('mt_'+t);
     const con = document.getElementById('mtc_'+t);
     if(btn) btn.classList.toggle('active', t===tab);
@@ -2579,7 +2581,220 @@ function showModalTab(tab, id){
   if(tab==='intelligence') renderTabIntel(c);
   if(tab==='models') renderTabModels(c);
   if(tab==='activity') renderTabActivity(c);
+  if(tab==='psych') renderTabPsych(c);
   if(tab==='checklist') renderTabChecklist(c);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Build-58 — 🫀 সাইকোলজি ট্যাব
+// মালিক চান: কিছু বেসিক সাইকোলজি + এই কাস্টমারের সাথে হওয়া অভিজ্ঞতা লিখে রাখা।
+// দুই স্তর: (১) CRM যা নিজেই জানে — টাইপিং লাগে না, (২) মালিক যা লেখেন।
+// প্রতিটি লেখার পাশে CRM সংশ্লিষ্ট সংখ্যাটা দেখায় — রায় দেয় না, তথ্য দেয়।
+// কারণ বাংলা বাক্য পড়ে "মিলেছে / মেলেনি" বলা অনুমান হতো, আর অনুমান চলবে না।
+// ══════════════════════════════════════════════════════════════════════════
+var PSYCH_POINTS = [
+  {id:'buying',     label:'Buying Pattern',        ev:'order'},
+  {id:'trigger',    label:'Order Trigger',         ev:null},
+  {id:'model',      label:'Model Preference',      ev:'model'},
+  {id:'price',      label:'Price Sensitivity',     ev:null},
+  {id:'payment',    label:'Payment Behaviour',     ev:'payment'},
+  {id:'courier',    label:'Courier Behaviour',     ev:'courier'},
+  {id:'warranty',   label:'Warranty Behaviour',    ev:null},
+  {id:'return',     label:'Return Behaviour',      ev:'return'},
+  {id:'risk',       label:'Risk Tolerance',        ev:null},
+  {id:'negotiation',label:'Negotiation Style',     ev:null},
+  {id:'comm',       label:'Communication Style',   ev:null},
+  {id:'trust',      label:'Trust Builder',         ev:null},
+  {id:'loyalty',    label:'Loyalty / Multi-source',ev:null},
+  {id:'other',      label:'\u0985\u09a8\u09cd\u09af\u09be\u09a8\u09cd\u09af',ev:null}
+];
+var PSYCH_FLAGS = {neutral:'\u09a8\u09bf\u09b0\u09aa\u09c7\u0995\u09cd\u09b7', opp:'\u09b8\u09c1\u09af\u09cb\u0997', risk:'\u09dd\u09c1\u0981\u0995\u09bf'};
+
+// CRM নিজেই যা জানে — কোনো অনুমান নয়, না জানলে null
+function getCustomerPsychAuto(c){
+  var invs=(c&&c.invoices)||[];
+  if(!invs.length) return null;
+  function avg(a){ return a.length? Math.round(a.reduce(function(x,y){return x+y;},0)/a.length*10)/10 : null; }
+  var qtys=[], gaps=[], payDays=[], last=null, fullPaid=0, amt=0, paid=0;
+  var fam={}, totQty=0, reasons={}, retQty=0, courierDated=0;
+  invs.slice().sort(function(a,b){return (a.date||'')<(b.date||'')?-1:1;}).forEach(function(i){
+    var iA=(i.items||[]).reduce(function(a,x){return a+x.qty*(x.price||0);},0);
+    var iP=(i.payments||[]).reduce(function(a,p){return a+p.amount;},0);
+    amt+=iA; paid+=iP;
+    if(iA>0 && iP>=iA){
+      fullPaid++;
+      var lp=(i.payments||[]).map(function(p){return p.date;}).filter(Boolean).sort().slice(-1)[0];
+      if(lp){ var d=Math.round((new Date(lp)-new Date(i.date))/86400000); if(d>=0) payDays.push(d); }
+    }
+    qtys.push((i.items||[]).reduce(function(a,x){return a+(x.qty||0);},0));
+    if(last){ var g=Math.round((new Date(i.date)-new Date(last))/86400000); if(g>0) gaps.push(g); }
+    last=i.date;
+    if(i.courierReachedDate || i.customerReceivedDate) courierDated++;
+    (i.items||[]).forEach(function(x){
+      totQty+=x.qty||0;
+      var m=String(x.model||'').replace(/^(HP|Dell|Lenovo|Asus|Acer)\s+/i,'');
+      var f=(m.match(/\d{3}/)||[m.slice(0,10)])[0];
+      fam[f]=(fam[f]||0)+(x.qty||0);
+    });
+    (i.returns||[]).forEach(function(r){ var k=r.reason||'other'; reasons[k]=(reasons[k]||0)+(r.qty||0); retQty+=(r.qty||0); });
+  });
+  var top=Object.keys(fam).sort(function(a,b){return fam[b]-fam[a];}).slice(0,3);
+  return {
+    invCount:invs.length, totQty:totQty,
+    avgQty:avg(qtys), minQty:qtys.length?Math.min.apply(null,qtys):null, maxQty:qtys.length?Math.max.apply(null,qtys):null,
+    avgGap:avg(gaps),
+    fullPaid:fullPaid, due:Math.max(0,amt-paid), collectPct: amt>0?Math.round(paid/amt*100):null,
+    avgPayDays:avg(payDays),
+    topFamilies: top.map(function(k){ return {name:k, qty:fam[k], pct:totQty>0?Math.round(fam[k]/totQty*100):0}; }),
+    returnQty:retQty, returnReasons:reasons,
+    courierDated:courierDated
+  };
+}
+
+// একটি point-এর জন্য CRM-এর সংশ্লিষ্ট তথ্য — রায় নয়, তথ্য
+function psychEvidence(pointId, a){
+  var P=(PSYCH_POINTS.filter(function(x){return x.id===pointId;})[0])||{};
+  if(!P.ev) return {kind:'lock', text:'\u09a1\u09c7\u099f\u09be\u09b0 \u09ac\u09be\u0987\u09b0\u09c7 \u2014 CRM \u098f\u099f\u09be \u0995\u0996\u09a8\u09cb \u099c\u09be\u09a8\u09ac\u09c7 \u09a8\u09be, \u09b6\u09c1\u09a7\u09c1 \u0986\u09aa\u09a8\u09bf \u099c\u09be\u09a8\u09c7\u09a8'};
+  if(!a) return {kind:'mid', text:'\u098f\u0996\u09a8\u09cb \u0995\u09cb\u09a8\u09cb invoice \u09a8\u09c7\u0987'};
+  if(P.ev==='order'){
+    if(a.avgQty===null) return {kind:'mid', text:'order \u09a1\u09c7\u099f\u09be \u09a8\u09c7\u0987'};
+    return {kind:'data', text:'\u0997\u09dc \u0985\u09b0\u09cd\u09a1\u09be\u09b0 <b>'+a.avgQty+' pcs</b> ('+a.minQty+' \u2192 '+a.maxQty+') \u00b7 '
+      + (a.avgGap!==null? '\u09aa\u09cd\u09b0\u09a4\u09bf <b>'+a.avgGap+' \u09a6\u09bf\u09a8\u09c7</b> \u098f\u0995\u09ac\u09be\u09b0 \u00b7 ':'')
+      + a.invCount+'\u099f\u09bf invoice'};
+  }
+  if(P.ev==='model'){
+    if(!a.topFamilies.length) return {kind:'mid', text:'model \u09a1\u09c7\u099f\u09be \u09a8\u09c7\u0987'};
+    return {kind:'data', text:a.topFamilies.map(function(f){return '<b>'+f.name+'</b> '+f.qty+' pcs ('+f.pct+'%)';}).join(' \u00b7 ')
+      + ' \u2014 \u09ae\u09cb\u099f '+a.totQty+' pcs'};
+  }
+  if(P.ev==='payment'){
+    return {kind:'data', text:'<b>'+a.fullPaid+'/'+a.invCount+'</b> invoice \u09b8\u09ae\u09cd\u09aa\u09c2\u09b0\u09cd\u09a3 \u00b7 \u09ac\u0995\u09c7\u09af\u09bc <b>\u09f3'+Math.round(a.due).toLocaleString('en-IN')+'</b> \u00b7 \u0986\u09a6\u09be\u09af\u09bc '+a.collectPct+'%'
+      + (a.avgPayDays!==null? ' \u00b7 \u0997\u09dc <b>'+a.avgPayDays+' \u09a6\u09bf\u09a8</b>':'')};
+  }
+  if(P.ev==='courier'){
+    if(a.courierDated===0) return {kind:'mid', text:'\u09aa\u09cd\u09b0\u09ae\u09be\u09a3 \u09a8\u09c7\u0987 \u2014 '+a.invCount+'\u099f\u09bf invoice-\u098f\u09b0 \u098f\u0995\u099f\u09bf\u09a4\u09c7\u0993 courier \u09a4\u09be\u09b0\u09bf\u0996 \u09b2\u09c7\u0996\u09be \u09a8\u09c7\u0987'};
+    return {kind:'data', text:a.courierDated+'/'+a.invCount+' invoice-\u098f courier \u09a4\u09be\u09b0\u09bf\u0996 \u09b2\u09c7\u0996\u09be \u0986\u099b\u09c7'};
+  }
+  if(P.ev==='return'){
+    if(a.returnQty===0) return {kind:'data', text:'\u0995\u09cb\u09a8\u09cb return \u09a8\u09c7\u0987 \u2014 '+a.totQty+' pcs-\u098f \u09f0'};
+    var rs=Object.keys(a.returnReasons).map(function(k){return k+' '+a.returnReasons[k];}).join(' \u00b7 ');
+    return {kind:'data', text:'<b>'+a.returnQty+' pcs</b> return ('+(a.totQty>0?Math.round(a.returnQty/a.totQty*1000)/10:0)+'%) \u2014 '+rs};
+  }
+  return {kind:'lock', text:'\u09a1\u09c7\u099f\u09be\u09b0 \u09ac\u09be\u0987\u09b0\u09c7'};
+}
+
+function renderTabPsych(c){
+  var el=document.getElementById('mtc_psych'); if(!el) return;
+  if(!c.psych) c.psych=[];
+  var a=getCustomerPsychAuto(c);
+  function card(t,v,sub,cl){
+    return '<div style="background:var(--bg2);border-radius:10px;padding:10px 12px;border-left:3px solid '+cl+'">'
+      +'<div style="font-size:10px;color:var(--text3);margin-bottom:2px">'+t+'</div>'
+      +'<div style="font-family:var(--fm);font-size:15px;font-weight:700;color:'+cl+'">'+v+'</div>'
+      +'<div style="font-size:10px;color:var(--text3);margin-top:2px">'+(sub||'')+'</div></div>';
+  }
+  var h='';
+
+  // স্তর ১ — CRM যা নিজেই জানে
+  h+='<div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">\u{1F916} \u09a1\u09c7\u099f\u09be \u09af\u09be \u09a8\u09bf\u099c\u09c7\u0987 \u09ac\u09b2\u09c7 <span style="text-transform:none;font-weight:500;color:var(--blue)">\u2014 \u099f\u09be\u0987\u09aa\u09bf\u0982 \u09b2\u09be\u0997\u09c7 \u09a8\u09be</span></div>';
+  if(!a){
+    h+='<div style="font-size:12px;color:var(--text3);padding:12px;background:var(--bg2);border-radius:10px;margin-bottom:16px">\u098f\u0996\u09a8\u09cb \u0995\u09cb\u09a8\u09cb invoice \u09a8\u09c7\u0987 \u2014 \u0985\u09b0\u09cd\u09a1\u09be\u09b0 \u098f\u09b2\u09c7 \u09b8\u0982\u0996\u09cd\u09af\u09be \u09a6\u09c7\u0996\u09be\u09ac\u09c7\u0964</div>';
+  } else {
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px;margin-bottom:8px">';
+    h+=card('Order Size', (a.avgQty===null?'\u2014':a.avgQty)+' <span style="font-size:10px;color:var(--text3)">pcs</span>',
+            (a.minQty!==null? a.minQty+' \u2192 '+a.maxQty+' \u00b7 '+a.invCount+' invoice':''), 'var(--blue)');
+    h+=card('Order Rhythm', (a.avgGap===null?'\u2014':a.avgGap)+' <span style="font-size:10px;color:var(--text3)">\u09a6\u09bf\u09a8</span>',
+            '\u0985\u09b0\u09cd\u09a1\u09be\u09b0\u09c7\u09b0 \u09ac\u09cd\u09af\u09ac\u09a7\u09be\u09a8', 'var(--cyan)');
+    h+=card('Payment', a.fullPaid+'/'+a.invCount, '\u09b8\u09ae\u09cd\u09aa\u09c2\u09b0\u09cd\u09a3 \u00b7 \u0986\u09a6\u09be\u09af\u09bc '+a.collectPct+'%',
+            a.due>0?'var(--warn)':'var(--green)');
+    h+=card('Payment Speed', (a.avgPayDays===null?'\u2014':a.avgPayDays)+' <span style="font-size:10px;color:var(--text3)">\u09a6\u09bf\u09a8</span>',
+            a.due>0?'\u09ac\u0995\u09c7\u09af\u09bc \u09f3'+Math.round(a.due).toLocaleString('en-IN'):'\u09ac\u0995\u09c7\u09af\u09bc \u09a8\u09c7\u0987',
+            (a.avgPayDays!==null&&a.avgPayDays>15)?'var(--warn)':'var(--green)');
+    h+='</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px;margin-bottom:18px">';
+    h+=card('Model Preference', a.topFamilies.length? a.topFamilies.map(function(f){return f.name;}).join(' \u00b7 '):'\u2014',
+            a.topFamilies.length? a.topFamilies.map(function(f){return f.pct+'%';}).join(' \u00b7 '):'', '#a855f7');
+    h+=card('Return', a.returnQty+' <span style="font-size:10px;color:var(--text3)">pcs</span>',
+            a.totQty>0? (Math.round(a.returnQty/a.totQty*1000)/10)+'% \u00b7 \u09ae\u09cb\u099f '+a.totQty+' pcs':'',
+            a.returnQty>0?'var(--red)':'var(--green)');
+    h+=card('Courier \u09a4\u09be\u09b0\u09bf\u0996', a.courierDated+'/'+a.invCount,
+            a.courierDated===0?'\u0995\u09cb\u09a5\u09be\u0993 \u09b2\u09c7\u0996\u09be \u09a8\u09c7\u0987':'\u09b2\u09c7\u0996\u09be \u0986\u099b\u09c7',
+            a.courierDated===0?'var(--red)':'var(--green)');
+    h+='</div>';
+  }
+
+  // স্তর ২ — মালিকের লেখা
+  h+='<div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:8px">\u270d\ufe0f \u0986\u09ae\u09be\u09b0 \u09b2\u09c7\u0996\u09be \u09b8\u09be\u0987\u0995\u09cb\u09b2\u09cb\u099c\u09bf <span style="font-family:var(--fm);color:var(--text2)">'+c.psych.length+'</span></div>';
+  if(!c.psych.length){
+    h+='<div style="font-size:12px;color:var(--text3);padding:12px;background:var(--bg2);border-radius:10px;margin-bottom:10px">\u098f\u0996\u09a8\u09cb \u0995\u09bf\u099b\u09c1 \u09b2\u09c7\u0996\u09be \u09b9\u09af\u09bc\u09a8\u09bf\u0964 \u09a8\u09bf\u099a\u09c7 \u098f\u0995 \u09b2\u09be\u0987\u09a8\u09c7 \u09b6\u09c1\u09b0\u09c1 \u0995\u09b0\u09c1\u09a8\u0964</div>';
+  }
+  c.psych.forEach(function(n){
+    var P=(PSYCH_POINTS.filter(function(x){return x.id===n.point;})[0])||{label:n.point};
+    var ev=psychEvidence(n.point, a);
+    var fc = n.flag==='risk'?'var(--red)':n.flag==='opp'?'var(--green)':'var(--text3)';
+    var fb = n.flag==='risk'?'rgba(227,6,19,.08)':n.flag==='opp'?'rgba(16,185,129,.1)':'rgba(15,23,42,.04)';
+    var evS = ev.kind==='data' ? 'background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.22);color:#1d4ed8'
+            : ev.kind==='mid'  ? 'background:rgba(245,158,11,.09);border:1px solid rgba(245,158,11,.3);color:#92400e'
+            :                    'background:var(--bg2);border:1px solid var(--border);color:var(--text2)';
+    var evI = ev.kind==='data' ? '\u{1F4CA}' : ev.kind==='mid' ? '\u26a0\ufe0f' : '\u{1F512}';
+    h+='<div style="border:1px solid '+(n.flag==='risk'?'rgba(227,6,19,.3)':'var(--border)')+';border-radius:11px;padding:12px 13px;margin-bottom:9px;background:#fff">';
+    h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px">';
+    h+='<span style="font-size:11px;font-weight:700;background:var(--bg2);border-radius:6px;padding:3px 9px;color:var(--text2)">'+escHtml(P.label)+'</span>';
+    h+='<span style="font-size:9px;font-weight:700;border-radius:5px;padding:2px 8px;background:'+fb+';color:'+fc+'">'+(PSYCH_FLAGS[n.flag]||PSYCH_FLAGS.neutral)+'</span>';
+    h+='</div>';
+    h+='<div style="font-size:14px;color:var(--text);margin-bottom:8px;line-height:1.65">'+escHtml(n.observation||'')+'</div>';
+    h+='<div style="font-size:11.5px;padding:7px 11px;border-radius:8px;margin-bottom:7px;line-height:1.6;'+evS+'">'+evI+' '+ev.text+'</div>';
+    if(n.rule) h+='<div style="font-size:12px;background:rgba(217,119,6,.07);border-left:3px solid var(--gold);padding:7px 11px;border-radius:0 7px 7px 0;color:#92400e">\u{1F3AF} <b>\u0986\u09ae\u09be\u09a6\u09c7\u09b0 \u09a8\u09bf\u09af\u09bc\u09ae:</b> '+escHtml(n.rule)+'</div>';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:10px;color:var(--text3);font-family:var(--fm)">';
+    h+='<span>'+escHtml(n.date||'')+'</span>';
+    h+='<span onclick="deletePsychNote('+c.id+','+n.id+')" style="cursor:pointer;padding:0 5px">\u2715</span>';
+    h+='</div></div>';
+  });
+
+  // যোগ করার ফর্ম
+  h+='<div style="background:var(--bg2);border:1px dashed var(--border);border-radius:11px;padding:13px;margin-top:6px">';
+  h+='<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gold);margin-bottom:9px">+ \u09a8\u09a4\u09c1\u09a8 \u09b8\u09be\u0987\u0995\u09cb\u09b2\u09cb\u099c\u09bf \u09a8\u09cb\u099f</div>';
+  h+='<div style="display:grid;grid-template-columns:155px 1fr 115px auto;gap:8px;align-items:end">';
+  h+='<div><label class="lbl">Point</label><select id="psyP_'+c.id+'" style="font-size:11px">';
+  PSYCH_POINTS.forEach(function(P){ h+='<option value="'+P.id+'">'+P.label+'</option>'; });
+  h+='</select></div>';
+  h+='<div><label class="lbl">\u09af\u09be \u09b2\u0995\u09cd\u09b7\u09cd\u09af \u0995\u09b0\u09c7\u099b\u09bf / \u09af\u09c7 \u0985\u09ad\u09bf\u099c\u09cd\u099e\u09a4\u09be \u09b9\u09af\u09bc\u09c7\u099b\u09c7</label>'
+    +'<input id="psyO_'+c.id+'" placeholder="\u098f\u0995 \u09b2\u09be\u0987\u09a8\u09c7 \u09b2\u09bf\u0996\u09c1\u09a8..." style="font-size:11px" onkeydown="if(event.key===\'Enter\')addPsychNote('+c.id+')"></div>';
+  h+='<div><label class="lbl">\u09dd\u09c1\u0981\u0995\u09bf / \u09b8\u09c1\u09af\u09cb\u0997</label><select id="psyF_'+c.id+'" style="font-size:11px">'
+    +'<option value="neutral">\u09a8\u09bf\u09b0\u09aa\u09c7\u0995\u09cd\u09b7</option><option value="opp">\u09b8\u09c1\u09af\u09cb\u0997</option><option value="risk">\u09dd\u09c1\u0981\u0995\u09bf</option></select></div>';
+  h+='<div><button class="btn btn-r" onclick="addPsychNote('+c.id+')" style="font-size:9px;height:34px">+ \u09af\u09cb\u0997</button></div>';
+  h+='</div>';
+  h+='<div style="margin-top:8px"><label class="lbl">\u0986\u09ae\u09be\u09a6\u09c7\u09b0 \u09a8\u09bf\u09af\u09bc\u09ae \u2014 \u0990\u099a\u09cd\u099b\u09bf\u0995</label>'
+    +'<input id="psyR_'+c.id+'" placeholder="\u098f\u0987 \u0985\u09ad\u09bf\u099c\u09cd\u099e\u09a4\u09be \u09a5\u09c7\u0995\u09c7 \u0995\u09c0 \u09a8\u09bf\u09af\u09bc\u09ae \u09ac\u09be\u09a8\u09be\u09ac\u09c7\u09a8?" style="font-size:11px;width:100%"></div>';
+  h+='</div>';
+  el.innerHTML=h;
+}
+
+function addPsychNote(cid){
+  var c=db.customers.find(function(x){return x.id===cid;}); if(!c) return;
+  var pEl=document.getElementById('psyP_'+cid), oEl=document.getElementById('psyO_'+cid);
+  var fEl=document.getElementById('psyF_'+cid), rEl=document.getElementById('psyR_'+cid);
+  var obs=(oEl&&oEl.value||'').trim();
+  if(!obs){ if(oEl){oEl.style.borderColor='var(--red)'; oEl.focus();} notify('\u0986\u0997\u09c7 \u09b2\u09bf\u0996\u09c1\u09a8', true); return; }
+  if(oEl) oEl.style.borderColor='';
+  if(!c.psych) c.psych=[];
+  c.psych.unshift({ id:Date.now(), date:TODAY,
+    point:(pEl&&pEl.value)||'other', observation:obs,
+    flag:(fEl&&fEl.value)||'neutral', rule:(rEl&&rEl.value||'').trim() });
+  if(oEl) oEl.value=''; if(rEl) rEl.value='';
+  saveDB();
+  saveCustomerToCloud(c, '\u09b8\u09be\u0987\u0995\u09cb\u09b2\u09cb\u099c\u09bf \u09a8\u09cb\u099f');
+  renderTabPsych(c);
+  notify('\u2705 \u09b8\u09be\u0987\u0995\u09cb\u09b2\u09cb\u099c\u09bf \u09a8\u09cb\u099f \u09af\u09cb\u0997 \u09b9\u09b2\u09cb');
+}
+
+function deletePsychNote(cid, nid){
+  var c=db.customers.find(function(x){return x.id===cid;}); if(!c||!c.psych) return;
+  var i=c.psych.findIndex(function(n){return n.id===nid;}); if(i<0) return;
+  if(!confirm('\u098f\u0987 \u09a8\u09cb\u099f\u099f\u09bf \u09ae\u09c1\u099b\u09ac\u09c7\u09a8?')) return;
+  c.psych.splice(i,1);
+  saveDB();
+  saveCustomerToCloud(c, '\u09b8\u09be\u0987\u0995\u09cb\u09b2\u09cb\u099c\u09bf \u09a8\u09cb\u099f');
+  renderTabPsych(c);
 }
 
 // ── Tab: Overview ───────────────────────────────────────
