@@ -1489,12 +1489,21 @@ function custDocForFp(c){
   return d;
 }
 // cloud থেকে যা এল, সেটাই "সার্ভারে আছে" বলে ছাপ রাখা হয়
+var _lastServerCustomers = null;
 function noteServerCustomers(list){
+  _lastServerCustomers = list || [];
   (list||[]).forEach(function(c){
     if(!c || c.id === undefined) return;
     _fp.cust[String(c.id)] = fpOf(custDocForFp(c));
   });
   saveFP();
+}
+// split পতাকা ওঠানামা করলে তুলনার নিয়ম বদলে যায় (invoices ধরা হবে কি হবে না)।
+// তখন পুরনো ছাপ অর্থহীন — না বদলালে প্রতিবার লোডে ৫১টি customer বৃথা লেখা হত।
+function reseedCustomerFingerprints(){
+  if(!_lastServerCustomers) return false;
+  noteServerCustomers(_lastServerCustomers);
+  return true;
 }
 function noteServerStock(list){
   (list||[]).forEach(function(b){
@@ -2365,6 +2374,9 @@ function startRealtimeSync(){
       var was = _invSplitDone;
       _invSplitDone = !!v.done;
       if(_invSplitDone !== was){
+        // Build-61f: তুলনার নিয়ম বদলেছে — ছাপ আবার নিতে হবে,
+        // নতুবা প্রতিটি customer মিথ্যাই "বদলেছে" দেখাবে।
+        try{ reseedCustomerFingerprints(); }catch(e){}
         try{ applyInvoiceDocs(); }catch(e){}
         saveDB(); renderAll();
       }
