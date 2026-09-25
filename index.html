@@ -1468,13 +1468,21 @@ function fpOf(v){
   return s.length + '.' + h1.toString(36) + h2.toString(36);
 }
 
+// তুলনার জন্য customer-এর যে রূপটি ধরা হয়।
+// orders ও sales বাদ — এগুলো invoice থেকে নিজেই হিসাব হয়।
+// এগুলো গণনায় রাখলে প্রতিবার listener চললেই ৫১টি customer
+// "বদলেছে" দেখাত — অর্থাৎ ডায়েটের পুরো লাভ মারা যেত।
+function custDocForFp(c){
+  var d = Object.assign({}, c);
+  delete d.intel; delete d.orders; delete d.sales;
+  if(_invSplitDone) delete d.invoices;
+  return d;
+}
 // cloud থেকে যা এল, সেটাই "সার্ভারে আছে" বলে ছাপ রাখা হয়
 function noteServerCustomers(list){
   (list||[]).forEach(function(c){
     if(!c || c.id === undefined) return;
-    var d = Object.assign({}, c); delete d.intel;
-    if(_invSplitDone) delete d.invoices;
-    _fp.cust[String(c.id)] = fpOf(d);
+    _fp.cust[String(c.id)] = fpOf(custDocForFp(c));
   });
   saveFP();
 }
@@ -1489,9 +1497,7 @@ function noteServerStock(list){
 // এই customer-টি কি সত্যিই বদলেছে?
 function custNeedsWrite(c){
   if(!c || c.id === undefined) return false;
-  var d = Object.assign({}, c); delete d.intel;
-  if(_invSplitDone) delete d.invoices;
-  return _fp.cust[String(c.id)] !== fpOf(d);
+  return _fp.cust[String(c.id)] !== fpOf(custDocForFp(c));
 }
 function intelNeedsWrite(c){
   if(!c || c.id === undefined || !c.intel) return false;
@@ -1502,9 +1508,7 @@ function stockNeedsWrite(b){
   return _fp.stock[String(b.id)] !== fpOf(b);
 }
 function markCustWritten(c){
-  var d = Object.assign({}, c); delete d.intel;
-  if(_invSplitDone) delete d.invoices;
-  _fp.cust[String(c.id)] = fpOf(d); saveFP();
+  _fp.cust[String(c.id)] = fpOf(custDocForFp(c)); saveFP();
 }
 function markIntelWritten(c){ if(c && c.intel){ _fp.intel[String(c.id)] = fpOf(c.intel); saveFP(); } }
 function markStockWritten(b){ if(b && b.id !== undefined){ _fp.stock[String(b.id)] = fpOf(b); saveFP(); } }
