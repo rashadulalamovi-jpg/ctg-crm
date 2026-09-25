@@ -1585,7 +1585,8 @@ var CLOUD_BLOCK_MSG = {
 // অনন্ত retry বন্ধ করা হয় — নইলে ব্যাটারি আর কোটা দুটোই পুড়তে থাকে।
 async function onCloudWriteFailure(){
   _writeFailStreak++;
-  if(_writeFailStreak < 2) return null;
+  // প্রথম ব্যর্থতাতেই আসল কারণ জানানো হয় — "error" লিখে মালিককে
+  // অন্ধকারে রাখার কোনো মানে নেই। probe একটি REST কল, দুই মিনিট ক্যাশ হয়।
   if(_cloudBlocked && (Date.now() - _cloudBlocked.at) < 120000) return _cloudBlocked;
   var d = await diagnoseCloudWrite();
   if(d.kind === 'ok'){ _writeFailStreak = 0; _cloudBlocked = null; return null; }
