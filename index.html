@@ -1479,7 +1479,13 @@ var FP_DERIVED = ['intel','orders','sales','daysSinceLastOrder','inactive'];
 function custDocForFp(c){
   var d = Object.assign({}, c);
   FP_DERIVED.forEach(function(k){ delete d[k]; });
-  if(_invSplitDone) delete d.invoices;
+  if(_invSplitDone){ delete d.invoices; return d; }
+  // invoice তালিকার ক্রম দেখানোর জন্য সাজানো হয় (নতুন আগে)।
+  // ক্রম তথ্য নয় — তাই গণনার আগে id দিয়ে একই রকম করা হয়,
+  // নিলে শুধু সাজানোর ফলেই "বদলেছে" দেখাত।
+  d.invoices = (c.invoices||[]).slice().sort(function(x, y){
+    return String((x&&x.id)||'') < String((y&&y.id)||'') ? -1 : 1;
+  });
   return d;
 }
 // cloud থেকে যা এল, সেটাই "সার্ভারে আছে" বলে ছাপ রাখা হয়
