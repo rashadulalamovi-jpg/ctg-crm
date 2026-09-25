@@ -2504,20 +2504,209 @@ function startRealtimeSync(){
   }catch(e){}
 
   notify('📡 Real-time sync চালু হয়েছে');
+
+  // Build-62: পাশের মডিউলগুলোর (Priority / Learning / Life / Strategy Hub) লেখা
+  // cloud-এর সাথে মেলানো। আগে এগুলো শুধু এই ব্রাউজারে থাকত।
+  try{
+    pullSideStores().then(function(n){
+      if(n){
+        // এই মডিউলগুলো পেজ লোডেই নিজের কপি মেমরিতে তুলে ফেলে,
+        // তাই cloud থেকে নতুন লেখা এলে একবার রিফ্রেশ দরকার।
+        try{ showOfflineAlarm(true, '☁️ Cloud থেকে ' + n
+          + 'টি মডিউলের লেখা এসেছে — F5 চেপে রিফ্রেশ করুন।'); }catch(e){}
+      }
+      return pushSideStores(true);
+    }).catch(function(e){ console.warn('side stores:', e); });
+  }catch(e){ console.warn('side stores:', e); }
+
+  // লোকালে বদলালে নিজে থেকেই cloud-এ — ৩০ সেকেন্ড পরপর, আর ট্যাব ছাড়ার আগে
+  try{
+    setInterval(function(){ try{ pushSideStores(true); }catch(e){} }, 30000);
+    document.addEventListener('visibilitychange', function(){
+      if(document.visibilityState === 'hidden'){ try{ pushSideStores(true); }catch(e){} }
+    });
+    setInterval(function(){ try{ checkLocalStorageRoom(); }catch(e){} }, 120000);
+  }catch(e){}
 }
 
 async function loadFromFirebase(){
   startRealtimeSync();
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════
+// Build-62 — "পাশের মডিউলগুলোর" লেখাও আর হারাবে না
+//
+// লাইভ অডিটে যা পেলাম: CRM-এর মূল ডেটা (customer, invoice, stock) cloud-এ
+// নিরাপদ, কিন্তু মালিকের নিজের হাতে লেখা আরও কয়েকটি জিনিস শুধু এই ব্রাউজারে
+// পড়ে ছিল — কোথাও ব্যাকআপ নেই, cloud-এ নেই:
+//   ctg-prio-v1   (Priority — task + project, "কেন" সহ)   ~২৭ KB
+//   ctg-learn-v1  (Learning tree — সাইকোলজি ইত্যাদি)       ~১৭ KB
+//   ctg-life-v1   (Life goals)                             ~১ KB
+//   ctg_dubai_calc_v1, ctg-reminders-v1, Strategy Hub keys
+// ব্রাউজারের cache clear / নতুন ফোন = সব শেষ, ফেরানোর কোনো পথ নেই।
+//
+// এখন: প্রতিটির নিজের ছোট cloud ডকুমেন্ট, Business System-এর মতোই দুই দিকের
+// পাহারা সহ — খালি কপি যেন কখনো ভরা কপিকে মুছে দিতে না পারে।
+// ══════════════════════════════════════════════════════════════════════════
+var SIDE_STORES = [
+  {key:'ctg-prio-v1',       doc:'sidePrio',    label:'Priority'},
+  {key:'ctg-learn-v1',      doc:'sideLearn',   label:'Learning'},
+  {key:'ctg-life-v1',       doc:'sideLife',    label:'Life Goals'},
+  {key:'ctg_dubai_calc_v1', doc:'sideDubai',   label:'Dubai Calc'},
+  {key:'ctg-reminders-v1',  doc:'sideRemind',  label:'Reminders'},
+  {key:'ctg_hub_s1_tgt',    doc:'sideHubS1',   label:'Strategy S1'},
+  {key:'ctg_hub_s3_dubai',  doc:'sideHubS3',   label:'Strategy S3'},
+  {key:'ctg_hub_s4_gaps',   doc:'sideHubS4',   label:'Strategy S4'},
+];
+var SIDE_META_KEY = 'ctgside_v1';
+var _sideMeta = {};          // { doc: {at: লোকাল কপির সময়, fp: ছাপ} }
+var _sideCloudW = {};        // { doc: cloud কপিতে কত লেখা আছে }
+var _sideCloudSeen = {};     // { doc: cloud একবারও পড়া হয়েছে কিনা }
+try{ var _smRaw = localStorage.getItem(SIDE_META_KEY); if(_smRaw) _sideMeta = JSON.parse(_smRaw) || {}; }catch(e){}
+function saveSideMeta(){ try{ localStorage.setItem(SIDE_META_KEY, JSON.stringify(_sideMeta)); }catch(e){} }
+
+function sideRead(key){
+  try{ var raw = localStorage.getItem(key); return raw === null ? null : JSON.parse(raw); }
+  catch(e){ return null; }
+}
+function sideWriteLocal(key, v){
+  try{ localStorage.setItem(key, JSON.stringify(v)); return true; }
+  catch(e){ console.warn('side local write:', key, e); return false; }
+}
+
+// cloud থেকে টেনে আনা। নিয়ম: cloud-এর কপি নতুন হলে তবেই লোকাল বদলায়,
+// আর cloud কপি লোকালের অর্ধেকেরও কম হলে কখনোই নয় (খালি কপির হাত থেকে রক্ষা)।
+async function pullSideStores(){
+  if(!window._fbReady || !fsdb) return 0;
+  var pulled = 0;
+  for(const s of SIDE_STORES){
+    try{
+      var d = await fsdb.collection('meta').doc(s.doc).get({source:'server'});
+      _sideCloudSeen[s.doc] = true;
+      if(!d.exists){ _sideCloudW[s.doc] = 0; continue; }
+      var v = d.data() || {};
+      var cw = bizContentWeight(v.data);
+      _sideCloudW[s.doc] = cw;
+      var local = sideRead(s.key);
+      var lw = bizContentWeight(local);
+      var localAt = (_sideMeta[s.doc] && _sideMeta[s.doc].at) || 0;
+      var cloudAt = v._savedAt || 0;
+      if(cloudAt <= localAt) continue;                     // লোকালটাই নতুন
+      if(lw > 0 && cw < lw * 0.5){                         // cloud কপি সন্দেহজনকভাবে ছোট
+        console.warn('side pull blocked (cloud copy too small):', s.key, {local:lw, cloud:cw});
+        continue;
+      }
+      if(sideWriteLocal(s.key, v.data)){
+        _sideMeta[s.doc] = {at: cloudAt, fp: fpOf(v.data)};
+        pulled++;
+      }
+    }catch(e){ console.warn('side pull:', s.key, e); }
+  }
+  if(pulled) saveSideMeta();
+  return pulled;
+}
+
+// লোকালে বদলালে cloud-এ। খালি/ছোট কপি দিয়ে cloud-এর ভরা কপি চাপা দেওয়া হয় না।
+async function pushSideStores(quiet){
+  if(!window._fbReady || !fsdb) return 0;
+  if(typeof cloudIsBlocked === 'function' && cloudIsBlocked()) return 0;
+  var pushed = 0;
+  for(const s of SIDE_STORES){
+    try{
+      var local = sideRead(s.key);
+      if(local === null) continue;                        // এই ডিভাইসে নেই — কিছু করার নেই
+      var fp = fpOf(local);
+      if(_sideMeta[s.doc] && _sideMeta[s.doc].fp === fp) continue;   // বদলায়নি
+      var lw = bizContentWeight(local);
+      if(!_sideCloudSeen[s.doc]){                          // cloud এখনো পড়িনি — আগে পড়তে হবে
+        console.warn('side push deferred (cloud not read yet):', s.key);
+        continue;
+      }
+      var cw = _sideCloudW[s.doc] || 0;
+      if(cw > 0 && lw < cw * 0.5){
+        console.warn('side push BLOCKED (local copy too small):', s.key, {local:lw, cloud:cw});
+        continue;
+      }
+      var now = Date.now();
+      await fsdb.collection('meta').doc(s.doc).set(
+        {data: sanitize(local), _savedAt: now, _label: s.label}, {merge:false});
+      _sideMeta[s.doc] = {at: now, fp: fp};
+      _sideCloudW[s.doc] = lw;
+      pushed++;
+    }catch(e){
+      console.warn('side push:', s.key, e);
+      try{ onCloudWriteFailure(); }catch(e2){}
+      if(typeof cloudIsBlocked === 'function' && cloudIsBlocked()) break;
+    }
+  }
+  if(pushed){
+    saveSideMeta();
+    if(!quiet){ try{ cloudBadge('ok', '✅ ' + pushed + 'টি মডিউলের লেখা cloud-এ সেভ হয়েছে'); }catch(e){} }
+  }
+  return pushed;
+}
+
+// ── ব্যাকআপ: আর কোনো মডিউল বাদ পড়বে না ──
+// আগে exportJSON() শুধু crm + stock + bizImages নিত। Expense, Assets, Priority,
+// Learning, Life — কোনোটাই ব্যাকআপ ফাইলে থাকত না। এখন ctg* সব কী নিজে থেকেই
+// ধরা পড়ে, তাই ভবিষ্যতের নতুন মডিউলও এমনিতেই ঢুকে যাবে।
+function collectLocalStores(){
+  var out = {};
+  try{
+    for(var i = 0; i < localStorage.length; i++){
+      var k = localStorage.key(i);
+      if(!k) continue;
+      if(k.indexOf('ctg') !== 0) continue;        // শুধু এই অ্যাপের কী
+      if(k.indexOf('ctgsnap_') === 0) continue;   // দৈনিক স্ন্যাপশট — আলাদা ব্যবস্থা
+      if(k === SIDE_META_KEY) continue;           // শুধু হিসাব রাখার, ডেটা নয়
+      if(k === 'ctgfp_v1') continue;              // শুধু ছাপ, ডেটা নয়
+      out[k] = localStorage.getItem(k);
+    }
+  }catch(e){ console.warn('collectLocalStores:', e); }
+  return out;
+}
+function restoreLocalStores(stores){
+  if(!stores || typeof stores !== 'object') return 0;
+  var n = 0;
+  Object.keys(stores).forEach(function(k){
+    if(k.indexOf('ctg') !== 0) return;
+    if(k.indexOf('ctgsnap_') === 0) return;
+    if(typeof stores[k] !== 'string') return;
+    try{ localStorage.setItem(k, stores[k]); n++; }catch(e){ console.warn('restore:', k, e); }
+  });
+  return n;
+}
+
+// localStorage ভরে গেলে সেভ চুপচাপ ব্যর্থ হয় — তার আগেই সতর্ক করা হয়
+function localStorageKB(){
+  var n = 0;
+  try{ for(var i = 0; i < localStorage.length; i++){ var k = localStorage.key(i);
+    n += (k||'').length + (localStorage.getItem(k)||'').length; } }catch(e){}
+  return Math.round(n / 1024);
+}
+function checkLocalStorageRoom(){
+  var kb = localStorageKB();
+  if(kb > 4200){
+    try{ showOfflineAlarm(true, '⚠️ এই ব্রাউজারের জমা জায়গা প্রায় ভরে গেছে (' + kb
+      + ' KB)। Business System-এর ছবিগুলোই সবচেয়ে বেশি জায়গা নেয় — কিছু ছবি সরালে নতুন লেখা সেভ হতে থাকবে।'); }catch(e){}
+  }
+  return kb;
+}
+
 function exportJSON(){
-  const payload = { crm: db, stock: stockDB, bizImages: bizImgDB, exportedAt: TODAY };
+  // Build-62: crm/stock/bizImages ছাড়াও Expense, Assets, Priority, Learning,
+  // Life, Strategy Hub — ctg* সব কী নিজে থেকেই ধরা পড়ে, তাই কিছু বাদ যায় না।
+  const stores = collectLocalStores();
+  const payload = { crm: db, stock: stockDB, bizImages: bizImgDB,
+                    stores: stores, storeKeys: Object.keys(stores),
+                    exportedAt: TODAY, exportedAtMs: Date.now() };
   const blob = new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'ctg_crm_backup_'+TODAY+'.json';
   a.click();
-  notify('\u2705 Backup downloaded');
+  notify('\u2705 Backup downloaded \u2014 ' + Object.keys(stores).length + '\u099f\u09bf \u09ae\u09a1\u09bf\u0989\u09b2 \u09b8\u09b9');
 }
 function importJSON(ev){
   const f = ev.target.files[0]; if(!f) return;
@@ -2532,11 +2721,18 @@ function importJSON(ev){
       db.customers = db.customers.map(migrate);
       if(imp.stock && imp.stock.batches){ stockDB = imp.stock; saveStock(); }
       if(imp.bizImages && imp.bizImages.images){ bizImgDB = imp.bizImages; saveBizImgLocal(); }
+      // Build-62: Expense, Assets, Priority, Learning, Life, Strategy Hub — সব ফেরত
+      var _restored = 0;
+      if(imp.stores){
+        _restored = restoreLocalStores(imp.stores);
+        try{ loadDB(); }catch(e){ console.warn('reload after restore:', e); }
+      }
       ensureBizSystemDefaults();
       saveDB();
       await syncToFirebase();
       renderAll();
-      notify('\u2705 Import \u09B8\u09AB\u09B2!');
+      try{ pushSideStores(true); }catch(e){}
+      notify('\u2705 Import \u09B8\u09AB\u09B2!' + (_restored ? ' (' + _restored + '\u099f\u09bf \u09ae\u09a1\u09bf\u0989\u09b2 \u09ab\u09c7\u09b0\u09a4)' : ''));
     }catch(err){ notify('Import failed', true); }
   };
   r.readAsText(f);
