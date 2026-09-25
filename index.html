@@ -1472,9 +1472,13 @@ function fpOf(v){
 // orders ও sales বাদ — এগুলো invoice থেকে নিজেই হিসাব হয়।
 // এগুলো গণনায় রাখলে প্রতিবার listener চললেই ৫১টি customer
 // "বদলেছে" দেখাত — অর্থাৎ ডায়েটের পুরো লাভ মারা যেত।
+// এগুলো প্রতিবার নিজে থেকেই হিসাব হয় — cloud-এ লেখার দরকার নেই।
+// daysSinceLastOrder প্রতিদিন নিজেই বাড়ে — গণনায় রাখলে শুধু
+// তারিখ বদলালেই রোজ ৫১টি customer বৃথা লেখা হত।
+var FP_DERIVED = ['intel','orders','sales','daysSinceLastOrder','inactive'];
 function custDocForFp(c){
   var d = Object.assign({}, c);
-  delete d.intel; delete d.orders; delete d.sales;
+  FP_DERIVED.forEach(function(k){ delete d[k]; });
   if(_invSplitDone) delete d.invoices;
   return d;
 }
