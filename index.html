@@ -2694,9 +2694,12 @@ function localStorageKB(){
 }
 function checkLocalStorageRoom(){
   var kb = localStorageKB();
-  if(kb > 4200){
+  if(kb > 4600){
+    // কেন ৪৬০০: Chrome-এ একটি সাইটের সীমা প্রায় ৫ MB। সীমা ছাড়ালে
+    // নতুন লেখা সেভ হওয়া চুপচাপ বন্ধ হয়ে যায় — তার আগেই জানানো হয়।
     try{ showOfflineAlarm(true, '⚠️ এই ব্রাউজারের জমা জায়গা প্রায় ভরে গেছে (' + kb
-      + ' KB)। Business System-এর ছবিগুলোই সবচেয়ে বেশি জায়গা নেয় — কিছু ছবি সরালে নতুন লেখা সেভ হতে থাকবে।'); }catch(e){}
+      + ' KB / প্রায় ৫০০০ KB)। বেশিরভাগ জায়গা নিয়েছে Business System-এর ছবি। '
+      + 'সেই ছবিগুলো cloud-এ নিরাপদে আছে, তাই কিছু হারাবে না — তবে নতুন ছবি যোগ করা থামানো ভালো।'); }catch(e){}
   }
   return kb;
 }
