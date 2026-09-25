@@ -310,6 +310,7 @@ body{max-width:100vw;overflow-x:hidden!important}
   <button class="btn btn-o" onclick="exportJSON()" style="font-size:8px;padding:3px 10px">&#x1F4BE; Backup</button>
   <button class="btn btn-o" onclick="cleanDuplicateCloudBatches()" style="font-size:8px;padding:3px 10px" title="cloud-এ একই batch দুইবার থাকলে পরিষ্কার করুন">&#x1F9F9; Dup Fix</button>
   <button class="btn btn-o" onclick="migrateInvoicesToCollection()" style="font-size:8px;padding:3px 10px" title="প্রতিটি invoice আলাদা ডকুমেন্টে সরানো হবে — একবারই চাপতে হয়">&#x1F4E6; Invoice Split</button>
+  <button class="btn btn-o" id="cloudFixBtn" onclick="retryCloudNow()" style="font-size:8px;padding:3px 10px" title="Cloud-এ লেখা আটকে গেলে এখানে কারণ দেখাবে ও আবার পাঠাবে">&#x1F501; Cloud</button>
   <button class="btn btn-o" onclick="restoreSnapshotUI()" style="font-size:8px;padding:3px 10px" title="প্রতিদিনের রক্ষিত কপি থেকে ফিরিয়ে আনুন">&#x1F570; Restore</button>
   <label class="btn btn-o" style="font-size:8px;padding:3px 10px;cursor:pointer">
     &#x1F4E5; Import<input type="file" accept=".json" onchange="importJSON(event)" style="display:none">
@@ -1241,6 +1242,13 @@ try{
     try{ refreshCloudAlarm(); }catch(e){}
     // Build-56: শুরুতে ঘন ঘন দেখা হয়, যাতে ডেটা এলেই বারটা সাথে সাথে সরে যায়
     setInterval(function(){ try{ refreshCloudAlarm(); }catch(e){} }, 3000);
+    // Build-61: আটকে থাকলে প্রতি ৫ মিনিটে নিজে থেকেই দেখা হয় কোটা ফিরেছে কিনা
+    setInterval(function(){
+      try{
+        if(!cloudIsBlocked()) return;
+        diagnoseCloudWrite().then(function(d){ if(d && d.kind === 'ok'){ retryCloudNow(); } });
+      }catch(e){}
+    }, 300000);
   });
 }catch(e){}
 
@@ -1321,6 +1329,13 @@ function showLoadingBar(on){
 }
 function refreshCloudAlarm(){
   var young = (Date.now() - _appStartedAt) < CLOUD_GRACE_MS;
+  // Build-61: কোটা/নিয়ম আটকানো থাকলে "কানেকশন নেই" বলা মিথ্যা — আসল কারণ দেখানো হয়
+  if(typeof cloudIsBlocked === 'function' && cloudIsBlocked()){
+    showLoadingBar(false);
+    var _fb = CLOUD_BLOCK_MSG[_cloudBlocked.kind] || CLOUD_BLOCK_MSG.other;
+    showOfflineAlarm(true, _fb(_cloudBlocked.msg));
+    return;
+  }
   // জমা কাজ থাকলে গ্রেস পিরিয়ড খাটে না — লেখা হয়ে গেছে অথচ cloud-এ যায়নি,
   // এটা ধীর লোড নয়, সত্যিকারের ঝুঁকি। তাই সাথে সাথেই লাল বার।
   if(_pendingSync){ showLoadingBar(false); showOfflineAlarm(true, 'কিছু কাজ এখনো Cloud-এ যায়নি'); return; }
@@ -1408,6 +1423,183 @@ function restoreSnapshotUI(){
 // মুছে দিতে না পারে। Firestore-এ merge:true অ্যারে জোড়া লাগায় না — পুরো
 // invoices অ্যারে বদলে দেয়। তাই cloud থেকে একবারও ডেটা না আসা পর্যন্ত
 // কোনো customer doc লেখা হয় না।
+
+// ══════════════════════════════════════════════════════════════════════════
+// Build-61 — Write Diet + কোটা পাহারা
+//
+// আসল রোগ যা এতদিন ধরা পড়েনি:
+//   Firestore ডিবাগ লগ বলল → {"code":429,"status":"RESOURCE_EXHAUSTED"}
+//   অর্থাৎ Firebase-এর দিনের ফ্রি কোটা (২০,০০০ write/দিন) শেষ হয়ে যাচ্ছিল।
+//   এই এররে Firestore SDK অনন্তকাল আবার চেষ্টা করে — promise কখনো settle হয় না।
+//   তাই ⏳ চিরকাল ঘুরত, ❌ কখনো আসত না, আর কোনো কিছুই সেভ হতো না।
+//
+// কোটা কেন শেষ হতো:
+//   syncToFirebase() প্রতিবার সব customer + সব intel + tasks লিখত,
+//   আর syncStockBatches() সব batch। মাপা হিসাব = এক ক্লিকে ২০৯টি write।
+//   ২০,০০০ ÷ ২০৯ ≈ দিনে ৯৬ ক্লিক — তারপরেই পুরো CRM অচল।
+//
+// এখন: যে ডকুমেন্টের ভেতরটা সত্যিই বদলেছে, শুধু সেটাই লেখা হয়।
+//   ছাপ (fingerprint) নেওয়া হয় cloud snapshot থেকে — অর্থাৎ "সার্ভারে এখন কী আছে"।
+//   লোকাল কপি তার সাথে না মিললে তবেই write। সাধারণ ক্লিকে ১–২টি write।
+// ══════════════════════════════════════════════════════════════════════════
+var FP_KEY = 'ctgfp_v1';
+var _fp = { cust:{}, intel:{}, stock:{}, tasks:'' };
+try{ var _fpRaw = localStorage.getItem(FP_KEY); if(_fpRaw) _fp = JSON.parse(_fpRaw) || _fp; }catch(e){}
+if(!_fp.cust) _fp.cust = {}; if(!_fp.intel) _fp.intel = {};
+if(!_fp.stock) _fp.stock = {}; if(_fp.tasks === undefined) _fp.tasks = '';
+function saveFP(){ try{ localStorage.setItem(FP_KEY, JSON.stringify(_fp)); }catch(e){} }
+
+// ছোট, স্থিতিশীল ছাপ। কী-গুলো সাজিয়ে নেওয়া হয়, যাতে শুধু ক্রম বদলালে
+// মিথ্যা "বদলেছে" সংকেত না আসে।
+function stableStr(v){
+  if(v === null || v === undefined) return 'n';
+  if(typeof v !== 'object') return JSON.stringify(v);
+  if(Array.isArray(v)) return '[' + v.map(stableStr).join(',') + ']';
+  var keys = Object.keys(v).filter(function(k){ return k.charAt(0) !== '_'; }).sort();
+  return '{' + keys.map(function(k){ return k + ':' + stableStr(v[k]); }).join(',') + '}';
+}
+function fpOf(v){
+  var s = stableStr(v), h1 = 0x811c9dc5, h2 = 0x01000193;
+  for(var i = 0; i < s.length; i++){
+    var c = s.charCodeAt(i);
+    h1 = (h1 ^ c) * 16777619 >>> 0;
+    h2 = (h2 + c * (i + 1)) >>> 0;
+  }
+  return s.length + '.' + h1.toString(36) + h2.toString(36);
+}
+
+// cloud থেকে যা এল, সেটাই "সার্ভারে আছে" বলে ছাপ রাখা হয়
+function noteServerCustomers(list){
+  (list||[]).forEach(function(c){
+    if(!c || c.id === undefined) return;
+    var d = Object.assign({}, c); delete d.intel;
+    if(_invSplitDone) delete d.invoices;
+    _fp.cust[String(c.id)] = fpOf(d);
+  });
+  saveFP();
+}
+function noteServerStock(list){
+  (list||[]).forEach(function(b){
+    if(!b || b.id === undefined) return;
+    _fp.stock[String(b.id)] = fpOf(b);
+  });
+  saveFP();
+}
+
+// এই customer-টি কি সত্যিই বদলেছে?
+function custNeedsWrite(c){
+  if(!c || c.id === undefined) return false;
+  var d = Object.assign({}, c); delete d.intel;
+  if(_invSplitDone) delete d.invoices;
+  return _fp.cust[String(c.id)] !== fpOf(d);
+}
+function intelNeedsWrite(c){
+  if(!c || c.id === undefined || !c.intel) return false;
+  return _fp.intel[String(c.id)] !== fpOf(c.intel);
+}
+function stockNeedsWrite(b){
+  if(!b || b.id === undefined) return false;
+  return _fp.stock[String(b.id)] !== fpOf(b);
+}
+function markCustWritten(c){
+  var d = Object.assign({}, c); delete d.intel;
+  if(_invSplitDone) delete d.invoices;
+  _fp.cust[String(c.id)] = fpOf(d); saveFP();
+}
+function markIntelWritten(c){ if(c && c.intel){ _fp.intel[String(c.id)] = fpOf(c.intel); saveFP(); } }
+function markStockWritten(b){ if(b && b.id !== undefined){ _fp.stock[String(b.id)] = fpOf(b); saveFP(); } }
+
+// এই মুহূর্তে কতগুলো ডকুমেন্ট লেখার দরকার আছে — হেডারে দেখানোর জন্য
+function pendingWriteCount(){
+  var n = 0;
+  (db.customers||[]).forEach(function(c){ if(custNeedsWrite(c)) n++; if(intelNeedsWrite(c)) n++; });
+  ((typeof stockDB!=='undefined' && stockDB.batches)?stockDB.batches:[]).forEach(function(b){ if(stockNeedsWrite(b)) n++; });
+  if(_fp.tasks !== fpOf(db.tasks||[])) n++;
+  return n;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// কোটা পাহারা — কেন সেভ হচ্ছে না, সেটি আন্দাজ নয়, সার্ভারকে জিজ্ঞেস করে বলা হয়
+// ══════════════════════════════════════════════════════════════════════════
+var _cloudBlocked = null;      // null = ঠিক আছে, নইলে {kind, at}
+var _writeFailStreak = 0;
+
+// Firestore REST দিয়ে সরাসরি একটি probe — SDK-এর মতো অনন্তকাল আটকায় না,
+// তাই আসল কারণটা (কোটা / নিয়ম / নেট) পরিষ্কার জানা যায়।
+async function diagnoseCloudWrite(){
+  try{
+    var u = (window.firebase && firebase.auth) ? firebase.auth().currentUser : null;
+    if(!u) return {kind:'auth'};
+    var tok = await u.getIdToken();
+    var pid = firebase.app().options.projectId;
+    var url = 'https://firestore.googleapis.com/v1/projects/' + pid
+            + '/databases/(default)/documents/meta/_writeProbe?updateMask.fieldPaths=t';
+    var r = await fetch(url, {
+      method:'PATCH',
+      headers:{'Authorization':'Bearer ' + tok, 'Content-Type':'application/json'},
+      body: JSON.stringify({fields:{t:{integerValue:String(Date.now())}}})
+    });
+    if(r.ok) return {kind:'ok'};
+    var j = {}; try{ j = await r.json(); }catch(e){}
+    var st = (j.error && j.error.status) || ('HTTP' + r.status);
+    if(st === 'RESOURCE_EXHAUSTED') return {kind:'quota'};
+    if(st === 'PERMISSION_DENIED')  return {kind:'rules'};
+    if(st === 'UNAUTHENTICATED')    return {kind:'auth'};
+    return {kind:'other', msg:st};
+  }catch(e){ return {kind:'network', msg:e.message}; }
+}
+
+// কোটা রিসেট হয় প্রশান্ত মহাসাগরীয় সময়ের মধ্যরাতে = ঢাকার দুপুর ১টা
+function quotaResetText(){
+  var now = new Date();
+  var d = new Date(now.getTime());
+  d.setUTCHours(7, 0, 0, 0);                       // 00:00 Pacific ≈ 07:00 UTC
+  if(d <= now) d.setUTCDate(d.getUTCDate() + 1);
+  var hrs = Math.max(0, Math.round((d - now) / 3600000));
+  return 'ঢাকার দুপুর ১টায় রিসেট হবে (আর প্রায় ' + hrs + ' ঘণ্টা)';
+}
+
+var CLOUD_BLOCK_MSG = {
+  quota:   function(){ return '🚫 আজকের Firebase ফ্রি কোটা শেষ — ' + quotaResetText() + '। লেখা এই ডিভাইসে নিরাপদে জমা আছে।'; },
+  rules:   function(){ return '🚫 Firebase নিয়ম (rules) লেখার অনুমতি দিচ্ছে না — Firebase Console-এ Rules ঠিক করতে হবে।'; },
+  auth:    function(){ return '🚫 লগইন সেশন শেষ — একবার Logout করে আবার Login করুন।'; },
+  network: function(){ return '🚫 ইন্টারনেট পাওয়া যাচ্ছে না — লেখা এই ডিভাইসে জমা আছে।'; },
+  other:   function(m){ return '🚫 Cloud লেখা আটকে গেছে (' + (m||'unknown') + ') — লেখা এই ডিভাইসে জমা আছে।'; },
+};
+
+// লেখা বারবার আটকালে একবার সত্যিকারের কারণ বের করা হয়, আর SDK-এর
+// অনন্ত retry বন্ধ করা হয় — নইলে ব্যাটারি আর কোটা দুটোই পুড়তে থাকে।
+async function onCloudWriteFailure(){
+  _writeFailStreak++;
+  if(_writeFailStreak < 2) return null;
+  if(_cloudBlocked && (Date.now() - _cloudBlocked.at) < 120000) return _cloudBlocked;
+  var d = await diagnoseCloudWrite();
+  if(d.kind === 'ok'){ _writeFailStreak = 0; _cloudBlocked = null; return null; }
+  _cloudBlocked = {kind:d.kind, msg:d.msg, at:Date.now()};
+  try{ if(fsdb && fsdb.disableNetwork) await fsdb.disableNetwork(); }catch(e){}
+  var f = CLOUD_BLOCK_MSG[d.kind] || CLOUD_BLOCK_MSG.other;
+  try{ showOfflineAlarm(true, f(d.msg)); }catch(e){}
+  try{ cloudBadge('fail', f(d.msg), 'retryCloudNow()'); }catch(e){}
+  return _cloudBlocked;
+}
+
+// মালিক নিজে আবার চেষ্টা করতে পারেন — অথবা কোটা ফিরলে নিজে থেকেই
+async function retryCloudNow(){
+  var d = await diagnoseCloudWrite();
+  if(d.kind !== 'ok'){
+    var f = CLOUD_BLOCK_MSG[d.kind] || CLOUD_BLOCK_MSG.other;
+    try{ cloudBadge('fail', f(d.msg), 'retryCloudNow()'); }catch(e){}
+    return false;
+  }
+  _cloudBlocked = null; _writeFailStreak = 0;
+  try{ if(fsdb && fsdb.enableNetwork) await fsdb.enableNetwork(); }catch(e){}
+  try{ showOfflineAlarm(false); }catch(e){}
+  try{ cloudBadge('busy', '⏳ জমে থাকা কাজ পাঠানো হচ্ছে...'); }catch(e){}
+  try{ await syncToFirebase(); }catch(e){}
+  return true;
+}
+function cloudIsBlocked(){ return !!_cloudBlocked; }
+
 var _cloudCustomersSeen = false;
 // Build-60: মাইগ্রেশন শেষ হয়েছে কিনা (cloud meta/invoiceSplit থেকে আসে)।
 // ঘোষণাটি এখানে, কারণ নিচের syncToFirebase() ও saveCustomerToCloud() এটি পড়ে।
@@ -1443,23 +1635,54 @@ async function syncToFirebase(){
     try{ syncStockBatches(); }catch(e){ console.warn('stock sync (blocked path):', e); }
     return;
   }
+  // Build-61: কোটা শেষ / নিয়ম আটকানো থাকলে অনর্থক চেষ্টা করে কোটা পোড়ানো হয় না
+  if(cloudIsBlocked()){
+    try{ showSync('\u{1F6AB} Cloud \u0986\u099f\u0995\u09c7 \u0986\u099b\u09c7 \u2014 \u09b2\u09c7\u0996\u09be \u098f\u0987 \u09a1\u09bf\u09ad\u09be\u0987\u09b8\u09c7 \u099c\u09ae\u09be'); }catch(e){}
+    return;
+  }
   try{
-    showSync('\u{1F504} Syncing...');
-    const batch = fsdb.batch();
+    // Build-61 — Write Diet: আগে প্রতিবার সব customer + সব intel + tasks লেখা হতো
+    // (মাপা হিসাবে এক ক্লিকে ২০৯টি write)। সেটাই দিনের ফ্রি কোটা শেষ করে দিত।
+    // এখন শুধু সেগুলোই লেখা হয় যেগুলোর ভেতরটা সার্ভারের কপির চেয়ে আলাদা।
+    var _dirtyC = [], _dirtyI = [];
     db.customers.forEach(function(c){
+      if(custNeedsWrite(c)) _dirtyC.push(c);
+      if(intelNeedsWrite(c)) _dirtyI.push(c);
+    });
+    var _tasksFp = fpOf(db.tasks||[]);
+    var _tasksDirty = (_fp.tasks !== _tasksFp);
+    var _n = _dirtyC.length + _dirtyI.length + (_tasksDirty ? 1 : 0);
+    if(!_n){
+      try{ syncStockBatches(); }catch(e){ console.warn('stock sync:', e); }
+      showSync('\u2705 \u09b8\u09ac \u0986\u0997\u09c7\u0987 cloud-\u098f \u0986\u099b\u09c7');
+      return;
+    }
+    showSync('\u{1F504} Syncing ' + _n + '...');
+    const batch = fsdb.batch();
+    _dirtyC.forEach(function(c){
       const d = sanitize(Object.assign({}, c));
       delete d.intel;
       if(_invSplitDone) delete d.invoices;   // Build-60
       batch.set(fsdb.collection('customers').doc(String(c.id)), d, {merge:true});
-      if(c.intel) batch.set(fsdb.collection('intel').doc(String(c.id)), sanitize(c.intel), {merge:true});
     });
-    batch.set(fsdb.collection('meta').doc('tasks'), {tasks: db.tasks||[], _savedAt: Date.now()});
+    _dirtyI.forEach(function(c){
+      batch.set(fsdb.collection('intel').doc(String(c.id)), sanitize(c.intel), {merge:true});
+    });
+    if(_tasksDirty) batch.set(fsdb.collection('meta').doc('tasks'), {tasks: db.tasks||[], _savedAt: Date.now()});
     // Build-52: businessSystem আর এই batch-এ লেখা হয় না — saveBizSystemToCloud()
     // উপরে আলাদাভাবে, গেট সহ পাঠায়। এখানে রাখলে গেটটা এড়িয়ে যেত।
     await batch.commit();
+    // লেখা সফল — এখন সার্ভারে কী আছে তার ছাপ হালনাগাদ, যাতে একই জিনিস আর না যায়
+    _dirtyC.forEach(markCustWritten);
+    _dirtyI.forEach(markIntelWritten);
+    if(_tasksDirty){ _fp.tasks = _tasksFp; saveFP(); }
+    _writeFailStreak = 0; _cloudBlocked = null;
     await syncStockBatches();
-    showSync('\u2705 Synced ' + new Date().toLocaleTimeString());
-  }catch(e){ showSync('\u26A0\uFE0F Sync error'); console.error(e); }
+    showSync('\u2705 Synced ' + _n + ' \u00b7 ' + new Date().toLocaleTimeString());
+  }catch(e){
+    showSync('\u26A0\uFE0F Sync error'); console.error(e);
+    try{ onCloudWriteFailure(); }catch(e2){}   // Build-61: কারণটা সার্ভারকে জিজ্ঞেস করা হয়
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1470,8 +1693,12 @@ async function syncToFirebase(){
 // ══════════════════════════════════════════════════════════════════════════
 async function syncStockBatches(){
   if(!window._fbReady || !fsdb) return 0;
+  if(cloudIsBlocked()) return 0;                      // Build-61
   var added = 0;
   for(const b of (stockDB.batches||[])){
+    // Build-61 — Write Diet: আগে প্রতিবার ১৪৬টি batch-ই আবার লেখা হতো।
+    // এখন যেটির ভেতরটা সার্ভারের কপির চেয়ে আলাদা, শুধু সেটিই যায়।
+    if(!stockNeedsWrite(b)) continue;
     try{
       if(b._fbId){
         // Build-47: _fbId ভুতুড়ে হতে পারে (add() ব্রাউজারেই id বানাত), তাই
@@ -1486,7 +1713,12 @@ async function syncStockBatches(){
         await fsdb.collection('stockBatches').doc(String(b.id)).set(clean,{merge:true});
         b._fbId = String(b.id); added++;
       }
-    }catch(e){ console.warn('stock sync failed for', b && b.model, e); }
+      markStockWritten(b);                            // Build-61: সার্ভারে কী আছে তার ছাপ
+    }catch(e){
+      console.warn('stock sync failed for', b && b.model, e);
+      try{ onCloudWriteFailure(); }catch(e2){}
+      if(cloudIsBlocked()) break;                     // কোটা শেষ হলে বাকিগুলো নিয়ে ঘষাঘষি নয়
+    }
   }
   saveStock();
   return added;
@@ -1528,6 +1760,12 @@ async function cloudSaveVerified(collName, docId, data, label, opts){
   var quiet = !!opts.quiet;
   var useMerge = (opts.merge === undefined) ? true : !!opts.merge;
   function badge(st, tx, rt){ if(!quiet) cloudBadge(st, tx, rt); }
+  // Build-61: কোটা শেষ / নিয়ম আটকানো — অপেক্ষা করিয়ে মিথ্যা আশা দেওয়ার মানে নেই
+  if(cloudIsBlocked()){
+    var _f = CLOUD_BLOCK_MSG[_cloudBlocked.kind] || CLOUD_BLOCK_MSG.other;
+    badge('fail', _f(_cloudBlocked.msg), 'retryCloudNow()');
+    return false;
+  }
   if(!window._fbReady || !fsdb){
     badge('fail', '❌ Cloud কানেকশন নেই — ' + label + ' শুধু এই ডিভাইসে');
     return false;
@@ -1549,6 +1787,7 @@ async function cloudSaveVerified(collName, docId, data, label, opts){
       fsdb.collection(collName).doc(String(docId)).get({source:'server'}), 20000, 'verify');
     _cloudPending--;
     if(chk.exists){
+      _writeFailStreak = 0; _cloudBlocked = null;   // Build-61
       badge('ok', '✅ ' + label + ' cloud-এ সেভ হয়েছে');
       return true;
     }
@@ -1557,6 +1796,13 @@ async function cloudSaveVerified(collName, docId, data, label, opts){
   }catch(e){
     _cloudPending--;
     console.error('cloudSaveVerified failed', collName, docId, e);
+    // Build-61: সার্ভারকে জিজ্ঞাসা করে আসল কারণ বের করা হয়
+    var _blk = null; try{ _blk = await onCloudWriteFailure(); }catch(e2){}
+    if(_blk){
+      var _f2 = CLOUD_BLOCK_MSG[_blk.kind] || CLOUD_BLOCK_MSG.other;
+      badge('fail', _f2(_blk.msg), 'retryCloudNow()');
+      return false;
+    }
     badge('fail', '❌ ' + label + ' cloud-এ যায়নি (' + (e.code||'error') + ')', 'retryCloudSaves()');
     return false;
   }
@@ -1824,6 +2070,14 @@ async function deleteInvoiceFromCloud(cid, invId){
 async function migrateInvoicesToCollection(){
   if(!window._fbReady || !fsdb){ notify('Cloud কানেকশন নেই', true); return false; }
   if(!_cloudCustomersSeen){ notify('Cloud ডেটা এখনো আসেনি — একটু পরে চেষ্টা করুন', true); return false; }
+  // Build-61: আগেই দেখা হয় cloud লেখা নিচ্ছে কিনা — না নিলে শুরুই করা হবে না
+  var _pre = await diagnoseCloudWrite();
+  if(_pre.kind !== 'ok'){
+    var _pf = CLOUD_BLOCK_MSG[_pre.kind] || CLOUD_BLOCK_MSG.other;
+    _cloudBlocked = {kind:_pre.kind, msg:_pre.msg, at:Date.now()};
+    cloudBadge('fail', _pf(_pre.msg), 'retryCloudNow()');
+    return false;
+  }
   var custs = db.customers || [];
   var total = custs.reduce(function(n,c){ return n + ((c.invoices||[]).length); }, 0);
   if(!total){ notify('সরানোর মতো invoice নেই', true); return false; }
@@ -1831,19 +2085,43 @@ async function migrateInvoicesToCollection(){
     + 'পুরনো ডেটা যাচাই শেষ না হওয়া পর্যন্ত মুছবে না।\n'
     + 'Backup নিয়েছেন? OK চাপলে শুরু হবে।')) return false;
 
-  cloudBadge('busy', '⏳ Invoice মাইগ্রেশন চলছে (0/' + total + ')...');
-  var written = 0, failed = [];
+  // Build-61: যেগুলো আগেই cloud-এ গেছে সেগুলো আর পাঠানো হয় না —
+  // তাই থেমে গেলে যেখান থেকে থেমেছিল সেখান থেকেই আবার চলে।
+  var already = {};
+  try{
+    var pre = await fsdb.collection('invoices').get({source:'server'});
+    pre.docs.forEach(function(d){ already[String(d.id)] = true; });
+  }catch(e){ console.warn('pre-scan:', e); }
+
+  var done = 0, written = 0, failed = [], stoppedBy = null;
+  function prog(){ cloudBadge('busy', '⏳ Invoice মাইগ্রেশন (' + done + '/' + total + ')...'); }
+  prog();
   for(const c of custs){
+    if(stoppedBy) break;
     for(const inv of (c.invoices||[])){
+      if(stoppedBy) break;
+      done++;
+      if(already[invDocId(c.id, inv.id)]){ written++; prog(); continue; }   // আগেই গেছে
       var ok = false;
       try{ ok = await saveInvoiceToCloud(c.id, inv, null, {quiet:true}); }catch(e){}
-      if(ok){ written++; cloudBadge('busy', '⏳ Invoice মাইগ্রেশন (' + written + '/' + total + ')...'); }
-      else failed.push((c.name||'') + ' / ' + (inv.no||''));
+      if(ok) written++;
+      else {
+        failed.push((c.name||'') + ' / ' + (inv.no||''));
+        if(cloudIsBlocked()) stoppedBy = _cloudBlocked;   // কোটা/নিয়ম — বাকিগুলো নিয়ে ঘষাঘষি নয়
+      }
+      prog();
     }
+  }
+  if(stoppedBy){
+    var _fm = CLOUD_BLOCK_MSG[stoppedBy.kind] || CLOUD_BLOCK_MSG.other;
+    cloudBadge('fail', _fm(stoppedBy.msg) + ' — ' + written + '/' + total
+      + ' হয়েছে। পুরনো ডেটা অক্ষত। পরে আবার চাপলে এখান থেকেই চলবে।', 'migrateInvoicesToCollection()');
+    return false;
   }
   if(failed.length){
     console.error('migration failed for:', failed);
-    cloudBadge('fail', '❌ ' + failed.length + 'টি invoice যায়নি — পুরনো ডেটা অক্ষত আছে', 'migrateInvoicesToCollection()');
+    cloudBadge('fail', '❌ ' + failed.length + 'টি invoice যায়নি (' + written + '/' + total
+      + ') — পুরনো ডেটা অক্ষত আছে। আবার চাপলে বাকিগুলো যাবে।', 'migrateInvoicesToCollection()');
     return false;
   }
   var snap;
@@ -1967,6 +2245,8 @@ function startRealtimeSync(){
     if(snap.empty){ _cloudCustomersSeen = true; db.customers = []; saveDB(); renderAll(); return; }
     const custs = snap.docs.map(function(d){ return Object.assign({id: parseInt(d.id)||d.id}, d.data()); });
     var cloudList = custs.map(function(c){ return migrate(c); });
+    // Build-61: সার্ভারে এখন ঠিক কী আছে তার ছাপ — এটাই ঠিক করে পরে কী লিখতে হবে
+    try{ noteServerCustomers(cloudList); }catch(e){ console.warn('fp customers:', e); }
     // Build-59: এই মুহূর্তে যে customer cloud-এ লেখা হচ্ছে, তার লোকাল কপিই রাখা হয়
     cloudList = cloudList.map(function(cc){
       if(_inFlightCust[String(cc.id)]){
@@ -2016,8 +2296,9 @@ function startRealtimeSync(){
       fsdb.collection('intel').get().then(function(iSnap){
         iSnap.docs.forEach(function(d){
           const c = db.customers.find(function(x){ return String(x.id) === d.id; });
-          if(c) c.intel = d.data();
+          if(c){ c.intel = d.data(); try{ _fp.intel[String(c.id)] = fpOf(c.intel); }catch(e){} }
         });
+        try{ saveFP(); }catch(e){}
         saveDB(); renderAll();
       });
     }catch(e){ saveDB(); renderAll(); }
@@ -2081,6 +2362,8 @@ function startRealtimeSync(){
     const stockUnsub = fsdb.collection('stockBatches').onSnapshot(function(snap){
       if(!snap.empty){
         var _incomingBatches=snap.docs.map(function(d){return Object.assign({},d.data(),{_fbId:d.id});});
+        // Build-61: সার্ভারে এখন কী আছে তার ছাপ — অপ্রয়োজনীয় লেখা এখানেই থেমে যায়
+        try{ noteServerStock(_incomingBatches); }catch(e){ console.warn('fp stock:', e); }
         var _merged=_incomingBatches.map(function(nb){var lb=stockDB.batches.find(function(b){return b._fbId===nb._fbId;});if(lb&&(lb.qtySold||0)>(nb.qtySold||0)){nb.qtySold=lb.qtySold;}return nb;});
         // Build-46: যে batch এখনো cloud-এ যায়নি (_fbId নেই) সেটি ধরে রাখতে হবে।
         // আগে এখানে পুরো তালিকা বদলে দেওয়া হতো, তাই সদ্য যোগ করা entry
