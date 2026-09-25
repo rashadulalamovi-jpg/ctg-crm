@@ -2507,6 +2507,9 @@ function startRealtimeSync(){
 
   // Build-62: পাশের মডিউলগুলোর (Priority / Learning / Life / Strategy Hub) লেখা
   // cloud-এর সাথে মেলানো। আগে এগুলো শুধু এই ব্রাউজারে থাকত।
+  // setTimeout কেন: startRealtimeSync() স্ক্রিপ্ট পড়ার মাঝপথেই চালু হয়,
+  // তখনও SIDE_STORES তালিকাটি তৈরি হয়নি (var hoisting)।
+  setTimeout(function(){
   try{
     pullSideStores().then(function(n){
       if(n){
@@ -2518,6 +2521,7 @@ function startRealtimeSync(){
       return pushSideStores(true);
     }).catch(function(e){ console.warn('side stores:', e); });
   }catch(e){ console.warn('side stores:', e); }
+  }, 1500);
 
   // লোকালে বদলালে নিজে থেকেই cloud-এ — ৩০ সেকেন্ড পরপর, আর ট্যাব ছাড়ার আগে
   try{
@@ -2579,6 +2583,8 @@ function sideWriteLocal(key, v){
 // আর cloud কপি লোকালের অর্ধেকেরও কম হলে কখনোই নয় (খালি কপির হাত থেকে রক্ষা)।
 async function pullSideStores(){
   if(!window._fbReady || !fsdb) return 0;
+  // var-hoisting: অ্যাপ শুরুর সময় এই তালিকাটি এখনো তৈরি নাও হতে পারে
+  if(!Array.isArray(SIDE_STORES)) return 0;
   var pulled = 0;
   for(const s of SIDE_STORES){
     try{
@@ -2610,6 +2616,7 @@ async function pullSideStores(){
 // লোকালে বদলালে cloud-এ। খালি/ছোট কপি দিয়ে cloud-এর ভরা কপি চাপা দেওয়া হয় না।
 async function pushSideStores(quiet){
   if(!window._fbReady || !fsdb) return 0;
+  if(!Array.isArray(SIDE_STORES)) return 0;
   if(typeof cloudIsBlocked === 'function' && cloudIsBlocked()) return 0;
   var pushed = 0;
   for(const s of SIDE_STORES){
