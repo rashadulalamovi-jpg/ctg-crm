@@ -1637,6 +1637,11 @@ async function retryCloudNow(){
 function cloudIsBlocked(){ return !!_cloudBlocked; }
 
 var _cloudCustomersSeen = false;
+// Build-66: মোছা batch-এর তালিকা। ঘোষণাটি এখানে, কারণ startRealtimeSync()
+// স্ক্রিপ্ট পড়ার মাঝপথেই চলে — নিচে ঘোষণা করলে তখনো undefined থাকত।
+var TOMB_DOC = 'deletedBatches';
+var _cloudTombs = {};          // { batchId: সময় } — cloud থেকে আসা
+var _cloudTombsSeen = false;
 // Build-60: মাইগ্রেশন শেষ হয়েছে কিনা (cloud meta/invoiceSplit থেকে আসে)।
 // ঘোষণাটি এখানে, কারণ নিচের syncToFirebase() ও saveCustomerToCloud() এটি পড়ে।
 var _invSplitDone = false;
@@ -1735,7 +1740,7 @@ async function syncStockBatches(){
     // Build-61 — Write Diet: আগে প্রতিবার ১৪৬টি batch-ই আবার লেখা হতো।
     // এখন যেটির ভেতরটা সার্ভারের কপির চেয়ে আলাদা, শুধু সেটিই যায়।
     if(!stockNeedsWrite(b)) continue;
-    if(isBatchDeleted(b.id)) continue;            // Build-64: মোছা batch আর পাঠানো হয় না
+    if(isBatchDeletedAnywhere(b.id) || isBatchDeletedAnywhere(b._fbId)) continue;   // Build-64/66
     try{
       if(b._fbId){
         // Build-47: _fbId ভুতুড়ে হতে পারে (add() ব্রাউজারেই id বানাত), তাই
@@ -2397,6 +2402,24 @@ function startRealtimeSync(){
     _rtListeners.push(splitUnsub);
   }catch(e){ console.warn('split flag listener:', e); }
 
+  // ── Build-66: মোছা batch-এর তালিকা (সব ডিভাইস একসাথে জানে) ──
+  // এটি stock listener-এর আগেই বসানো, যাতে stock snapshot আসার সময়
+  // "কোনগুলো মুছে ফেলা হয়েছে" সেটা আগে থেকেই জানা থাকে।
+  try{
+    const tombUnsub = fsdb.collection('meta').doc(TOMB_DOC).onSnapshot(function(d){
+      var v = (d && d.exists) ? (d.data()||{}) : {};
+      _cloudTombs = v.ids || {};
+      _cloudTombsSeen = true;
+      var removed = 0;
+      try{ removed = applyCloudTombstones(); }catch(e){ console.warn('applyCloudTombstones:', e); }
+      if(removed){
+        try{ renderAll(); }catch(e){}
+        try{ notify('\u{1F5D1} ' + removed + 'টি batch অন্য ডিভাইসে মোছা হয়েছিল — এখানেও সরানো হলো'); }catch(e){}
+      }
+    }, function(e){ console.warn('tombstone listener:', e); });
+    _rtListeners.push(tombUnsub);
+  }catch(e){ console.warn('tombstone listener:', e); }
+
   // ── Stock real-time listener ──
   try{
     const stockUnsub = fsdb.collection('stockBatches').onSnapshot(function(snap){
@@ -2405,10 +2428,10 @@ function startRealtimeSync(){
         // Build-64: মালিক যেগুলো নিজে মুছেছেন সেগুলো cloud-এ থেকে গেলেও
         // স্ক্রিনে ফিরিয়ে আনা হয় না — আর পটভূমিতে আবার মোছার চেষ্টা চলে।
         var _tombed = _incomingBatches.filter(function(b){
-          return isBatchDeleted(b.id) || isBatchDeleted(b._fbId); });
+          return isBatchDeletedAnywhere(b.id) || isBatchDeletedAnywhere(b._fbId); });
         if(_tombed.length){
           _incomingBatches = _incomingBatches.filter(function(b){
-            return !(isBatchDeleted(b.id) || isBatchDeleted(b._fbId)); });
+            return !(isBatchDeletedAnywhere(b.id) || isBatchDeletedAnywhere(b._fbId)); });
           console.warn('ignoring ' + _tombed.length + ' deleted batch doc(s) still in cloud');
           _tombed.forEach(function(b){
             try{
@@ -2425,6 +2448,9 @@ function startRealtimeSync(){
         // cloud snapshot-এ চাপা পড়ে হারিয়ে যেত — ২১ সেপ্টেম্বরে ঠিক এটাই ঘটেছিল।
         var _cloudIds={}; _merged.forEach(function(b){ if(b.id!==undefined) _cloudIds[String(b.id)]=true; });
         var _unsynced=(stockDB.batches||[]).filter(function(b){
+          // Build-66: মালিক যেটা মুছেছেন সেটা cloud-এ নেই — কিন্তু সেটি
+          // "এখনো পাঠানো হয়নি" নয়। এই পার্থক্য না বোঝেই আগে পুনরায় পাঠানো হতো।
+          if(isBatchDeletedAnywhere(b.id) || isBatchDeletedAnywhere(b._fbId)) return false;
           // Build-46b: "_fbId আছে" মানে cloud-এ পৌঁছেছে — এটা ভুল ধারণা ছিল।
           // Firestore-এর add() ক্লায়েন্টেই doc id বানিয়ে দেয়, তাই লেখা সার্ভারে
           // না পৌঁছালেও _fbId বসে যায়। ২১ সেপ্টেম্বরের batch-এ ঠিক এটাই হয়েছিল।
@@ -6032,6 +6058,75 @@ function isBatchDeleted(id){
   return !!stockTombstones()[String(id)];
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════
+// Build-66 — মোছা batch এখন সব ডিভাইস জুড়ে মোছা থাকে
+//
+// Build-64-এ tombstone বসিয়েছিলাম, কিন্তু সেটি থাকত শুধু যে ডিভাইসে মোছা
+// হয়েছে তার localStorage-এ। আসল ঘটনা এইখানে ধরা পড়ল:
+//
+//   ডিভাইস A: batch মুছল → cloud doc গেল
+//   ডিভাইস B (বা পুরনো ট্যাব): তার লোকাল তালিকায় batch-টা এখনো আছে।
+//     listener দেখল "এই id cloud-এ নেই" → ভাবল "এটা তো এখনো পাঠানোই হয়নি!"
+//     → syncStockBatches() দিয়ে আবার cloud-এ পাঠিয়ে দিল
+//   ডিভাইস A: listener সেটা দেখে আবার তালিকায় বসাল
+//
+// অর্থাৎ মোছাটা ব্যর্থ হচ্ছিল না — অন্য কপি সেটাকে আবার জন্ম দিচ্ছিল।
+// তাই tombstone-টা cloud-এ থাকতে হবে, যাতে সব ডিভাইস একই কথা জানে।
+// ══════════════════════════════════════════════════════════════════════════
+// লোকাল আর cloud — দুই তালিকা মিলিয়ে সিদ্ধান্ত
+function isBatchDeletedAnywhere(id){
+  if(id === undefined || id === null) return false;
+  var k = String(id);
+  if(_cloudTombs[k]) return true;
+  try{ return isBatchDeleted(id); }catch(e){ return false; }
+}
+
+// মোছার খবর cloud-এ — merge:true, তাই দুই ডিভাইস একসাথে মুছলেও কেউ হারায় না
+async function pushBatchTombstone(ids){
+  if(!window._fbReady || !fsdb) return false;
+  var list = (ids || []).filter(function(x){ return x !== undefined && x !== null; });
+  if(!list.length) return false;
+  var payload = {};
+  var now = Date.now();
+  list.forEach(function(id){ payload[String(id)] = now; _cloudTombs[String(id)] = now; });
+  try{
+    await fsdb.collection('meta').doc(TOMB_DOC).set({ids: payload, _savedAt: now}, {merge:true});
+    return true;
+  }catch(e){ console.warn('tombstone push failed:', e); return false; }
+}
+
+// cloud-এর তালিকা এলে: লোকাল থেকেও ওই batch গুলো সরিয়ে দেওয়া হয়
+function applyCloudTombstones(){
+  if(!_cloudTombsSeen) return 0;
+  var before = (stockDB.batches || []).length;
+  var kept = (stockDB.batches || []).filter(function(b){
+    return !(b && (_cloudTombs[String(b.id)] || (b._fbId && _cloudTombs[String(b._fbId)])));
+  });
+  if(kept.length !== before){
+    stockDB.batches = kept;
+    saveStock();
+    console.warn('removed ' + (before - kept.length) + ' batch(es) deleted on another device');
+    return before - kept.length;
+  }
+  return 0;
+}
+
+// ৯০ দিনের পুরনো tombstone cloud থেকেও সরানো — তালিকা যেন অনন্তকাল না বাড়ে
+async function pruneCloudTombstones(){
+  if(!window._fbReady || !fsdb) return 0;
+  var cutoff = Date.now() - 90*24*3600*1000;
+  var old = Object.keys(_cloudTombs).filter(function(k){ return !(_cloudTombs[k] > cutoff); });
+  if(!old.length) return 0;
+  try{
+    var FV = firebase.firestore.FieldValue;
+    var upd = {};
+    old.forEach(function(k){ upd['ids.' + k] = FV.delete(); delete _cloudTombs[k]; });
+    await fsdb.collection('meta').doc(TOMB_DOC).update(upd);
+    return old.length;
+  }catch(e){ console.warn('tombstone prune:', e); return 0; }
+}
+
 async function delBatch(id){
   const b = stockDB.batches.find(x=>x.id===id); if(!b) return;
   if(!confirm(b.model+' \u2014 delete?')) return;
@@ -6052,6 +6147,9 @@ async function delBatch(id){
   var ids = {};
   if(b.id !== undefined && b.id !== null) ids[String(b.id)] = true;
   if(b._fbId) ids[String(b._fbId)] = true;
+  // Build-66: সবচেয়ে আগে cloud-এ tombstone — নয়তো অন্য ডিভাইস
+  // মোছার ফাঁকে batch-টা আবার পাঠিয়ে দেয়
+  await pushBatchTombstone(Object.keys(ids));
   var failed = [];
   for(const docId of Object.keys(ids)){
     try{ await fsdb.collection('stockBatches').doc(docId).delete(); }
