@@ -1183,7 +1183,19 @@ function loadDB(){
   // cloud ডেটা আসার পর listener-এ চলে।
   ensureBizSystemDefaults();
 }
-function saveBizImgLocal(){ try{ localStorage.setItem(BIZIMG_KEY, JSON.stringify(bizImgDB)); }catch(e){ console.warn('bizImg local save:',e); } }
+function saveBizImgLocal(){
+  // Build-63: ছবি cloud-এ থাকে। একবার slim হয়ে গেলে localStorage-এ শুধু
+  // তালিকা রাখা হয় — base64 নয়, নইলে ৩ MB আবার ফিরে আসত।
+  try{
+    var payload = (typeof _bizImgSlimDone !== 'undefined' && _bizImgSlimDone)
+      ? bizImgIndexOnly() : bizImgDB;
+    localStorage.setItem(BIZIMG_KEY, JSON.stringify(payload));
+  }catch(e){
+    console.warn('bizImg local save:', e);
+    // জায়গা ফুরিয়ে গেলে অন্তত তালিকাটুকু রাখার চেষ্টা
+    try{ localStorage.setItem(BIZIMG_KEY, JSON.stringify(bizImgIndexOnly())); }catch(e2){}
+  }
+}
 function saveDB(){ db._savedAt = Date.now(); localStorage.setItem(LS_KEY, JSON.stringify(db)); }
 function saveStock(){ localStorage.setItem(STOCK_KEY, JSON.stringify(stockDB)); }
 
@@ -1723,6 +1735,7 @@ async function syncStockBatches(){
     // Build-61 — Write Diet: আগে প্রতিবার ১৪৬টি batch-ই আবার লেখা হতো।
     // এখন যেটির ভেতরটা সার্ভারের কপির চেয়ে আলাদা, শুধু সেটিই যায়।
     if(!stockNeedsWrite(b)) continue;
+    if(isBatchDeleted(b.id)) continue;            // Build-64: মোছা batch আর পাঠানো হয় না
     try{
       if(b._fbId){
         // Build-47: _fbId ভুতুড়ে হতে পারে (add() ব্রাউজারেই id বানাত), তাই
@@ -2389,6 +2402,21 @@ function startRealtimeSync(){
     const stockUnsub = fsdb.collection('stockBatches').onSnapshot(function(snap){
       if(!snap.empty){
         var _incomingBatches=snap.docs.map(function(d){return Object.assign({},d.data(),{_fbId:d.id});});
+        // Build-64: মালিক যেগুলো নিজে মুছেছেন সেগুলো cloud-এ থেকে গেলেও
+        // স্ক্রিনে ফিরিয়ে আনা হয় না — আর পটভূমিতে আবার মোছার চেষ্টা চলে।
+        var _tombed = _incomingBatches.filter(function(b){
+          return isBatchDeleted(b.id) || isBatchDeleted(b._fbId); });
+        if(_tombed.length){
+          _incomingBatches = _incomingBatches.filter(function(b){
+            return !(isBatchDeleted(b.id) || isBatchDeleted(b._fbId)); });
+          console.warn('ignoring ' + _tombed.length + ' deleted batch doc(s) still in cloud');
+          _tombed.forEach(function(b){
+            try{
+              fsdb.collection('stockBatches').doc(String(b._fbId)).delete()
+                .catch(function(e){ console.warn('tombstone cleanup failed:', b._fbId, e); });
+            }catch(e){ console.warn('tombstone cleanup:', e); }
+          });
+        }
         // Build-61: সার্ভারে এখন কী আছে তার ছাপ — অপ্রয়োজনীয় লেখা এখানেই থেমে যায়
         try{ noteServerStock(_incomingBatches); }catch(e){ console.warn('fp stock:', e); }
         var _merged=_incomingBatches.map(function(nb){var lb=stockDB.batches.find(function(b){return b._fbId===nb._fbId;});if(lb&&(lb.qtySold||0)>(nb.qtySold||0)){nb.qtySold=lb.qtySold;}return nb;});
@@ -2530,6 +2558,12 @@ function startRealtimeSync(){
       if(document.visibilityState === 'hidden'){ try{ pushSideStores(true); }catch(e){} }
     });
     setInterval(function(){ try{ checkLocalStorageRoom(); }catch(e){} }, 120000);
+    // Build-63: cloud listener ছবি এনে ফেলার পর একবার ভারী কপিটা সরানো হয়
+    setTimeout(function(){
+      try{ slimDownImageStorage().then(function(r){
+        if(r && r.freedKB){ try{ checkLocalStorageRoom(); }catch(e){} }
+      }).catch(function(e){ console.warn('image slim:', e); }); }catch(e){}
+    }, 8000);
   }catch(e){}
 }
 
@@ -2708,6 +2742,16 @@ function exportJSON(){
   // Build-62: crm/stock/bizImages ছাড়াও Expense, Assets, Priority, Learning,
   // Life, Strategy Hub — ctg* সব কী নিজে থেকেই ধরা পড়ে, তাই কিছু বাদ যায় না।
   const stores = collectLocalStores();
+  // Build-63: ছবি এখন cloud থেকে মেমোরিতে আসে। listener আসার আগেই Backup
+  // চাপলে ফাইলে ছবি থাকবে না — তাই চুপ করে না থেকে বলে দেওয়া হয়।
+  var _imgs = (bizImgDB && bizImgDB.images) || {};
+  var _imgIds = Object.keys(_imgs);
+  var _imgNoData = _imgIds.filter(function(id){ return !(_imgs[id] && _imgs[id].data); });
+  if(_imgNoData.length){
+    if(!confirm(_imgNoData.length + '/' + _imgIds.length + 'টি ছবি এখনো cloud থেকে আসেনি।\n\n'
+      + 'এখন Backup নিলে ওই ছবিগুলো ফাইলে থাকবে না।\n'
+      + 'কয়েক সেকেন্ড পরে আবার চেষ্টা করলে সব পাবেন।\n\nতবুও এখনই নেবেন?')) return;
+  }
   const payload = { crm: db, stock: stockDB, bizImages: bizImgDB,
                     stores: stores, storeKeys: Object.keys(stores),
                     exportedAt: TODAY, exportedAtMs: Date.now() };
@@ -5960,15 +6004,71 @@ function chgSold(id, delta){
   renderStockAll();
 }
 
-function delBatch(id){
+// ══════════════════════════════════════════════════════════════════════════
+// Build-64 — মুছে ফেলা batch আর ফিরে আসবে না
+//
+// আগের তিনটি ভুল একসাথে কাজ করছিল:
+//   ১) cloud-এ মোছার আগে `if(b._fbId)` শর্ত ছিল। _fbId না বসলে (cloud আটকে
+//      থাকা অবস্থায় যোগ করা batch) cloud doc-টা রয়েই যেত।
+//   ২) তারপর stockBatches listener সেই doc দেখে batch-টা আবার বসিয়ে দিত।
+//      তাই Buy List আর Purchase-এও সেটা ফিরে আসত।
+//   ৩) মোছা সত্যিই হলো কিনা কখনো যাচাই করা হতো না — "deleted" বলে দেওয়া হতো।
+//
+// এখন: দুটো সম্ভাব্য doc id-ই মোছা হয়, সার্ভার থেকে পড়ে যাচাই হয়, আর একটি
+// tombstone রাখা হয় — যাতে cloud delete দেরি করলেও listener ফিরিয়ে আনতে না পারে।
+// ══════════════════════════════════════════════════════════════════════════
+function stockTombstones(){ if(!stockDB._delBatch) stockDB._delBatch = {}; return stockDB._delBatch; }
+function pruneStockTombstones(){
+  var t = stockTombstones(), cutoff = Date.now() - 90*24*3600*1000;
+  Object.keys(t).forEach(function(k){ if(!(t[k] > cutoff)) delete t[k]; });
+}
+function markBatchDeleted(id){
+  if(id === undefined || id === null) return;
+  stockTombstones()[String(id)] = Date.now();
+  pruneStockTombstones();
+}
+function isBatchDeleted(id){
+  if(id === undefined || id === null) return false;
+  return !!stockTombstones()[String(id)];
+}
+
+async function delBatch(id){
   const b = stockDB.batches.find(x=>x.id===id); if(!b) return;
   if(!confirm(b.model+' \u2014 delete?')) return;
+
+  // মালিক নিজে মুছেছেন — এটাই সর্বোচ্চ কর্তৃত্ব, listener যেন ফেরত না আনে
+  markBatchDeleted(b.id);
+  if(b._fbId) markBatchDeleted(b._fbId);
   stockDB.batches = stockDB.batches.filter(x=>x.id!==id);
+  try{ if(typeof _fp !== 'undefined' && _fp.stock){ delete _fp.stock[String(b.id)]; saveFP(); } }catch(e){}
   saveStock();
-  if(window._fbReady && fsdb && b._fbId){
-    fsdb.collection('stockBatches').doc(String(b._fbId||b.id)).delete().catch(function(e){console.warn('batch delete:',e);});
-  }
   renderStockAll();
+
+  if(!window._fbReady || !fsdb){
+    notify('\u{1F5D1} এই ডিভাইসে মোছা হয়েছে \u2014 cloud কানেকশন ফিরলে cloud থেকেও যাবে', true);
+    return;
+  }
+  // \u09A6\u09C1\u099F\u09CB id-\u0987 \u09AE\u09CB\u099B\u09BE \u09B9\u09AF\u09BC \u2014 \u09AA\u09C1\u09B0\u09A8\u09CB random id \u0993 \u09A8\u09A4\u09C1\u09A8 deterministic id
+  var ids = {};
+  if(b.id !== undefined && b.id !== null) ids[String(b.id)] = true;
+  if(b._fbId) ids[String(b._fbId)] = true;
+  var failed = [];
+  for(const docId of Object.keys(ids)){
+    try{ await fsdb.collection('stockBatches').doc(docId).delete(); }
+    catch(e){ console.warn('batch delete:', docId, e); failed.push(docId); }
+  }
+  // \u09B8\u09A4\u09CD\u09AF\u09BF\u0987 \u0997\u09c7\u099b\u09c7 \u0995\u09bf\u09a8\u09be \u2014 \u09b8\u09be\u09b0\u09cd\u09ad\u09be\u09b0 \u09a5\u09c7\u0995\u09c7 \u09aa\u09dc\u09c7 \u09a6\u09c7\u0996\u09be \u09b9\u09af\u09bc
+  var still = [];
+  for(const docId of Object.keys(ids)){
+    try{ var chk = await fsdb.collection('stockBatches').doc(docId).get({source:'server'}); if(chk.exists) still.push(docId); }
+    catch(e){ /* \u09aa\u09dc\u09a4\u09c7 \u09a8\u09be \u09aa\u09be\u09b0\u09b2\u09c7 \u09a8\u09bf\u09b6\u09cd\u099a\u09bf\u09a4 \u09ac\u09b2\u09be \u09af\u09be\u09ac\u09c7 \u09a8\u09be */ }
+  }
+  if(still.length || failed.length){
+    console.error('batch delete not confirmed:', {still:still, failed:failed});
+    try{ cloudBadge('fail', '\u274C ' + (b.model||'Batch') + ' cloud \u09a5\u09c7\u0995\u09c7 \u09ae\u09cb\u099b\u09be \u09af\u09be\u09af\u09bc\u09a8\u09bf \u2014 \u09b8\u09cd\u0995\u09cd\u09b0\u09bf\u09a8\u09c7 \u0986\u09b0 \u09a6\u09c7\u0996\u09be\u09ac\u09c7 \u09a8\u09be, \u0986\u09ac\u09be\u09b0 \u099a\u09c7\u09b7\u09cd\u099f\u09be \u0995\u09b0\u09c1\u09a8', 'delBatch(' + id + ')'); }catch(e){}
+    return;
+  }
+  try{ cloudBadge('ok', '\u2705 ' + (b.model||'Batch') + ' cloud \u09a5\u09c7\u0995\u09c7\u0993 \u09ae\u09cb\u099b\u09be \u09b9\u09af\u09bc\u09c7\u099b\u09c7'); }catch(e){}
   notify('\u{1F5D1} Batch deleted');
 }
 
@@ -10131,6 +10231,83 @@ function bizCompressImage(file, cb){
   reader.readAsDataURL(file);
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════
+// Build-63 — ছবিগুলো আর ব্রাউজারের জমা জায়গা খাবে না
+//
+// মাপা অবস্থা: এই ব্রাউজারে জমা ছিল ৪,৫৪২ KB, যার ৩,৩৪৮ KB শুধু Business
+// System-এর ১৪টি ছবি (base64)। Chrome-এ একটি সাইটের সীমা প্রায় ৫,০০০ KB।
+// অর্থাৎ হাতে ছিল মাত্র ~৪৬০ KB — আর CRM-এর ডেটা রোজ বাড়ে। সীমা ছাড়ালে
+// নতুন লেখা সেভ হওয়া চুপচাপ বন্ধ হয়ে যেত, কোনো এরর ছাড়াই।
+//
+// ছবির কাজ শেষ, নতুন ছবি যোগ হবে না — আর প্রতিটি ছবি আগে থেকেই cloud-এর
+// bizImages collection-এ আছে (১৪/১৪ মিলিয়ে দেখা)। তাই localStorage-এর কপিটা
+// নিছক দ্বিতীয় কপি। সেটি সরালে ~৩,৩০০ KB ফিরে আসে, কিছুই হারায় না।
+//
+// নিয়ম: cloud-এ সব ছবি আছে — এটা নিজে যাচাই না করে একটি বাইটও মোছা হয় না।
+// ══════════════════════════════════════════════════════════════════════════
+var _bizImgSlimDone = false;
+
+// ভারী base64 বাদ দিয়ে শুধু তালিকা — কোন ছবি থাকার কথা, সেটুকু মনে থাকে
+function bizImgIndexOnly(){
+  var out = {images:{}};
+  var src = (bizImgDB && bizImgDB.images) || {};
+  Object.keys(src).forEach(function(id){
+    var im = src[id] || {};
+    out.images[id] = {id:id, name:im.name||'', w:im.w||0, h:im.h||0, addedAt:im.addedAt||0};
+  });
+  return out;
+}
+
+// cloud-এ সত্যিই সব ছবি আছে কিনা — না থাকলে আগে পাঠানো হয়, তারপর মোছা
+async function slimDownImageStorage(){
+  if(_bizImgSlimDone) return null;
+  if(!window._fbReady || !fsdb) return null;
+  if(typeof cloudIsBlocked === 'function' && cloudIsBlocked()) return null;
+  var localIds = Object.keys((bizImgDB && bizImgDB.images) || {});
+  var before = 0;
+  try{ before = (localStorage.getItem(BIZIMG_KEY)||'').length; }catch(e){}
+  if(!before){ _bizImgSlimDone = true; return null; }
+
+  var snap;
+  try{ snap = await fsdb.collection('bizImages').get({source:'server'}); }
+  catch(e){ console.warn('image slim: cloud read failed', e); return null; }
+  var cloudIds = {};
+  snap.docs.forEach(function(d){ cloudIds[d.id] = true; });
+
+  // cloud-এ নেই এমন ছবি থাকলে আগে সেগুলো পাঠানো হয় — তারপরেই মোছার প্রশ্ন
+  var missing = localIds.filter(function(id){ return !cloudIds[id]; });
+  var pushed = 0, failed = 0;
+  for(const id of missing){
+    var im = bizImgDB.images[id] || {};
+    if(!im.data){ failed++; continue; }          // ডেটাই নেই — মোছা যাবে না
+    try{
+      var ok = await cloudSaveVerified('bizImages', id,
+        {data:im.data, name:im.name||'', w:im.w||0, h:im.h||0, addedAt:im.addedAt||Date.now()},
+        'ছবি cloud-এ পাঠানো হচ্ছে', {quiet:true});
+      if(ok) pushed++; else failed++;
+    }catch(e){ failed++; }
+  }
+  if(failed){
+    console.warn('image slim aborted —', failed, 'image(s) not safely in cloud');
+    return {aborted:true, failed:failed};
+  }
+
+  // এখন প্রতিটি ছবি cloud-এ আছে — ভারী কপিটা সরানো নিরাপদ
+  var slim = bizImgIndexOnly();
+  try{ localStorage.setItem(BIZIMG_KEY, JSON.stringify(slim)); }
+  catch(e){ try{ localStorage.removeItem(BIZIMG_KEY); }catch(e2){} }
+  var after = 0;
+  try{ after = (localStorage.getItem(BIZIMG_KEY)||'').length; }catch(e){}
+  _bizImgSlimDone = true;
+  var freedKB = Math.round((before - after) / 1024);
+  if(freedKB > 100){
+    console.warn('image storage slimmed:', freedKB, 'KB freed');
+    try{ cloudBadge('ok', '✅ ' + freedKB + ' KB জায়গা খালি হয়েছে — ছবিগুলো cloud থেকেই দেখানো হচ্ছে'); }catch(e){}
+  }
+  return {freedKB:freedKB, pushed:pushed, images:localIds.length};
+}
+
 function bizStoreImage(meta, cb){
   var id = 'img'+Date.now()+Math.floor(Math.random()*1000);
   bizImgDB.images[id] = { id:id, data:meta.data, name:meta.name, w:meta.w, h:meta.h, addedAt:Date.now() };
@@ -10782,6 +10959,68 @@ function renderModelProfitVelocity(){
 }
 
 // ── MODELS TAB ───────────────────────────────────────────────────────────────
+
+// ══════════════════════════════════════════════════════════════════════════
+// Build-64 — Models ট্যাবে মালিকের নিজের নোট
+//
+// নিচের সব হিসাব (offer suggestion, external selling, model stats) মেশিনের
+// গোনা। কিন্তু "এই customer আসলে কী কেনে, কেন কেনে" — সেটা মালিক নিজের চোখে
+// দেখে বোঝেন। সেই অভিজ্ঞতা লেখার জায়গা ছিল না, তাই এটি সবার উপরে বসল।
+// ══════════════════════════════════════════════════════════════════════════
+var MODEL_NOTE_PH = 'উদাহরণ:\n\nKIN-BD-এর জন্য সবচেয়ে প্রমাণিত offer models:\n1. HP ProBook 640 G8\n2. Dell Latitude 7490\n3. HP EliteBook 840 G8\n\nচ্যানেল: Facebook-এ বেশি বিক্রি করে, তাই ছবি ভালো লাগে।\nদরাদরি: প্রথমে কম বলে, ২য় বার রাজি হয়।';
+
+function modelNoteOf(c){
+  var n = (c && c.modelNote) || {};
+  return { text: String(n.text || ''), at: n.at || 0 };
+}
+
+function renderModelNoteBox(c){
+  var n = modelNoteOf(c);
+  var when = n.at ? new Date(n.at).toLocaleDateString('en-CA', {timeZone:'Asia/Dhaka'}) : '';
+  var has = !!n.text.trim();
+  var h = '';
+  h += '<div style="background:rgba(212,175,55,.07);border:1px solid rgba(212,175,55,.35);border-radius:var(--r);padding:12px;margin-bottom:12px">';
+  h += '<div class="flex-between" style="margin-bottom:8px">';
+  h += '<div style="font-size:11px;font-weight:800;color:var(--gold);font-family:var(--fd)">\u{1F4DD} আমার নোট — এই customer কী কেনে, কেন কেনে</div>';
+  h += '<div style="font-size:9px;color:var(--text3);font-family:var(--fm)">' + (has && when ? 'সর্বশেষ: ' + when : 'এখনো কিছু লেখা হয়নি') + '</div>';
+  h += '</div>';
+  h += '<div style="font-size:9px;color:var(--text3);margin-bottom:6px">Selling channel দেখে যা বুঝলেন, নিজের ভাষায় লিখে রাখুন — নিচের হিসাবগুলো মেশিনের, এটা আপনার।</div>';
+  h += '<textarea id="modelNote_' + c.id + '" rows="' + (has ? 8 : 5) + '" '
+     + 'placeholder="' + MODEL_NOTE_PH.replace(/"/g,'&quot;').replace(/\n/g,'&#10;') + '" '
+     + 'style="width:100%;font-size:12px;line-height:1.7;resize:vertical;font-family:inherit">'
+     + escHtml(n.text) + '</textarea>';
+  h += '<div style="display:flex;gap:8px;align-items:center;margin-top:8px">';
+  h += '<button onclick="saveModelNote(' + c.id + ')" class="btn btn-r" style="font-size:10px;padding:6px 16px">\u{1F4BE} নোট সেভ করুন</button>';
+  h += '<span id="modelNoteMsg_' + c.id + '" style="font-size:10px;color:var(--text3)"></span>';
+  h += '</div></div>';
+  return h;
+}
+
+function saveModelNote(cid){
+  var c = (db.customers || []).find(function(x){ return x.id === cid; });
+  if(!c) return;
+  var el = document.getElementById('modelNote_' + cid);
+  if(!el) return;
+  var txt = String(el.value || '');
+  var prev = modelNoteOf(c);
+  if(txt === prev.text){
+    var m0 = document.getElementById('modelNoteMsg_' + cid);
+    if(m0) m0.textContent = 'কোনো পরিবর্তন নেই';
+    return;
+  }
+  c.modelNote = { text: txt, at: Date.now() };
+  saveDB();
+  var m = document.getElementById('modelNoteMsg_' + cid);
+  if(m) m.textContent = '⏳ cloud-এ পাঠানো হচ্ছে...';
+  saveCustomerToCloud(c, 'নোট: ' + (c.name || '')).then(function(ok){
+    var m2 = document.getElementById('modelNoteMsg_' + cid);
+    if(m2) m2.textContent = ok ? '✅ সেভ হয়েছে' : '❌ cloud-এ যায়নি — এই ডিভাইসে আছে';
+  }).catch(function(){
+    var m3 = document.getElementById('modelNoteMsg_' + cid);
+    if(m3) m3.textContent = '❌ cloud-এ যায়নি — এই ডিভাইসে আছে';
+  });
+}
+
 function renderTabModels(c){
   var el=document.getElementById('mtc_models'); if(!el) return;
   var mStats=getCustomerModelStats(c);
@@ -10791,6 +11030,8 @@ function renderTabModels(c){
   var due=Math.max(0,tA-tP);
 
   var h='';
+  // Build-64: মালিকের নিজের নোট সবার আগে — মেশিনের হিসাবের উপরে
+  h+=renderModelNoteBox(c);
   // ── Model input for quick tracking ────────────────────────────────────────
   h+='<div style="background:rgba(243,244,246,.6);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:12px">';
   h+='<div style="font-size:9px;color:var(--text3);font-family:var(--fm);margin-bottom:8px">Customer \u0995\u09CB\u09A8 model \u09AC\u09C7\u09B6\u09BF \u0995\u09C7\u09A8\u09C7 \u2014 \u09A8\u09BF\u099A\u09C7 track \u0995\u09B0\u09C1\u09A8 \u0985\u09A5\u09AC\u09BE invoice \u09AF\u09CB\u0997 \u0995\u09B0\u09C1\u09A8</div>';
