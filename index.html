@@ -2406,7 +2406,11 @@ function startRealtimeSync(){
   // এটি stock listener-এর আগেই বসানো, যাতে stock snapshot আসার সময়
   // "কোনগুলো মুছে ফেলা হয়েছে" সেটা আগে থেকেই জানা থাকে।
   try{
-    const tombUnsub = fsdb.collection('meta').doc(TOMB_DOC).onSnapshot(function(d){
+    // সাবধান: Firestore-এ doc(undefined) এরর দেয় না — নিজেই একটি random id
+    // বানায়। startRealtimeSync() স্ক্রিপ্ট পড়ার মাঝপথে চলে, তখন var TOMB_DOC
+    // এখনো undefined — ফলে listener একটি অস্তিত্বহীন ডকুমেন্ট শুনতো আর
+    // সফলতার ভান করতো। তাই নামটা এখানে সরাসরি লেখা।
+    const tombUnsub = fsdb.collection('meta').doc('deletedBatches').onSnapshot(function(d){
       var v = (d && d.exists) ? (d.data()||{}) : {};
       _cloudTombs = v.ids || {};
       _cloudTombsSeen = true;
@@ -6091,7 +6095,7 @@ async function pushBatchTombstone(ids){
   var now = Date.now();
   list.forEach(function(id){ payload[String(id)] = now; _cloudTombs[String(id)] = now; });
   try{
-    await fsdb.collection('meta').doc(TOMB_DOC).set({ids: payload, _savedAt: now}, {merge:true});
+    await fsdb.collection('meta').doc('deletedBatches').set({ids: payload, _savedAt: now}, {merge:true});
     return true;
   }catch(e){ console.warn('tombstone push failed:', e); return false; }
 }
@@ -6122,7 +6126,7 @@ async function pruneCloudTombstones(){
     var FV = firebase.firestore.FieldValue;
     var upd = {};
     old.forEach(function(k){ upd['ids.' + k] = FV.delete(); delete _cloudTombs[k]; });
-    await fsdb.collection('meta').doc(TOMB_DOC).update(upd);
+    await fsdb.collection('meta').doc('deletedBatches').update(upd);
     return old.length;
   }catch(e){ console.warn('tombstone prune:', e); return 0; }
 }
