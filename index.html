@@ -197,6 +197,57 @@ tr:hover td{background:rgba(227,6,19,.025)}
 .mtab{padding:10px 16px;font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;background:none;border-left:none;border-right:none;border-top:none;transition:all .15s}
 .mtab:hover{color:var(--text2)}.mtab.active{color:var(--red);border-bottom-color:var(--red)}
 .mtab-c{display:none}.mtab-c.active{display:block}
+/* ══ Build-67: Notes — পড়ার মতো লেখা ও XMind ধাঁচের To-Do tree ══ */
+.nt-read{font-size:14px;line-height:1.95;color:var(--text1);max-width:74ch}
+.nt-read .nt-h{font-family:var(--fd);font-size:15px;font-weight:800;color:var(--text1);
+  margin:22px 0 8px;padding-bottom:6px;border-bottom:2px solid rgba(212,175,55,.35)}
+.nt-read .nt-h:first-child{margin-top:0}
+.nt-read p{margin:0 0 12px}
+.nt-read .nt-li{display:flex;gap:9px;margin:0 0 8px;align-items:flex-start}
+.nt-read .nt-mk{flex:0 0 auto;color:var(--gold);font-weight:800;font-family:var(--fm);font-size:12px;min-width:17px}
+.nt-read .nt-tx{flex:1;min-width:0}
+.nt-read .nt-num{color:var(--green);font-weight:700;font-family:var(--fm)}
+.nt-read .nt-q{border-left:3px solid rgba(212,175,55,.5);padding:6px 0 6px 12px;margin:0 0 12px;
+  background:rgba(212,175,55,.05);border-radius:0 6px 6px 0}
+.nt-empty{text-align:center;padding:26px;color:var(--text3);font-size:12px}
+
+/* ── Tree To-Do ── */
+.nt-tree{position:relative;padding:4px 0 4px 4px}
+.nt-row{position:relative;display:flex;align-items:flex-start;gap:10px;padding:9px 0 9px 26px;min-height:34px}
+.nt-row.lv1{padding-left:56px}
+.nt-row::before{content:'';position:absolute;left:9px;top:0;bottom:0;width:2px;background:var(--border)}
+.nt-row.lv1::before{left:39px}
+.nt-row:first-child::before{top:16px}
+.nt-row:last-child::before{bottom:auto;height:16px}
+.nt-row.lv1::after{content:'';position:absolute;left:11px;top:16px;width:28px;height:2px;background:var(--border)}
+.nt-dot{position:absolute;left:3px;top:10px;width:15px;height:15px;border-radius:50%;
+  border:2px solid var(--border);background:var(--card,#fff);cursor:pointer;flex:0 0 auto;
+  transition:all .15s;z-index:1}
+.nt-row.lv1 .nt-dot{left:33px}
+.nt-dot:hover{border-color:var(--gold);transform:scale(1.15)}
+.nt-dot.done{background:var(--green);border-color:var(--green)}
+.nt-dot.done::after{content:'\2713';position:absolute;left:2px;top:-3px;color:#fff;font-size:11px;font-weight:900}
+.nt-txt{flex:1;min-width:0;font-size:13px;line-height:1.6;color:var(--text1);word-break:break-word;cursor:text}
+.nt-row.done .nt-txt{color:var(--text3);text-decoration:line-through;text-decoration-thickness:1px}
+.nt-badge{flex:0 0 auto;font-family:var(--fm);font-size:9px;font-weight:800;padding:3px 9px;border-radius:20px;
+  letter-spacing:.4px;white-space:nowrap}
+.nt-badge.done{background:rgba(16,185,129,.13);color:var(--green)}
+.nt-badge.todo{background:rgba(212,175,55,.15);color:var(--gold)}
+.nt-act{flex:0 0 auto;display:flex;gap:2px;opacity:0;transition:opacity .15s}
+.nt-row:hover .nt-act{opacity:1}
+.nt-act button{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:2px 5px;border-radius:4px}
+.nt-act button:hover{background:rgba(0,0,0,.06);color:var(--text1)}
+
+/* ── পড়ার Popup ── */
+.nt-ov{position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.55);
+  display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px)}
+.nt-ov-box{background:var(--card,#fff);border-radius:14px;max-width:820px;width:100%;
+  max-height:88vh;display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.3);overflow:hidden}
+.nt-ov-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:16px 22px;border-bottom:1px solid var(--border);flex:0 0 auto}
+.nt-ov-body{padding:24px 30px 34px;overflow:auto;flex:1}
+@media(max-width:640px){ .nt-ov{padding:0} .nt-ov-box{max-height:100vh;border-radius:0}
+  .nt-ov-body{padding:18px} .nt-read{font-size:15px} }
 /* Activity */
 .act-row{display:flex;gap:9px;padding:9px 0;border-bottom:1px solid rgba(15,23,42,.04)}
 .act-dot{width:7px;height:7px;border-radius:50%;margin-top:3px;flex-shrink:0}
@@ -804,6 +855,7 @@ body{max-width:100vw;overflow-x:hidden!important}
         <button class="mtab"        id="mt_models"        onclick="showModalTab('models')">📈 Models</button>
         <button class="mtab"        id="mt_activity"      onclick="showModalTab('activity')">&#x1F4CB; Activity</button>
         <button class="mtab"        id="mt_psych"         onclick="showModalTab('psych')">&#x1FAC0; সাইকোলোজি</button>
+        <button class="mtab"        id="mt_notes"         onclick="showModalTab('notes')">&#x1F4DD; Notes</button>
         <button class="mtab"        id="mt_checklist"     onclick="showModalTab('checklist')">&#x2705; Checklist</button>
       </div>
       <div class="mtab-c active" id="mtc_overview"></div>
@@ -812,6 +864,7 @@ body{max-width:100vw;overflow-x:hidden!important}
       <div class="mtab-c"        id="mtc_models"></div>
       <div class="mtab-c"        id="mtc_activity"></div>
       <div class="mtab-c"        id="mtc_psych"></div>
+      <div class="mtab-c"        id="mtc_notes"></div>
       <div class="mtab-c"        id="mtc_checklist"></div>
     </div>
   </div>
@@ -3455,7 +3508,7 @@ function openDetail(id){
 
 function showModalTab(tab, id){
   const cid = id || _detailId;
-  ['overview','invoice','intelligence','models','activity','psych','checklist'].forEach(function(t){
+  ['overview','invoice','intelligence','models','activity','psych','notes','checklist'].forEach(function(t){
     const btn = document.getElementById('mt_'+t);
     const con = document.getElementById('mtc_'+t);
     if(btn) btn.classList.toggle('active', t===tab);
@@ -3468,6 +3521,7 @@ function showModalTab(tab, id){
   if(tab==='models') renderTabModels(c);
   if(tab==='activity') renderTabActivity(c);
   if(tab==='psych') renderTabPsych(c);
+  if(tab==='notes') renderTabNotes(c);
   if(tab==='checklist') renderTabChecklist(c);
 }
 
@@ -11093,6 +11147,11 @@ function renderModelNoteBox(c){
      + escHtml(n.text) + '</textarea>';
   h += '<div style="display:flex;gap:8px;align-items:center;margin-top:8px">';
   h += '<button onclick="saveModelNote(' + c.id + ')" class="btn btn-r" style="font-size:10px;padding:6px 16px">\u{1F4BE} নোট সেভ করুন</button>';
+  if(has){
+    // Build-67: ছোট বাক্সে লম্বা লেখা পড়া যায় না — বড় করে পড়ার জানালা
+    h += '<button onclick="openNoteReader(' + c.id + ',\'model\')" class="btn btn-o" '
+       + 'style="font-size:9px;padding:5px 12px">\u26F6 বড় করে পড়ুন</button>';
+  }
   h += '<span id="modelNoteMsg_' + c.id + '" style="font-size:10px;color:var(--text3)"></span>';
   h += '</div></div>';
   return h;
@@ -11121,6 +11180,323 @@ function saveModelNote(cid){
     var m3 = document.getElementById('modelNoteMsg_' + cid);
     if(m3) m3.textContent = '❌ cloud-এ যায়নি — এই ডিভাইসে আছে';
   });
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// Build-67 — 📝 Notes ট্যাব
+//
+// মালিক চান দুটো জিনিস:
+//   ১) যা লেখেন তা পড়ার মতো করে দেখা — ছোট textarea-তে ৪ লাইন করে নয়
+//   ২) "এরপর কী" — XMind-এর মতো লাইন ধরে নামা tree, প্রতিটিতে Done চিহ্ন
+//
+// লেখা সাধারণভাবেই টাইপ হবে; সাজানোর কাজটা CRM করবে।
+// ══════════════════════════════════════════════════════════════════════════
+
+// ── লেখা → পড়ার মতো HTML ──────────────────────────────────────────────
+// নিয়ম কয়েকটাই, কিন্তু মালিক যেভাবে লেখেন ঠিক সেভাবেই ধরা পড়ে:
+//   "3. Customer-এর Core SKU DNA"  → শিরোনাম (নম্বর + ছোট লাইন)
+//   "কিছু একটা:"                    → শিরোনাম
+//   "- " / "• " / "* "               → বুলেট
+//   "1) " / "1. " (লম্বা লাইন)        → নম্বর তালিকা
+//   ">"                              → উদ্ধৃতি
+//   ফাঁকা লাইন                        → অনুচ্ছেদ ভাগ
+function noteLineKind(raw){
+  var t = String(raw||'').trim();
+  if(!t) return {k:'blank'};
+  if(/^>\s?/.test(t)) return {k:'quote', text:t.replace(/^>\s?/,'')};
+  if(/^#{1,3}\s+/.test(t)) return {k:'head', text:t.replace(/^#{1,3}\s+/,'')};
+  if(/^[-•*—]\s+/.test(t)) return {k:'bul', mark:'•', text:t.replace(/^[-•*—]\s+/,'')};
+  var mNum = /^(\d{1,2})[.)]\s+(.*)$/.exec(t);
+  if(mNum){
+    // ছোট লাইন + শেষে যতিচিহ্ন নেই → এটা শিরোনাম, তালিকা নয়
+    var body = mNum[2];
+    if(body.length <= 42 && !/[।.,;:!?]$/.test(body)) return {k:'head', text:t};
+    return {k:'num', mark:mNum[1]+'.', text:body};
+  }
+  // "কিছু:" বা "কিছুঃ" দিয়ে শেষ, আর লাইনটা ছোট → শিরোনাম
+  if(/[:ঃ]$/.test(t) && t.length <= 60) return {k:'head', text:t};
+  return {k:'para', text:t};
+}
+
+// টাকার অঙ্ক ও শতাংশ একটু আলাদা রঙে — চোখ সহজে খুঁজে পায়
+function noteEmphasize(safeHtml){
+  // মালিক বাংলা ও ইংরেজি — দুই রকম সংখ্যাতেই লেখেন (৬০% এবং 60%)।
+  // \d বাংলা সংখ্যা ধরে না, তাই ০-৯ আলাদা করে বলা আছে।
+  return String(safeHtml||'')
+    .replace(/(৳\s?[\d০-৯][\d,.০-৯]*)/g, '<span class="nt-num">$1</span>')
+    .replace(/([\d০-৯]{1,3}(?:[.।][\d০-৯]+)?\s?%)/g, '<span class="nt-num">$1</span>');
+}
+
+function renderNoteReadable(text){
+  var raw = String(text||'').trim();
+  if(!raw) return '<div class="nt-empty">এখনো কিছু লেখা হয়নি</div>';
+  var lines = raw.replace(/\r/g,'').split('\n');
+  var h = '<div class="nt-read">';
+  var paraBuf = [];
+  function flushPara(){
+    if(!paraBuf.length) return;
+    h += '<p>' + noteEmphasize(paraBuf.join('<br>')) + '</p>';
+    paraBuf = [];
+  }
+  lines.forEach(function(ln){
+    var d = noteLineKind(ln);
+    if(d.k === 'blank'){ flushPara(); return; }
+    if(d.k === 'head'){ flushPara(); h += '<div class="nt-h">' + escHtml(d.text) + '</div>'; return; }
+    if(d.k === 'quote'){ flushPara(); h += '<div class="nt-q">' + noteEmphasize(escHtml(d.text)) + '</div>'; return; }
+    if(d.k === 'bul' || d.k === 'num'){
+      flushPara();
+      h += '<div class="nt-li"><div class="nt-mk">' + escHtml(d.mark) + '</div>'
+         + '<div class="nt-tx">' + noteEmphasize(escHtml(d.text)) + '</div></div>';
+      return;
+    }
+    paraBuf.push(escHtml(d.text));
+  });
+  flushPara();
+  return h + '</div>';
+}
+
+// ── পড়ার Popup — যেকোনো নোট বড় করে, আরাম করে পড়ার জন্য ──────────────
+function openNoteReader(cid, which){
+  var c = (db.customers||[]).find(function(x){ return x.id===cid; });
+  if(!c) return;
+  var isModel = (which === 'model');
+  var title = isModel ? '📝 আমার নোট — ' + (c.name||'') : '📝 Notes — ' + (c.name||'');
+  var text  = isModel ? modelNoteOf(c).text : custNoteOf(c).text;
+  closeNoteReader();
+  var ov = document.createElement('div');
+  ov.className = 'nt-ov'; ov.id = 'ntReader';
+  ov.onclick = function(e){ if(e.target === ov) closeNoteReader(); };
+  ov.innerHTML =
+    '<div class="nt-ov-box">'
+    + '<div class="nt-ov-head">'
+    +   '<div style="font-family:var(--fd);font-size:15px;font-weight:800">' + escHtml(title) + '</div>'
+    +   '<button onclick="closeNoteReader()" style="background:none;border:none;font-size:22px;'
+    +     'line-height:1;color:var(--text3);cursor:pointer;padding:0 4px">&times;</button>'
+    + '</div>'
+    + '<div class="nt-ov-body">' + renderNoteReadable(text) + '</div>'
+    + '</div>';
+  document.body.appendChild(ov);
+  document.addEventListener('keydown', _ntEsc);
+}
+function _ntEsc(e){ if(e.key === 'Escape') closeNoteReader(); }
+function closeNoteReader(){
+  var el = document.getElementById('ntReader');
+  if(el) el.remove();
+  document.removeEventListener('keydown', _ntEsc);
+}
+
+// ── Notes ট্যাবের লেখা ────────────────────────────────────────────────
+function custNoteOf(c){
+  var n = (c && c.custNote) || {};
+  return { text: String(n.text||''), at: n.at || 0 };
+}
+function saveCustNote(cid){
+  var c = (db.customers||[]).find(function(x){ return x.id===cid; });
+  if(!c) return;
+  var el = document.getElementById('custNote_' + cid); if(!el) return;
+  var txt = String(el.value||'');
+  var msg = document.getElementById('custNoteMsg_' + cid);
+  if(txt === custNoteOf(c).text){ if(msg) msg.textContent = 'কোনো পরিবর্তন নেই'; return; }
+  c.custNote = { text: txt, at: Date.now() };
+  saveDB();
+  if(msg) msg.textContent = '⏳ cloud-এ পাঠানো হচ্ছে...';
+  saveCustomerToCloud(c, 'Notes: ' + (c.name||'')).then(function(ok){
+    var m = document.getElementById('custNoteMsg_' + cid);
+    if(m) m.textContent = ok ? '✅ সেভ হয়েছে' : '❌ cloud-এ যায়নি — এই ডিভাইসে আছে';
+    try{ renderTabNotes(c); }catch(e){}
+  }).catch(function(){
+    var m = document.getElementById('custNoteMsg_' + cid);
+    if(m) m.textContent = '❌ cloud-এ যায়নি — এই ডিভাইসে আছে';
+  });
+}
+
+// ── Tree To-Do ────────────────────────────────────────────────────────
+// একেকটা ধাপ একেকটা নোড। level 0 = মূল ধাপ, level 1 = তার নিচের ছোট কাজ।
+function todoOf(c){ return ((c && c.noteTodo) || []).slice(); }
+// Date.now() দুবার একই মান দিতে পারে (দ্রুত পরপর যোগ করলে)। তখন দুটি ধাপের
+// id এক হয়ে যেত — একটিতে ক্লিক করলে অন্যটি বদলাত। তাই ইউনিক করে নেওয়া হয়।
+function nextTodoId(list){
+  var used = {};
+  (list||[]).forEach(function(t){ if(t && t.id!==undefined) used[String(t.id)] = true; });
+  var id = Date.now(), guard = 0;
+  while(used[String(id)] && guard++ < 100000) id++;
+  return id;
+}
+function saveTodo(c, label){
+  saveDB();
+  // ব্যর্থতা চুপচাপ গিলে ফেলা যাবে না — এই ভুলেই আগে "সেভ হয়েছে" ভেবে
+  // মালিক নিশ্চিন্ত থাকতেন, অথচ cloud-এ কিছু যেত না।
+  saveCustomerToCloud(c, label || ('To-Do: ' + (c.name||'')))
+    .then(function(ok){
+      if(!ok){
+        console.warn('to-do not saved to cloud:', c && c.name);
+        try{ cloudBadge('fail', '❌ To-Do cloud-এ যায়নি — এই ডিভাইসে আছে', 'retryCloudSaves()'); }catch(e){}
+      }
+    })
+    .catch(function(e){
+      console.warn('to-do save failed:', e);
+      try{ cloudBadge('fail', '❌ To-Do cloud-এ যায়নি — এই ডিভাইসে আছে', 'retryCloudSaves()'); }catch(e2){}
+    });
+}
+function addNoteTodo(cid){
+  var c = (db.customers||[]).find(function(x){ return x.id===cid; }); if(!c) return;
+  var el = document.getElementById('todoIn_' + cid); if(!el) return;
+  var txt = String(el.value||'').trim();
+  if(!txt){ el.focus(); return; }
+  if(!c.noteTodo) c.noteTodo = [];
+  c.noteTodo.push({ id: nextTodoId(c.noteTodo), text: txt, done: false, level: 0, at: Date.now() });
+  el.value = '';
+  saveTodo(c, 'To-Do যোগ: ' + (c.name||''));
+  renderTabNotes(c);
+}
+function toggleNoteTodo(cid, tid){
+  var c = (db.customers||[]).find(function(x){ return x.id===cid; }); if(!c) return;
+  var t = (c.noteTodo||[]).find(function(x){ return x.id===tid; }); if(!t) return;
+  t.done = !t.done;
+  t.doneAt = t.done ? Date.now() : null;
+  saveTodo(c);
+  renderTabNotes(c);
+}
+function indentNoteTodo(cid, tid, dir){
+  var c = (db.customers||[]).find(function(x){ return x.id===cid; }); if(!c) return;
+  var t = (c.noteTodo||[]).find(function(x){ return x.id===tid; }); if(!t) return;
+  t.level = Math.max(0, Math.min(1, (t.level||0) + dir));
+  saveTodo(c);
+  renderTabNotes(c);
+}
+function moveNoteTodo(cid, tid, dir){
+  var c = (db.customers||[]).find(function(x){ return x.id===cid; }); if(!c) return;
+  var list = c.noteTodo || [];
+  var i = list.findIndex(function(x){ return x.id===tid; });
+  var j = i + dir;
+  if(i < 0 || j < 0 || j >= list.length) return;
+  var tmp = list[i]; list[i] = list[j]; list[j] = tmp;
+  saveTodo(c);
+  renderTabNotes(c);
+}
+function delNoteTodo(cid, tid){
+  var c = (db.customers||[]).find(function(x){ return x.id===cid; }); if(!c) return;
+  if(!confirm('এই ধাপটি মুছবেন?')) return;
+  c.noteTodo = (c.noteTodo||[]).filter(function(x){ return x.id!==tid; });
+  saveTodo(c);
+  renderTabNotes(c);
+}
+function editNoteTodo(cid, tid){
+  var c = (db.customers||[]).find(function(x){ return x.id===cid; }); if(!c) return;
+  var t = (c.noteTodo||[]).find(function(x){ return x.id===tid; }); if(!t) return;
+  var v = prompt('ধাপটি লিখুন:', t.text);
+  if(v === null) return;
+  v = String(v).trim();
+  if(!v) return;
+  t.text = v;
+  saveTodo(c);
+  renderTabNotes(c);
+}
+
+function renderTodoTree(c){
+  var list = todoOf(c);
+  var h = '';
+  h += '<div class="flex-between" style="margin-bottom:10px">';
+  h += '<div style="font-size:11px;font-weight:800;color:var(--gold);font-family:var(--fd)">'
+     + '\u{1F333} এরপর কী — ধাপে ধাপে</div>';
+  if(list.length){
+    var dn = list.filter(function(t){ return t.done; }).length;
+    h += '<div style="font-size:9px;color:var(--text3);font-family:var(--fm)">'
+       + dn + '/' + list.length + ' শেষ</div>';
+  }
+  h += '</div>';
+
+  if(!list.length){
+    h += '<div class="nt-empty">এখনো কোনো ধাপ নেই — নিচে লিখে যোগ করুন</div>';
+  } else {
+    h += '<div class="nt-tree">';
+    list.forEach(function(t){
+      var done = !!t.done;
+      h += '<div class="nt-row' + (t.level ? ' lv1' : '') + (done ? ' done' : '') + '">';
+      h += '<div class="nt-dot' + (done ? ' done' : '') + '" onclick="toggleNoteTodo(' + c.id + ',' + t.id + ')" '
+         + 'title="' + (done ? 'আবার বাকি দেখান' : 'শেষ হয়েছে চিহ্ন দিন') + '"></div>';
+      h += '<div class="nt-txt" ondblclick="editNoteTodo(' + c.id + ',' + t.id + ')" '
+         + 'title="দুইবার ক্লিক করে বদলান">' + escHtml(t.text) + '</div>';
+      h += '<div class="nt-badge ' + (done ? 'done' : 'todo') + '">' + (done ? 'Done' : 'বাকি') + '</div>';
+      h += '<div class="nt-act">';
+      h += '<button onclick="moveNoteTodo(' + c.id + ',' + t.id + ',-1)" title="উপরে">↑</button>';
+      h += '<button onclick="moveNoteTodo(' + c.id + ',' + t.id + ',1)" title="নিচে">↓</button>';
+      h += '<button onclick="indentNoteTodo(' + c.id + ',' + t.id + ',' + (t.level ? -1 : 1) + ')" '
+         + 'title="' + (t.level ? 'বাইরে আনুন' : 'ভেতরে নিন') + '">' + (t.level ? '⇤' : '⇥') + '</button>';
+      h += '<button onclick="delNoteTodo(' + c.id + ',' + t.id + ')" title="মুছুন">\u{1F5D1}</button>';
+      h += '</div></div>';
+    });
+    h += '</div>';
+  }
+
+  h += '<div style="display:flex;gap:6px;margin-top:12px">';
+  h += '<input id="todoIn_' + c.id + '" placeholder="পরের ধাপ লিখুন — যেমন: আজকে মেসেজ দিতে হবে" '
+     + 'onkeydown="if(event.key===\'Enter\'){addNoteTodo(' + c.id + ')}" '
+     + 'style="flex:1;font-size:12px">';
+  h += '<button onclick="addNoteTodo(' + c.id + ')" class="btn btn-r" style="font-size:10px;padding:6px 16px">+ যোগ</button>';
+  h += '</div>';
+  return h;
+}
+
+// ── Notes ট্যাব ───────────────────────────────────────────────────────
+var CUST_NOTE_PH = 'এখানে লিখুন — সাধারণভাবেই লিখবেন, CRM নিজে সাজিয়ে দেবে।\n\n'
+  + 'উদাহরণ:\n\n'
+  + '৩. Customer-এর Core SKU DNA\n'
+  + 'Facebook-এ ১২ মাসে ৫২টি post, তার মধ্যে ৩৯টি model-specific।\n'
+  + 'HP প্রায় ৬০%, Lenovo ও Dell প্রায় ২০% করে।\n\n'
+  + 'সবচেয়ে প্রমাণিত offer models:\n'
+  + '- HP ProBook 640 G8\n'
+  + '- Dell Latitude 7490\n';
+
+function renderTabNotes(c){
+  var el = document.getElementById('mtc_notes'); if(!el) return;
+  var n = custNoteOf(c);
+  var has = !!n.text.trim();
+  var when = n.at ? new Date(n.at).toLocaleDateString('en-CA', {timeZone:'Asia/Dhaka'}) : '';
+  var h = '';
+
+  // ── পড়ার অংশ সবার আগে — এটাই মূল উদ্দেশ্য ──
+  h += '<div style="background:rgba(212,175,55,.06);border:1px solid rgba(212,175,55,.3);'
+     + 'border-radius:var(--r);padding:16px 18px;margin-bottom:12px">';
+  h += '<div class="flex-between" style="margin-bottom:12px">';
+  h += '<div style="font-size:12px;font-weight:800;color:var(--gold);font-family:var(--fd)">'
+     + '\u{1F4D6} ' + escHtml(c.name||'') + ' — আমার নোট</div>';
+  h += '<div style="display:flex;gap:8px;align-items:center">';
+  h += '<span style="font-size:9px;color:var(--text3);font-family:var(--fm)">'
+     + (has && when ? 'সর্বশেষ: ' + when : '') + '</span>';
+  if(has){
+    h += '<button onclick="openNoteReader(' + c.id + ',\'cust\')" class="btn btn-o" '
+       + 'style="font-size:9px;padding:4px 12px" title="বড় করে পড়ুন">⛶ বড় করে পড়ুন</button>';
+  }
+  h += '</div></div>';
+  h += renderNoteReadable(n.text);
+  h += '</div>';
+
+  // ── লেখার অংশ ──
+  h += '<details style="margin-bottom:12px"' + (has ? '' : ' open') + '>';
+  h += '<summary style="cursor:pointer;font-size:11px;font-weight:700;color:var(--text2);padding:6px 0">'
+     + '✏️ লিখুন / বদলান</summary>';
+  h += '<div style="background:rgba(243,244,246,.5);border:1px solid var(--border);border-radius:var(--r);'
+     + 'padding:12px;margin-top:6px">';
+  h += '<textarea id="custNote_' + c.id + '" rows="12" placeholder="'
+     + CUST_NOTE_PH.replace(/"/g,'&quot;').replace(/\n/g,'&#10;') + '" '
+     + 'style="width:100%;font-size:13px;line-height:1.75;resize:vertical;font-family:inherit">'
+     + escHtml(n.text) + '</textarea>';
+  h += '<div style="display:flex;gap:8px;align-items:center;margin-top:8px">';
+  h += '<button onclick="saveCustNote(' + c.id + ')" class="btn btn-r" style="font-size:10px;padding:6px 18px">'
+     + '\u{1F4BE} সেভ করুন</button>';
+  h += '<span id="custNoteMsg_' + c.id + '" style="font-size:10px;color:var(--text3)"></span>';
+  h += '<span style="font-size:9px;color:var(--text3);margin-left:auto">'
+     + 'শিরোনাম: লাইনের শেষে : বা ১. ২. — বুলেট: শুরুতে -</span>';
+  h += '</div></div></details>';
+
+  // ── Tree To-Do ──
+  h += '<div style="background:var(--card,#fff);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px">';
+  h += renderTodoTree(c);
+  h += '</div>';
+
+  el.innerHTML = h;
 }
 
 function renderTabModels(c){
