@@ -458,6 +458,22 @@ body{max-width:100vw;overflow-x:hidden!important}
   </div>
   <div id="dashKpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px"></div>
 
+  <!-- ═══ Build-69: Customer Growth Board ═══ -->
+  <div class="card" style="margin-bottom:18px">
+    <div class="flex-between" style="margin-bottom:12px">
+      <div>
+        <div class="ctit" style="margin:0">&#x1F3AF; Customer Growth Board</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:3px">&#x099A;&#x09B2;&#x09A4;&#x09BF; &#x09AE;&#x09BE;&#x09B8; &#xB7; &#x0995;&#x09BE;&#x09B0; &#x0985;&#x09B0;&#x09CD;&#x09A1;&#x09BE;&#x09B0; &#x0995;&#x09BF;&#x09AD;&#x09BE;&#x09AC;&#x09C7; &#x09AC;&#x09BE;&#x09A1;&#x09BC;&#x09AC;&#x09C7;</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button class="btn btn-o" style="padding:5px 9px;font-size:11px" onclick="cgbShift(-1)">&#x25C0;</button>
+        <span id="cgbLabel" style="font-family:var(--fm);font-size:11px;font-weight:700;min-width:78px;text-align:center"></span>
+        <button class="btn btn-o" style="padding:5px 9px;font-size:11px" onclick="cgbShift(1)">&#x25B6;</button>
+      </div>
+    </div>
+    <div id="cgbBody"></div>
+  </div>
+
   <div style="font-family:var(--fd);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">&#x1F4E6; Stock &amp; Cash Intelligence</div>
   <div id="dashStockKpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px"></div>
   <div class="card" style="margin-bottom:18px">
@@ -3367,7 +3383,299 @@ function renderHdrStats(){
 }
 
 // ── Dashboard 12 KPI ────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+// Build-69 — CUSTOMER GROWTH BOARD
+// চলতি মাসে ফোকাস, গত মাস মাপকাঠি। মালিক নাম ধরে ধরে দেখবেন কার
+// অর্ডার সংখ্যা (frequency) আর কার অর্ডার সাইজ বাড়াতে হবে।
+// গুরুত্বপূর্ণ: মাসের ১০ তারিখে পুরো গত মাসের সাথে তুলনা করলে সবাই
+// পিছিয়ে দেখাবে। তাই তুলনা হয় "গত মাসের একই তারিখ পর্যন্ত" (pace)।
+// ══════════════════════════════════════════════════════════════
+var CGB_TGT_FREQ = 4;    // মাসে ৪ অর্ডার (টার্গেট)
+var CGB_TGT_SIZE = 6;    // প্রতি অর্ডারে ৬ পিস (টার্গেট)
+var CGB_MIN_FREQ = 3;    // এর নিচে নামলে Frequency সমস্যা
+var CGB_MIN_SIZE = 4;    // এর নিচে নামলে Order Size সমস্যা
+var _cgbOffset = 0;      // 0 = চলতি মাস, -1 = গত মাস
+
+function cgbYm(off){
+  var d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + (off||0));
+  return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2);
+}
+function cgbYmAdd(ym, n){
+  var p = String(ym).split('-');
+  var d = new Date(parseInt(p[0],10), parseInt(p[1],10)-1+n, 1);
+  return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2);
+}
+function cgbDaysInMonth(ym){
+  var p = String(ym).split('-');
+  return new Date(parseInt(p[0],10), parseInt(p[1],10), 0).getDate();
+}
+function cgbMonthName(ym){
+  var N = ['জানু','ফেব','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্ট','অক্টো','নভে','ডিসে'];
+  var p = String(ym).split('-');
+  return N[parseInt(p[1],10)-1] + ' ' + p[0];
+}
+// maxDay দিলে মাসের ওই তারিখ পর্যন্তই গোনা হয় — এটাই ন্যায্য তুলনার চাবি
+function cgbCollect(ym, maxDay){
+  var R = {};
+  (db.customers||[]).forEach(function(c){
+    var o = {id:c.id, inv:0, pcs:0, rev:0, cogs:0, ret:0, last:'', amt:0, paid:0,
+             payD:0, payA:0, models:{}};
+    (c.invoices||[]).forEach(function(v){
+      var d = String(v.date||'');
+      if(d.slice(0,7) !== ym) return;
+      if(maxDay && (parseInt(d.slice(8,10),10)||1) > maxDay) return;
+      o.inv++; if(d > o.last) o.last = d; o.amt += (v.amt||0);
+      (v.payments||[]).forEach(function(p){
+        var a = (p.amt||p.amount||0); o.paid += a;
+        if(p.date && d){
+          var dd = (new Date(p.date) - new Date(d)) / 86400000;
+          if(dd >= 0 && dd < 400){ o.payD += a*dd; o.payA += a; }
+        }
+      });
+      (v.items||[]).forEach(function(it){
+        var q = it.qty||0;
+        o.pcs += q; o.rev += q*(it.price||0); o.cogs += q*(it.purchasePrice||0);
+        var m = String(it.model||'').trim();
+        if(m) o.models[m] = (o.models[m]||0) + q;
+      });
+      (v.returns||[]).forEach(function(r){ o.ret += (r.qty||0); });
+    });
+    if(o.inv > 0) R[c.name] = o;
+  });
+  return R;
+}
+// এই কাস্টমার এর আগে কখনো কিনেছে কি না — "নতুন" চেনার জন্য
+function cgbFirstOrderYm(name){
+  var c = (db.customers||[]).find(function(x){ return x.name === name; });
+  if(!c) return null;
+  var first = null;
+  (c.invoices||[]).forEach(function(v){
+    var d = String(v.date||'').slice(0,7);
+    if(d && (!first || d < first)) first = d;
+  });
+  return first;
+}
+function cgbSize(o){ return o.inv ? o.pcs/o.inv : 0; }
+
+// কোন হাতল টানতে হবে — এটাই বোর্ডের আসল কাজ
+function cgbLever(r){
+  if(r.isNew)
+    return {ic:'🆕', label:'নতুন', color:'var(--blue)',
+            tip:'দ্বিতীয় অর্ডার ৭ দিনের ভিতরে আনুন — এখানেই বেশিরভাগ কাস্টমার হারায়'};
+  if(r.trend !== null && r.trend <= -40)
+    return {ic:'⚠️', label:'Win-back', color:'var(--red)',
+            tip:'গত মাসের একই সময়ের চেয়ে ' + Math.abs(r.trend) + '% কম — আজই কারণ জানুন'};
+  var freqOK = r.inv  >= CGB_MIN_FREQ;
+  var sizeOK = r.size >= CGB_MIN_SIZE;
+  if(freqOK && sizeOK)
+    return {ic:'🛡', label:'Protect', color:'var(--green)',
+            tip:'দুইটাই টার্গেটে — priority stock ও আগাম offer দিন'};
+  if(freqOK && !sizeOK)
+    return {ic:'📦', label:'Size', color:'var(--warn)',
+            tip:'অর্ডার ঘন (' + r.inv + '), কিন্তু মাত্র ' + r.size.toFixed(1) +
+                ' পিস/অর্ডার — ৩+ পিসে bundle দাম দিন'};
+  if(!freqOK && sizeOK)
+    return {ic:'🔼', label:'Frequency', color:'var(--cyan)',
+            tip:'সাইজ ভালো (' + r.size.toFixed(1) + '), কিন্তু মাসে ' + r.inv +
+                ' অর্ডার — সাপ্তাহিক stock list পাঠান'};
+  return {ic:'🌱', label:'Grow', color:'var(--purple)',
+          tip:'দুইটাই কম — আগে একটা core model ধরে নিয়মিত করুন'};
+}
+
+function cgbBuild(off){
+  var ym      = cgbYm(off);
+  var prevYm  = cgbYmAdd(ym, -1);
+  var isCur   = (ym === cgbYm(0));
+  var dim     = cgbDaysInMonth(ym);
+  var today   = new Date().getDate();
+  var dayNow  = isCur ? Math.min(today, dim) : dim;   // চলতি মাস হলে আজ পর্যন্ত
+
+  var cur      = cgbCollect(ym);
+  var prevPace = cgbCollect(prevYm, dayNow);   // গত মাসের একই তারিখ পর্যন্ত
+  var prevFull = cgbCollect(prevYm);
+  var m2 = cgbCollect(cgbYmAdd(ym,-2)), m3 = cgbCollect(cgbYmAdd(ym,-3));
+
+  var rows = Object.keys(cur).map(function(n){
+    var o = cur[n], pp = prevPace[n], pf = prevFull[n];
+    var size = cgbSize(o);
+    var gp   = o.rev - o.cogs;
+    var trend = (pp && pp.pcs) ? Math.round((o.pcs - pp.pcs) / pp.pcs * 100) : null;
+    var r = {
+      name:n, id:o.id, inv:o.inv, pcs:o.pcs, size:size,
+      roi: o.cogs ? (gp/o.cogs*100) : 0,
+      perPc: o.pcs ? Math.round(gp/o.pcs) : 0,
+      ret:o.ret, retPct: o.pcs ? (o.ret/o.pcs*100) : 0,
+      quiet: o.last ? getAge(o.last) : null,
+      payDays: o.payA ? (o.payD/o.payA) : null,
+      collPct: o.amt ? Math.round(o.paid/o.amt*100) : null,
+      modelCount: Object.keys(o.models).length,
+      topModel: Object.keys(o.models).sort(function(a,b){ return o.models[b]-o.models[a]; })[0] || '—',
+      prevPace: pp ? pp.pcs : 0,
+      prevFull: pf ? pf.pcs : 0,
+      trend: trend,
+      spark: [ (m3[n]?m3[n].pcs:0), (m2[n]?m2[n].pcs:0), (pf?pf.pcs:0), o.pcs ],
+      isNew: cgbFirstOrderYm(n) === ym,
+      gap: Math.max(0, CGB_TGT_FREQ*CGB_TGT_SIZE - o.pcs)
+    };
+    r.lever = cgbLever(r);
+    return r;
+  }).sort(function(a,b){ return b.pcs - a.pcs; });
+
+  // এই মাসে চুপ — আগে কিনেছে, এখন নেই
+  var lapsed = [];
+  (db.customers||[]).forEach(function(c){
+    if(cur[c.name]) return;
+    var tot = 0, last = '';
+    (c.invoices||[]).forEach(function(v){
+      var d = String(v.date||'');
+      if(d && d.slice(0,7) <= ym){
+        if(d > last) last = d;
+        (v.items||[]).forEach(function(it){ tot += (it.qty||0); });
+      }
+    });
+    if(tot > 0 && last) lapsed.push({name:c.name, id:c.id, tot:tot, last:last, quiet:getAge(last)});
+  });
+  lapsed.sort(function(a,b){ return b.tot - a.tot; });
+
+  var totPcs  = rows.reduce(function(a,r){ return a + r.pcs; }, 0);
+  var totInv  = rows.reduce(function(a,r){ return a + r.inv; }, 0);
+  var prevAtPace = Object.keys(prevPace).reduce(function(a,k){ return a + prevPace[k].pcs; }, 0);
+  var prevMonthTot = Object.keys(prevFull).reduce(function(a,k){ return a + prevFull[k].pcs; }, 0);
+
+  return {
+    ym:ym, prevYm:prevYm, isCur:isCur, dayNow:dayNow, dim:dim,
+    rows:rows, lapsed:lapsed,
+    active:rows.length, totPcs:totPcs, totInv:totInv,
+    avgFreq: rows.length ? totInv/rows.length : 0,
+    avgSize: totInv ? totPcs/totInv : 0,
+    top1: rows.length ? rows[0] : null,
+    top1Pct: totPcs ? Math.round(rows[0].pcs/totPcs*100) : 0,
+    newCount: rows.filter(function(r){ return r.isNew; }).length,
+    prevAtPace: prevAtPace, prevMonthTot: prevMonthTot,
+    paceDelta: prevAtPace ? Math.round((totPcs - prevAtPace)/prevAtPace*100) : null,
+    projected: (isCur && dayNow) ? Math.round(totPcs / dayNow * dim) : totPcs
+  };
+}
+
+function cgbShift(n){
+  var t = _cgbOffset + n;
+  if(t > 0) t = 0;            // ভবিষ্যতের মাস নেই
+  if(t < -11) t = -11;
+  _cgbOffset = t;
+  renderGrowthBoard();
+}
+
+function cgbSpark(vals){
+  var mx = Math.max.apply(null, vals.concat([1]));
+  var h = '<span style="display:inline-flex;align-items:flex-end;gap:2px;height:16px">';
+  vals.forEach(function(v, i){
+    var ht = Math.max(2, Math.round(v/mx*16));
+    var c  = (i === vals.length-1) ? 'var(--red)' : 'var(--text4)';
+    h += '<span title="' + v + ' pcs" style="width:5px;height:' + ht + 'px;background:' + c + ';border-radius:1px"></span>';
+  });
+  return h + '</span>';
+}
+
+function renderGrowthBoard(){
+  var el = document.getElementById('cgbBody');
+  if(!el) return;
+  var d = cgbBuild(_cgbOffset);
+  var lb = document.getElementById('cgbLabel');
+  if(lb) lb.textContent = cgbMonthName(d.ym) + (d.isCur ? ' (চলতি)' : '');
+
+  function chip(lbl, val, sub, col){
+    return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 12px">'
+      + '<div style="font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);font-weight:700">' + lbl + '</div>'
+      + '<div style="font-family:var(--fm);font-size:19px;font-weight:800;color:' + (col||'var(--text)') + ';margin-top:2px">' + val + '</div>'
+      + (sub ? '<div style="font-size:9.5px;color:var(--text3);margin-top:1px">' + sub + '</div>' : '')
+      + '</div>';
+  }
+  var pc = d.paceDelta === null ? 'var(--text3)' : (d.paceDelta >= 0 ? 'var(--green)' : 'var(--red)');
+  var paceTxt = d.paceDelta === null ? 'তুলনা নেই'
+    : (d.paceDelta >= 0 ? '▲ ' : '▼ ') + Math.abs(d.paceDelta) + '% vs গত মাসের এই সময়';
+
+  var h = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(122px,1fr));gap:10px;margin-bottom:14px">'
+    + chip('Active', d.active, d.newCount + ' নতুন')
+    + chip('মোট Qty', d.totPcs + ' pcs', paceTxt, pc)
+    + chip('গড় Frequency', d.avgFreq.toFixed(2), 'টার্গেট ' + CGB_TGT_FREQ, d.avgFreq >= CGB_TGT_FREQ ? 'var(--green)' : 'var(--warn)')
+    + chip('গড় Order Size', d.avgSize.toFixed(2), 'টার্গেট ' + CGB_TGT_SIZE, d.avgSize >= CGB_TGT_SIZE ? 'var(--green)' : 'var(--warn)')
+    + chip('Top-1 নির্ভরতা', d.top1Pct + '%', d.top1 ? escHtml(d.top1.name) : '—', d.top1Pct > 40 ? 'var(--red)' : (d.top1Pct > 25 ? 'var(--warn)' : 'var(--green)'))
+    + (d.isCur ? chip('মাসশেষে যাবে', d.projected + ' pcs', 'গত মাস ' + d.prevMonthTot, d.projected >= d.prevMonthTot ? 'var(--green)' : 'var(--red)') : '')
+    + '</div>';
+
+  if(d.isCur){
+    h += '<div style="font-size:10.5px;color:var(--text2);background:var(--bg4);border-radius:8px;padding:8px 11px;margin-bottom:12px">'
+       + '📅 ' + cgbMonthName(d.ym) + '-এর <b>' + d.dayNow + '</b> দিন শেষ। তুলনা হচ্ছে '
+       + cgbMonthName(d.prevYm) + '-এর প্রথম ' + d.dayNow + ' দিনের সাথে (<b>' + d.prevAtPace
+       + ' pcs</b>) — পুরো মাসের সাথে নয়, তাই হিসাব ন্যায্য।</div>';
+  }
+
+  if(!d.rows.length){
+    h += '<div style="color:var(--text3);font-size:12px;padding:16px;text-align:center">এই মাসে কোনো অর্ডার নেই</div>';
+    el.innerHTML = h; return;
+  }
+
+  h += '<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:12px">'
+     + '<thead><tr>'
+     + ['কাস্টমার','Inv','Qty','Size','৪ মাস','ট্রেন্ড','৳/pc','Return','শেষ অর্ডার','Lever','ঘাটতি']
+       .map(function(t,i){ return '<th style="text-align:' + (i>=1&&i<=3||i===6||i===10?'right':'left')
+         + ';padding:8px 9px;font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);'
+         + 'font-weight:800;border-bottom:2px solid var(--border2);white-space:nowrap">' + t + '</th>'; }).join('')
+     + '</tr></thead><tbody>';
+
+  d.rows.forEach(function(r){
+    var tc = r.trend === null ? 'var(--text3)' : (r.trend >= 0 ? 'var(--green)' : 'var(--red)');
+    var tt = r.trend === null ? '—' : (r.trend >= 0 ? '+' : '') + r.trend + '%';
+    h += '<tr style="cursor:pointer" onclick="openDetail(' + r.id + ')" title="' + escHtml(r.lever.tip) + '">'
+      + '<td style="padding:9px;border-bottom:1px solid var(--border);font-weight:700">' + escHtml(r.name)
+        + '<div style="font-size:9px;color:var(--text3);font-weight:400">' + escHtml(r.topModel) + ' · ' + r.modelCount + ' model</div></td>'
+      + '<td style="padding:9px;border-bottom:1px solid var(--border);text-align:right;font-family:var(--fm)">' + r.inv + '</td>'
+      + '<td style="padding:9px;border-bottom:1px solid var(--border);text-align:right;font-family:var(--fm);font-weight:700">' + r.pcs + '</td>'
+      + '<td style="padding:9px;border-bottom:1px solid var(--border);text-align:right;font-family:var(--fm);color:'
+        + (r.size >= CGB_TGT_SIZE ? 'var(--green)' : (r.size < 2 ? 'var(--red)' : 'var(--warn)')) + '">' + r.size.toFixed(1) + '</td>'
+      + '<td style="padding:9px;border-bottom:1px solid var(--border)">' + cgbSpark(r.spark) + '</td>'
+      + '<td style="padding:9px;border-bottom:1px solid var(--border);font-family:var(--fm);color:' + tc + ';font-weight:700">' + tt + '</td>'
+      + '<td style="padding:9px;border-bottom:1px solid var(--border);text-align:right;font-family:var(--fm)">৳' + fmtNum(r.perPc) + '</td>'
+      + '<td style="padding:9px;border-bottom:1px solid var(--border);font-family:var(--fm);color:'
+        + (r.retPct > 5 ? 'var(--red)' : 'var(--text3)') + '">' + (r.ret ? r.ret + ' (' + r.retPct.toFixed(1) + '%)' : '—') + '</td>'
+      + '<td style="padding:9px;border-bottom:1px solid var(--border);font-family:var(--fm);color:'
+        + (r.quiet !== null && r.quiet > 14 ? 'var(--warn)' : 'var(--text3)') + '">' + (r.quiet === null ? '—' : r.quiet + 'd') + '</td>'
+      + '<td style="padding:9px;border-bottom:1px solid var(--border);white-space:nowrap"><span style="font-weight:700;color:'
+        + r.lever.color + '">' + r.lever.ic + ' ' + r.lever.label + '</span></td>'
+      + '<td style="padding:9px;border-bottom:1px solid var(--border);text-align:right;font-family:var(--fm);color:var(--text3)">'
+        + (r.gap ? '+' + r.gap : '✓') + '</td>'
+      + '</tr>';
+  });
+  h += '</tbody></table></div>';
+
+  // ঘাটতি হিসাব — বোর্ডকে ১,০০০ pcs লক্ষ্যের সাথে জোড়া
+  var gapSum = d.rows.reduce(function(a,r){ return a + r.gap; }, 0);
+  var ifAll  = d.rows.length * CGB_TGT_FREQ * CGB_TGT_SIZE;
+  h += '<div style="margin-top:14px;background:var(--bg4);border-radius:10px;padding:12px 14px;font-size:11.5px;line-height:1.85">'
+     + '<b>🧮 ঘাটতি হিসাব</b><br>'
+     + 'আজকের ' + d.active + ' জন সবাই টার্গেটে (' + CGB_TGT_FREQ + ' × ' + CGB_TGT_SIZE + ') গেলে = <b>' + ifAll + ' pcs</b>'
+     + ' &nbsp;·&nbsp; এখন ' + d.totPcs + ' pcs &nbsp;·&nbsp; হাতের নাগালে <b style="color:var(--green)">+' + gapSum + ' pcs</b>'
+     + '</div>';
+
+  if(d.lapsed.length){
+    h += '<div style="margin-top:14px"><div style="font-size:10px;font-weight:800;letter-spacing:.06em;'
+       + 'text-transform:uppercase;color:var(--red);margin-bottom:8px">🚨 এই মাসে চুপ — ' + d.lapsed.length + ' জন</div>'
+       + '<div style="display:flex;flex-wrap:wrap;gap:7px">';
+    d.lapsed.slice(0,14).forEach(function(l){
+      h += '<span onclick="openDetail(' + l.id + ')" style="cursor:pointer;background:var(--red-dim);'
+        + 'border:1px solid rgba(227,6,19,.25);border-radius:8px;padding:6px 10px;font-size:11px">'
+        + escHtml(l.name) + ' <b style="font-family:var(--fm)">' + l.tot + 'pcs</b> '
+        + '<span style="color:var(--text3);font-family:var(--fm)">· ' + l.quiet + 'd</span></span>';
+    });
+    h += '</div></div>';
+  }
+  el.innerHTML = h;
+}
+
 function renderDashboard(){
+  try{ renderGrowthBoard(); }catch(e){ console.warn("growth board:", e); }
   const el = document.getElementById('dashKpis'); if(!el) return;
   checkInactive();
   const active = db.customers.filter(c=>!c.inactive);
