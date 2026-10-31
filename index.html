@@ -1727,6 +1727,60 @@ function cloudIsBlocked(){ return !!_cloudBlocked; }
 var _cloudCustomersSeen = false;
 // Build-66: মোছা batch-এর তালিকা। ঘোষণাটি এখানে, কারণ startRealtimeSync()
 // স্ক্রিপ্ট পড়ার মাঝপথেই চলে — নিচে ঘোষণা করলে তখনো undefined থাকত।
+// ══════════════════════════════════════════════════════════════
+// Build-70 — EXPENSE দুই-মুখী sync
+// আগে expenses collection ছিল write-only: লেখা হতো, কখনো পড়া হতো না।
+// ফলে এক ডিভাইসের খরচ অন্য ডিভাইসে কোনোদিন পৌঁছাতো না, আর কোনো
+// ডিভাইসের localStorage মুছে গেলে সেই খরচ চিরতরে হারিয়ে যেত।
+// সাবধান: এই var-গুলো startRealtimeSync()-এর আগেই থাকতে হবে, কারণ
+// ওটা স্ক্রিপ্ট পড়ার মাঝপথেই চলে (Build-66-এর শিক্ষা)।
+var EXP_TOMB_DOC   = 'deletedExpenses';
+var _cloudExp      = {};     // { id: data } — cloud থেকে আসা
+var _cloudExpSeen  = false;
+var _expTombs      = {};     // { id: মোছার সময় }
+var _expTombsSeen  = false;
+var _expFp         = {};     // { id: ছাপ } — একই জিনিস বারবার না পাঠাতে
+
+function isExpenseDeleted(id){
+  if(id === undefined || id === null) return false;
+  return !!_expTombs[String(id)];
+}
+// cloud ডকুমেন্টগুলো লোকাল তালিকায় মেলানো — id ধরে, ডুপ্লিকেট হয় না
+function applyCloudExpenses(){
+  if(!_cloudExpSeen) return 0;
+  if(!expDB.expenses) expDB.expenses = [];
+  var have = {};
+  expDB.expenses.forEach(function(e){ if(e && e.id !== undefined) have[String(e.id)] = e; });
+  var added = 0, addedAmt = 0;
+  Object.keys(_cloudExp).forEach(function(k){
+    if(isExpenseDeleted(k)) return;              // মালিক মুছেছেন — ফেরত আনা যাবে না
+    if(have[k]) return;                          // আগে থেকেই আছে
+    var e = Object.assign({}, _cloudExp[k]);
+    e.id = isNaN(Number(k)) ? k : Number(k);
+    expDB.expenses.push(e);
+    added++; addedAmt += (e.amount || 0);
+  });
+  // মালিক মুছেছেন এমন কিছু লোকালে থেকে গেলে সরাই
+  var before = expDB.expenses.length;
+  expDB.expenses = expDB.expenses.filter(function(e){ return !isExpenseDeleted(e && e.id); });
+  var removed = before - expDB.expenses.length;
+  if(added || removed){
+    expDB.expenses.sort(function(a,b){ return String(b.date||'') < String(a.date||'') ? -1 : 1; });
+    try{ localStorage.setItem('ctgexp_v1', JSON.stringify(expDB)); }catch(err){ console.warn('exp local save:', err); }
+  }
+  return {added:added, addedAmt:addedAmt, removed:removed};
+}
+async function pushExpenseTombstone(ids){
+  if(!window._fbReady || !fsdb) return false;
+  var now = Date.now(), payload = {};
+  (ids||[]).forEach(function(i){ if(i!==undefined && i!==null) payload[String(i)] = now; });
+  if(!Object.keys(payload).length) return true;
+  try{
+    await fsdb.collection('meta').doc('deletedExpenses').set({ids:payload, _savedAt:now}, {merge:true});
+    return true;
+  }catch(e){ console.warn('expense tombstone:', e); return false; }
+}
+
 var TOMB_DOC = 'deletedBatches';
 var _cloudTombs = {};          // { batchId: সময় } — cloud থেকে আসা
 var _cloudTombsSeen = false;
@@ -2511,6 +2565,44 @@ function startRealtimeSync(){
     }, function(e){ console.warn('tombstone listener:', e); });
     _rtListeners.push(tombUnsub);
   }catch(e){ console.warn('tombstone listener:', e); }
+
+  // ── Build-70: Expense tombstone listener (expenses listener-এর আগেই) ──
+  // নাম সরাসরি লেখা — doc(undefined) এরর দেয় না, চুপচাপ ভুল ডকুমেন্ট শোনে।
+  try{
+    const expTombUnsub = fsdb.collection('meta').doc('deletedExpenses').onSnapshot(function(d){
+      var v = (d && d.exists) ? (d.data()||{}) : {};
+      _expTombs = v.ids || {};
+      _expTombsSeen = true;
+      try{
+        var r = applyCloudExpenses();
+        if(r && r.removed){
+          try{ renderExpenseDashboard(); }catch(e){}
+          try{ notify('\u{1F5D1} ' + r.removed + 'টি expense অন্য ডিভাইসে মোছা হয়েছিল — এখানেও সরানো হলো'); }catch(e){}
+        }
+      }catch(e){ console.warn('applyCloudExpenses (tomb):', e); }
+    }, function(e){ console.warn('expense tombstone listener:', e); });
+    _rtListeners.push(expTombUnsub);
+  }catch(e){ console.warn('expense tombstone listener:', e); }
+
+  // ── Build-70: Expense real-time listener ──
+  try{
+    const expUnsub = fsdb.collection('expenses').onSnapshot(function(snap){
+      var map = {};
+      snap.forEach(function(d){ map[d.id] = d.data(); });
+      _cloudExp = map;
+      _cloudExpSeen = true;
+      try{
+        var r = applyCloudExpenses();
+        if(r && (r.added || r.removed)){
+          try{ renderExpenseDashboard(); }catch(e){}
+          if(r.added){
+            try{ notify('\u2601\uFE0F ক্লাউড থেকে ' + r.added + 'টি expense এসেছে (৳' + fmtNum(r.addedAmt) + ')'); }catch(e){}
+          }
+        }
+      }catch(e){ console.warn('applyCloudExpenses:', e); }
+    }, function(e){ console.warn('expense listener:', e); });
+    _rtListeners.push(expUnsub);
+  }catch(e){ console.warn('expense listener:', e); }
 
   // ── Stock real-time listener ──
   try{
@@ -12663,11 +12755,28 @@ function saveExpenseDB(){
   localStorage.setItem('ctgexp_v1', JSON.stringify(expDB));
   if(window._fbReady && fsdb){
     fsdb.collection('meta').doc('expSaved').set({at:expDB._savedAt}).catch(function(e){console.warn('exp meta:',e);});
-    // Sync latest entries to Firebase
-    var recent = (expDB.expenses||[]).slice(0,20);
-    recent.forEach(function(e){
-      fsdb.collection('expenses').doc(String(e.id)).set(sanitize(Object.assign({},e)),{merge:true}).catch(function(err){console.warn('expense sync:',err);});
+    // Build-70: আগে শুধু শেষ ২০টা পাঠাতো — বাকিগুলো কোনোদিন cloud-এ যেতো না।
+    // এখন সবগুলো, তবে যেটা সত্যিই বদলেছে শুধু সেটাই (Firestore quota বাঁচাতে)।
+    var sent = 0;
+    (expDB.expenses||[]).forEach(function(e){
+      if(!e || e.id === undefined || e.id === null) return;
+      var key = String(e.id);
+      var doc = sanitize(Object.assign({}, e));
+      var fp;
+      try{ fp = fpOf(doc); }catch(err){ fp = null; }
+      if(fp !== null && _expFp[key] === fp) return;   // অপরিবর্তিত — লেখার দরকার নেই
+      sent++;
+      // ছাপটা আগেই বসাই, পরে নয়। পরে বসালে: write চলাকালীন মালিক এন্ট্রি
+      // সম্পাদনা করলে দেরিতে আসা .then() পুরনো ছাপ ফিরিয়ে দিতো, আর নতুন
+      // মানটা "অপরিবর্তিত" ধরে নিয়ে কোনোদিন cloud-এ যেতো না।
+      if(fp !== null) _expFp[key] = fp;
+      fsdb.collection('expenses').doc(key).set(doc, {merge:true})
+        .catch(function(err){
+          delete _expFp[key];            // ব্যর্থ — পরের save-এ আবার চেষ্টা হবে
+          console.warn('expense sync:', err);
+        });
     });
+    if(sent > 40) console.warn('expense sync: ' + sent + ' writes in one save');
   }
 }
 
@@ -12949,12 +13058,25 @@ function saveExpense(){
   renderExpenseDashboard();
 }
 
-function deleteExpense(id){
+async function deleteExpense(id){
   if(!confirm('\u098F\u0987 expense delete \u0995\u09B0\u09AC\u09C7\u09A8?')) return;
-  expDB.expenses=(expDB.expenses||[]).filter(function(e){return e.id!==id;});
+  // Build-70: আগে শুধু লোকাল থেকে মুছতো, cloud-এ থেকে যেত — listener চালু
+  // হওয়ার পর সেটা আবার ফিরে আসতো। তাই cloud doc + tombstone দুটোই লাগে।
+  var key = String(id);
+  _expTombs[key] = Date.now();
+  expDB.expenses = (expDB.expenses||[]).filter(function(e){ return e.id !== id; });
+  delete _expFp[key];
   saveExpenseDB();
   renderExpenseDashboard();
-  notify('🗑 Expense deleted');
+  var ok = true;
+  if(window._fbReady && fsdb){
+    try{ await fsdb.collection('expenses').doc(key).delete(); }
+    catch(e){ ok = false; console.warn('expense cloud delete:', e); }
+    var t = await pushExpenseTombstone([key]);
+    if(!t) ok = false;
+  }
+  notify(ok ? '\u{1F5D1} Expense মুছে গেছে (সব ডিভাইসে)'
+            : '\u26A0\uFE0F এখানে মুছেছে, কিন্তু cloud-এ পৌঁছায়নি — নেট এলে আবার চেষ্টা করুন');
 }
 
 function updateExpType(){
