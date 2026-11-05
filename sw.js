@@ -9,9 +9,9 @@
 //
 // এখন: পেজের জন্য একটি মাত্র ক্যাশ-কী (INDEX_KEY)। নতুন কপি এলে সেই একই
 // কী-তেই বসে, তাই পরের রিফ্রেশে নতুনটাই যায় — পুরনো কপি আর জমে থাকে না।
-var CACHE = 'ctg-crm-v3';
+var CACHE = 'ctg-crm-v4';
 var INDEX_KEY = './index.html';
-var SHELL = ['./index.html', './manifest.json', './ctg_strategy_hub.js'];
+var SHELL = ['./index.html', './manifest.json', './ctg_strategy_hub.js', './public_stock_sync.js'];
 
 self.addEventListener('install', function(e){
   self.skipWaiting();                               // নতুন SW অপেক্ষায় বসে থাকবে না
@@ -58,6 +58,20 @@ function isPageRequest(req){
   }catch(e){ return false; }
 }
 
+// Public website-এ শুধু available model name পাঠানোর client script inject করে।
+// Quantity, cost, ROI বা customer data কখনো public endpoint-এ পাঠানো হয় না।
+function withPublicStockSync(res){
+  if(!res || !res.ok) return res;
+  return res.text().then(function(html){
+    if(html.indexOf('public_stock_sync.js') < 0){
+      html = html.replace('</body>','<script src="./public_stock_sync.js?v=1"></script></body>');
+    }
+    var headers = new Headers(res.headers);
+    headers.set('content-type','text/html; charset=utf-8');
+    return new Response(html,{status:res.status,statusText:res.statusText,headers:headers});
+  }).catch(function(){ return res; });
+}
+
 self.addEventListener('fetch', function(e){
   var req = e.request;
   if(req.method !== 'GET') return;
@@ -86,7 +100,8 @@ self.addEventListener('fetch', function(e){
           }
           return res;
         }).catch(function(){ return hit; });
-        return hit || net;                          // ক্যাশ থাকলে সাথে সাথেই
+        var chosen = hit || net;                    // ক্যাশ থাকলে সাথে সাথেই
+        return page ? Promise.resolve(chosen).then(withPublicStockSync) : chosen;
       });
     })
   );
