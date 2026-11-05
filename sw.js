@@ -14,7 +14,7 @@ var INDEX_KEY = './index.html';
 var SHELL = ['./index.html', './manifest.json', './ctg_strategy_hub.js', './public_stock_sync.js'];
 
 self.addEventListener('install', function(e){
-  self.skipWaiting();                               // নতুন SW অপেক্ষায় বসে থাকবে না
+  self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE).then(function(c){
       return Promise.all(SHELL.map(function(u){
@@ -33,7 +33,6 @@ self.addEventListener('activate', function(e){
 });
 
 self.addEventListener('message', function(e){
-  // পেজ "এখনই আপডেট" চাইলে পুরো ক্যাশ ফেলে দেওয়া হয়
   if(e.data && e.data.type === 'CTG_FORCE_UPDATE'){
     e.waitUntil(caches.keys().then(function(keys){
       return Promise.all(keys.map(function(k){ return caches.delete(k); }));
@@ -49,7 +48,7 @@ function sameOrigin(url){
   try{ return new URL(url, self.location.href).origin === self.location.origin; }
   catch(e){ return false; }
 }
-// পেজের অনুরোধ কিনা — ?v=... যাই থাকুক, সবই একই জিনিস
+
 function isPageRequest(req){
   if(req.mode === 'navigate') return true;
   try{
@@ -64,7 +63,10 @@ function withPublicStockSync(res){
   if(!res || !res.ok) return res;
   return res.text().then(function(html){
     if(html.indexOf('public_stock_sync.js') < 0){
-      html = html.replace('</body>','<script src="./public_stock_sync.js?v=1"></script></body>');
+      var bodyClose = html.lastIndexOf('</body>');
+      if(bodyClose >= 0){
+        html = html.slice(0,bodyClose) + '<script src="./public_stock_sync.js?v=2"></script>' + html.slice(bodyClose);
+      }
     }
     var headers = new Headers(res.headers);
     headers.set('content-type','text/html; charset=utf-8');
@@ -75,11 +77,11 @@ function withPublicStockSync(res){
 self.addEventListener('fetch', function(e){
   var req = e.request;
   if(req.method !== 'GET') return;
-  if(!sameOrigin(req.url)) return;                  // Firebase/CDN স্পর্শ করা হয় না
+  if(!sameOrigin(req.url)) return;
   if(req.url.indexOf('/__') >= 0) return;
 
   var page = isPageRequest(req);
-  var key  = page ? INDEX_KEY : req;                // পেজ হলে সবসময় একই কী
+  var key  = page ? INDEX_KEY : req;
 
   e.respondWith(
     caches.open(CACHE).then(function(cache){
@@ -87,7 +89,7 @@ self.addEventListener('fetch', function(e){
         var net = fetch(req).then(function(res){
           if(res && res.status === 200 && res.type === 'basic'){
             var copy = res.clone();
-            cache.put(key, copy).catch(function(){});   // একই কী — পুরনোটা বদলে যায়
+            cache.put(key, copy).catch(function(){});
             if(hit){
               Promise.all([hit.clone().text(), res.clone().text()]).then(function(t){
                 if(t[0] !== t[1]){
@@ -100,7 +102,7 @@ self.addEventListener('fetch', function(e){
           }
           return res;
         }).catch(function(){ return hit; });
-        var chosen = hit || net;                    // ক্যাশ থাকলে সাথে সাথেই
+        var chosen = hit || net;
         return page ? Promise.resolve(chosen).then(withPublicStockSync) : chosen;
       });
     })
