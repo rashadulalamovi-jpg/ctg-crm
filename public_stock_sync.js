@@ -31,13 +31,12 @@
     running = true;
     try{
       var token = await user.getIdToken();
-      var response = await fetch(ENDPOINT,{
+      await fetch(ENDPOINT,{
         method:'POST',
-        mode:'cors',
-        headers:{'content-type':'application/json','authorization':'Bearer '+token},
-        body:JSON.stringify({models:models})
+        mode:'no-cors',
+        headers:{'content-type':'text/plain;charset=UTF-8'},
+        body:JSON.stringify({token:token,models:models})
       });
-      if(!response.ok) throw new Error('Ready Stock publish failed: '+response.status);
       lastFingerprint = fingerprint;
       console.info('Public Ready Stock synced:',models.length,'models');
     }catch(error){
