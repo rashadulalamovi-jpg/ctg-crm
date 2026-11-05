@@ -1,35 +1,21 @@
 // CTG Click Shop CRM — Service Worker
-//
-// Build-65 — সবচেয়ে গুরুত্বপূর্ণ সংশোধন: নতুন ভার্সন সত্যিই পৌঁছাবে।
-//
-// আগের ভুল: প্রতিটি আলাদা URL (?v=b62, ?v=b64 …) ক্যাশে আলাদা এন্ট্রি হিসেবে
-// জমা হতো, কিন্তু পড়ার সময় {ignoreSearch:true} দিয়ে প্রথম মিলটাই ফেরত যেত —
-// অর্থাৎ সেই একেবারে প্রথম দিনের কপিটাই। ফলে মালিক যতবারই রিফ্রেশ করুন,
-// পুরনো কোডই চলত, আর "ঠিক করেছি" বলা ফিচার/ফিক্স তাঁর কাছে পৌঁছাত না।
-//
-// এখন: পেজের জন্য একটি মাত্র ক্যাশ-কী (INDEX_KEY)। নতুন কপি এলে সেই একই
-// কী-তেই বসে, তাই পরের রিফ্রেশে নতুনটাই যায় — পুরনো কপি আর জমে থাকে না।
-var CACHE = 'ctg-crm-v4';
+var CACHE = 'ctg-crm-v5';
 var INDEX_KEY = './index.html';
-var SHELL = ['./index.html', './manifest.json', './ctg_strategy_hub.js', './public_stock_sync.js'];
+var SHELL = ['./index.html', './manifest.json', './ctg_strategy_hub.js', './public_stock_sync.js?v=3'];
 
 self.addEventListener('install', function(e){
   self.skipWaiting();
-  e.waitUntil(
-    caches.open(CACHE).then(function(c){
-      return Promise.all(SHELL.map(function(u){
-        return c.add(new Request(u, {cache:'reload'})).catch(function(){});
-      }));
-    })
-  );
+  e.waitUntil(caches.open(CACHE).then(function(c){
+    return Promise.all(SHELL.map(function(u){
+      return c.add(new Request(u, {cache:'reload'})).catch(function(){});
+    }));
+  }));
 });
 
 self.addEventListener('activate', function(e){
-  e.waitUntil(
-    caches.keys().then(function(keys){
-      return Promise.all(keys.map(function(k){ return k===CACHE ? null : caches.delete(k); }));
-    }).then(function(){ return self.clients.claim(); })
-  );
+  e.waitUntil(caches.keys().then(function(keys){
+    return Promise.all(keys.map(function(k){ return k===CACHE ? null : caches.delete(k); }));
+  }).then(function(){ return self.clients.claim(); }));
 });
 
 self.addEventListener('message', function(e){
@@ -57,15 +43,15 @@ function isPageRequest(req){
   }catch(e){ return false; }
 }
 
-// Public website-এ শুধু available model name পাঠানোর client script inject করে।
-// Quantity, cost, ROI বা customer data কখনো public endpoint-এ পাঠানো হয় না।
+// Only injects the public model-name sync client. It never sends quantity, cost,
+// ROI, customer, payment or other internal CRM data to the public website.
 function withPublicStockSync(res){
   if(!res || !res.ok) return res;
   return res.text().then(function(html){
     if(html.indexOf('public_stock_sync.js') < 0){
       var bodyClose = html.lastIndexOf('</body>');
       if(bodyClose >= 0){
-        html = html.slice(0,bodyClose) + '<script src="./public_stock_sync.js?v=2"></script>' + html.slice(bodyClose);
+        html = html.slice(0,bodyClose) + '<script src="./public_stock_sync.js?v=3"></script>' + html.slice(bodyClose);
       }
     }
     var headers = new Headers(res.headers);
@@ -81,30 +67,26 @@ self.addEventListener('fetch', function(e){
   if(req.url.indexOf('/__') >= 0) return;
 
   var page = isPageRequest(req);
-  var key  = page ? INDEX_KEY : req;
-
-  e.respondWith(
-    caches.open(CACHE).then(function(cache){
-      return cache.match(key).then(function(hit){
-        var net = fetch(req).then(function(res){
-          if(res && res.status === 200 && res.type === 'basic'){
-            var copy = res.clone();
-            cache.put(key, copy).catch(function(){});
-            if(hit){
-              Promise.all([hit.clone().text(), res.clone().text()]).then(function(t){
-                if(t[0] !== t[1]){
-                  self.clients.matchAll().then(function(cl){
-                    cl.forEach(function(c){ c.postMessage({type:'CTG_UPDATE_READY'}); });
-                  });
-                }
-              }).catch(function(){});
-            }
+  var key = page ? INDEX_KEY : req;
+  e.respondWith(caches.open(CACHE).then(function(cache){
+    return cache.match(key).then(function(hit){
+      var net = fetch(req).then(function(res){
+        if(res && res.status === 200 && res.type === 'basic'){
+          cache.put(key, res.clone()).catch(function(){});
+          if(hit){
+            Promise.all([hit.clone().text(), res.clone().text()]).then(function(t){
+              if(t[0] !== t[1]){
+                self.clients.matchAll().then(function(cl){
+                  cl.forEach(function(c){ c.postMessage({type:'CTG_UPDATE_READY'}); });
+                });
+              }
+            }).catch(function(){});
           }
-          return res;
-        }).catch(function(){ return hit; });
-        var chosen = hit || net;
-        return page ? Promise.resolve(chosen).then(withPublicStockSync) : chosen;
-      });
-    })
-  );
+        }
+        return res;
+      }).catch(function(){ return hit; });
+      var chosen = hit || net;
+      return page ? Promise.resolve(chosen).then(withPublicStockSync) : chosen;
+    });
+  }));
 });
